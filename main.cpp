@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <gsl/gsl_multimin.h>
 
 #include "cuba.h"
 
@@ -29,43 +30,6 @@ double* nuc_z = NULL;
 
 double* val = NULL;
 
-void loadData(const char* filename) {
-	double x,y,z,v;
-
-	FILE* fp = fopen(filename,"r");
-
-
-	while(!feof(fp)) {
-		if(!fscanf(fp,"%lg %lg %lg %lg \n",&x,&y,&z,&v)) {
-            printf("Could not parse input\n");
-            exit(1);
-        }
-		length++;
-	}
-
-	nuc_x = (double*)malloc(length * sizeof(double));
-	nuc_y = (double*)malloc(length * sizeof(double));
-	nuc_z = (double*)malloc(length * sizeof(double));
-
-	val = (double*)malloc(length * sizeof(double));
-
-	fseek(fp,0,SEEK_SET);
-
-	long i = 0;
-	while(!feof(fp)) {
-		if(!fscanf(fp,"%lf %lg %lg %lg \n",&x,&y,&z,&v)) {
-            printf("Could not parse input");
-            exit(1);
-        }
-		nuc_x[i] = x;
-		nuc_y[i] = y;
-		nuc_z[i] = z;
-		val[i] = v;
-		i++;
-	}
-	assert(length == i);
-	fclose(fp);
-}
 
 /*********************************************************************************
  * Global State
@@ -87,6 +51,9 @@ double cutoff2;
 
 double exponant;
 
+//The output vector, to be least squares compaired to val[]
+double* modelVals = NULL;
+
 /********************************************************************************
  * Syncronisation
  ********************************************************************************/
@@ -102,6 +69,57 @@ void barrierGuard(int rc) {
         exit(-1);
     }
 }
+
+//When set to true, created threads should exit
+bool threadExit = false;
+
+/*********************************************************************************
+ *  Load Data
+ *********************************************************************************/
+
+void loadData(const char* filename) {
+	double x,y,z,v;
+
+	FILE* fp = fopen(filename,"r");
+
+    if(!fp) {
+        printf("Could not open %s\n",filename);
+        exit(1);
+    }
+
+	while(!feof(fp)) {
+		if(!fscanf(fp,"%lg %lg %lg %lg \n",&x,&y,&z,&v)) {
+            printf("Could not parse input\n");
+            exit(1);
+        }
+		length++;
+	}
+
+	nuc_x = (double*)malloc(length * sizeof(double));
+	nuc_y = (double*)malloc(length * sizeof(double));
+	nuc_z = (double*)malloc(length * sizeof(double));
+
+	val = (double*)malloc(length * sizeof(double));
+    modelVals = (double*)malloc(length * sizeof(double));
+
+	fseek(fp,0,SEEK_SET);
+
+	long i = 0;
+	while(!feof(fp)) {
+		if(!fscanf(fp,"%lf %lg %lg %lg \n",&x,&y,&z,&v)) {
+            printf("Could not parse input");
+            exit(1);
+        }
+		nuc_x[i] = x;
+		nuc_y[i] = y;
+		nuc_z[i] = z;
+		val[i] = v;
+		i++;
+	}
+	assert(length == i);
+	fclose(fp);
+}
+
 
 /*********************************************************************************
  *  Integrand Function
@@ -145,54 +163,64 @@ int Integrand(const int *ndim, const double xx[],
 }
 
 void* thread_main(void* threadIdPonter) {
+    //Whoami? Am I the special root thread?
     long threadId = *(long*)threadIdPonter;
-    bool isRoot = threadId == 0;
-
-    printf("Started thread %ld\n",threadId);
-
-	timespec start;
-	timespec end;
-
-    barrierGuard(pthread_barrier_wait(&barr));
-	if(isRoot) clock_gettime(CLOCK_MONOTONIC, &start);
-    barrierGuard(pthread_barrier_wait(&barr));
 
 	int comp, nregions, neval, fail;
 	double integral[1], error[1], prob[1];
 
-	for(long i=threadId; i< length;i+=(numCPU)) {
-		xp = nuc_x[i];
-		yp = nuc_y[i];
-		zp = nuc_z[i];
+    barrierGuard(pthread_barrier_wait(&barr));
+    while(!threadExit) {
+        barrierGuard(pthread_barrier_wait(&barr));
+        /* Master thread is setting the global state here */
+        barrierGuard(pthread_barrier_wait(&barr));
+        printf("thread %ld is working...\n",threadId);
+        for(long i=threadId; i< length;i+=(numCPU)) {
+            xp = nuc_x[i];
+            yp = nuc_y[i];
+            zp = nuc_z[i];
 
-		double epsAbs = val[i]/10;
+            double epsAbs = val[i]/1000;
 
         
-		Cuhre(NDIM, NCOMP, Integrand, NULL,
-			  EPSREL, epsAbs, VERBOSE | LAST,
-			  MINEVAL, MAXEVAL, KEY,
-			  &nregions, &neval, &fail, integral, error, prob);
+            Cuhre(NDIM, NCOMP, Integrand, NULL,
+                  EPSREL, epsAbs, VERBOSE | LAST,
+                  MINEVAL, MAXEVAL, KEY,
+                  &nregions, &neval, &fail, integral, error, prob);
+            modelVals[i] = *integral;
 
-		//printf("CUHRE RESULT:\tnregions  %d\tfail %d\n", nregions, fail);
-        //printf("CUHRE RESULT:\t%e +- %e \t= %.3f\n",*integral, *error, *prob);
+            //printf("CUHRE RESULT:\tnregions  %d\tfail %d\n", nregions, fail);
+            //printf("CUHRE RESULT:\t%e +- %e \t= %.3f\n",*integral, *error, *prob);
 
-		//printf("nEval %d\n",neval);
-	}
-    barrierGuard(pthread_barrier_wait(&barr));
-	if(isRoot) {
-        clock_gettime(CLOCK_MONOTONIC, &end);
-        // Calculate time it took
-        double time_taken = ( end.tv_sec - start.tv_sec ) + ( end.tv_nsec - start.tv_nsec ) / 1e9;
-        printf("Took %e\n",time_taken);
+            //printf("nEval %d\n",neval);
+        }
     }
-	
-	
+}
 
+double minf(const gsl_vector * v, void * params) {
 
+    barrierGuard(pthread_barrier_wait(&barr));
+    ax = gsl_vector_get(v, 0);
+    rh = gsl_vector_get(v, 1);
+
+    printf("%le, %le \n",ax,rh);
+    /*Other threads do work here*/
+    barrierGuard(pthread_barrier_wait(&barr));
+
+    //Now reduce the results
+    double total = 0;
+    for(long i = 0;i < length; i++) {
+        double diff = modelVals[i] - val[i];
+        total += diff*diff;
+    }
+    printf("err = %le \n",total);
+    printf("\n",total);
+
+    return total;
 }
 
 int main() {
-
+    //Load the data
 	loadData("dataset_one.inp");
 
 
@@ -206,16 +234,15 @@ int main() {
 
 	cutoff2 = 0.05;
 
-    // Barrier initialization
-
-    numCPU = 1;
-    //numCPU = sysconf(_SC_NPROCESSORS_ONLN);
-
-    if(pthread_barrier_init(&barr, NULL, numCPU)) {
+    // pthreads initialization
+    //numCPU = 1;
+    numCPU = sysconf(_SC_NPROCESSORS_ONLN);
+    if(pthread_barrier_init(&barr, NULL, numCPU + 1)) {
         printf("Could not create a barrier\n");
         return -1;
     }
 
+    //Start the worker threads
     long* thread_args = (long*)malloc(numCPU * sizeof(long));
     pthread_t* threads = (pthread_t*)malloc(numCPU * sizeof(pthread_t));
 
@@ -227,11 +254,46 @@ int main() {
         }
     }
 
-    for(long i=0; i< numCPU; i++) {
-        if(pthread_join(threads[i], NULL)) {
-            printf("Could not join thread %ld\n", i);
-            return -1;
-        }
+
+    //Initalise the minimizer
+    gsl_multimin_fminimizer* minimizer = gsl_multimin_fminimizer_alloc(gsl_multimin_fminimizer_nmsimplex2,2);
+    gsl_multimin_function minfunc;
+
+    minfunc.f = &minf;
+    minfunc.n = 2;
+    minfunc.params = NULL;
+
+    gsl_vector *vec = gsl_vector_alloc (2);
+    gsl_vector_set (vec, 0, 1.0);
+    gsl_vector_set (vec, 1, 0.0);
+
+    gsl_vector *step_size = gsl_vector_alloc (2);
+    gsl_vector_set (step_size, 0, 0.1);
+    gsl_vector_set (step_size, 1, 0.1);
+
+
+    gsl_multimin_fminimizer_set (minimizer, &minfunc, vec, step_size);
+     
+    //When the treads are ready...
+
+    barrierGuard(pthread_barrier_wait(&barr));
+    for(long i = 0;i<20;i++) {
+        //Root thread also handls timing
+        timespec start;
+        timespec end;
+        clock_gettime(CLOCK_MONOTONIC, &start);
+
+
+        gsl_multimin_fminimizer_iterate (minimizer);
+
+
+        // Calculate time it took
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        double time_taken = ( end.tv_sec - start.tv_sec ) + ( end.tv_nsec - start.tv_nsec ) / 1e9;
+        //printf("Took %e\n",time_taken);
     }
+
+    threadExit = true;
+
     return 0;
 }
