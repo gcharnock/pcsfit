@@ -7,7 +7,11 @@
 #include <unistd.h>
 #include <gsl/gsl_multimin.h>
 
+#include <vector>
+
 #include "cuba.h"
+
+using namespace std;
 
 #define NDIM 3
 #define NCOMP 1
@@ -23,36 +27,47 @@
 /********************************************************************************
  * Data
  ********************************************************************************/
-long length = 0;
-double* nuc_x = NULL;
-double* nuc_y = NULL;
-double* nuc_z = NULL;
 
-double* val = NULL;
+struct DataPoint {
+	double nuc_x;
+	double nuc_y;
+	double nuc_z;
 
+	double val;
+};
+
+unsigned long length = 0;
+vector<DataPoint> data;
+vector<double> modelVals;
 
 /*********************************************************************************
  * Global State
  *********************************************************************************/
+
+struct Params {
+	double xp;
+	double yp;
+	double zp;
+
+	double ax;
+	double rh;
+
+	double exponant;
+};
+
+double cutoff2;
+
+//The current model
+Params params;
+
+//The best model so far
+Params bestParams;
 
 //The dimensions of the cube we will be integrating over.
 double cube_x_min, cube_x_max;
 double cube_y_min, cube_y_max;
 double cube_z_min, cube_z_max;
 
-double xp;
-double yp;
-double zp;
-
-double ax;
-double rh;
-
-double cutoff2;
-
-double exponant;
-
-//The output vector, to be least squares compaired to val[]
-double* modelVals = NULL;
 
 /********************************************************************************
  * Syncronisation
@@ -88,36 +103,43 @@ void loadData(const char* filename) {
     }
 
 	while(!feof(fp)) {
-		if(!fscanf(fp,"%lg %lg %lg %lg \n",&x,&y,&z,&v)) {
-            printf("Could not parse input\n");
-            exit(1);
-        }
-		length++;
-	}
-
-	nuc_x = (double*)malloc(length * sizeof(double));
-	nuc_y = (double*)malloc(length * sizeof(double));
-	nuc_z = (double*)malloc(length * sizeof(double));
-
-	val = (double*)malloc(length * sizeof(double));
-    modelVals = (double*)malloc(length * sizeof(double));
-
-	fseek(fp,0,SEEK_SET);
-
-	long i = 0;
-	while(!feof(fp)) {
 		if(!fscanf(fp,"%lf %lg %lg %lg \n",&x,&y,&z,&v)) {
             printf("Could not parse input");
             exit(1);
         }
-		nuc_x[i] = x;
-		nuc_y[i] = y;
-		nuc_z[i] = z;
-		val[i] = v;
-		i++;
+		DataPoint p;
+		p.nuc_x = x;
+		p.nuc_y = y;
+		p.nuc_z = z;
+		p.val = v;
+		data.push_back(p);
 	}
-	assert(length == i);
+	modelVals.resize(data.size());
+	length = data.size();
 	fclose(fp);
+}
+
+double rfloat() {
+	return (double)rand()/(double)RAND_MAX;;
+}
+
+//Generates fake data by placing spins randomly in the [0,1]^3 cube
+//and evaulating a random model. Good for testing how vunerable we are
+//to local minima
+
+void fakeData(unsigned long count) {
+	srand(12345);
+
+	for(unsigned long i=0;i<count;i++) {
+		DataPoint p;
+		p.nuc_x = rfloat();
+		p.nuc_y = rfloat();
+		p.nuc_z = rfloat();
+		p.val = 0; /*TODO*/
+		data.push_back(p);
+	}
+	length = data.size();
+	modelVals.resize(data.size());
 }
 
 
@@ -129,14 +151,16 @@ void loadData(const char* filename) {
 int Integrand(const int *ndim, const double xx[],
 			  const int *ncomp, double ff[], void *userdata) {
 
+	double* nuclearLocation = (double*)userdata;
+
 	//Apply the transformation into the unit cube [0,1]^2
 	double x = xx[0]*(cube_x_max - cube_x_min) + cube_x_min;
 	double y = xx[1]*(cube_y_max - cube_y_min) + cube_y_min;
 	double z = xx[2]*(cube_z_max - cube_z_min) + cube_z_min;
 
-	double gx = xp - x;
-	double gy = yp - y;
-	double gz = zp - z;
+	double gx = nuclearLocation[0] - x;
+	double gy = nuclearLocation[1] - y;
+	double gz = nuclearLocation[2] - z;
 
 	double gx2 = gx*gx;
 	double gy2 = gy*gy;
@@ -153,7 +177,7 @@ int Integrand(const int *ndim, const double xx[],
 	double r5 = r2*r2*r;
 
 	double g = exp(-x*x-y*y-z*z);
-	double f = (ax*(2*gz2 - gx2 - gy2) + rh*(3.0/2.0)*(gx2-gy2))/r5;
+	double f = (params.ax*(2*gz2 - gx2 - gy2) + params.rh*(3.0/2.0)*(gx2-gy2))/r5;
 
 	double result = g * f;
 	//Scale the result
@@ -175,15 +199,19 @@ void* thread_main(void* threadIdPonter) {
         /* Master thread is setting the global state here */
         barrierGuard(pthread_barrier_wait(&barr));
         printf("thread %ld is working...\n",threadId);
-        for(long i=threadId; i< length;i+=(numCPU)) {
-            xp = nuc_x[i];
-            yp = nuc_y[i];
-            zp = nuc_z[i];
 
-            double epsAbs = val[i]/1000;
+		unsigned long size = data.size();
+
+        for(unsigned long i=0;i<size;i+=(numCPU)) {
+			double nuclearLocation[3];
+			nuclearLocation[0] = data[i].nuc_x;
+            nuclearLocation[1] = data[i].nuc_y;
+            nuclearLocation[2] = data[i].nuc_z;
+
+            double epsAbs = data[i].val/1000;
 
         
-            Cuhre(NDIM, NCOMP, Integrand, NULL,
+            Cuhre(NDIM, NCOMP, Integrand, (void*)nuclearLocation,
                   EPSREL, epsAbs, VERBOSE | LAST,
                   MINEVAL, MAXEVAL, KEY,
                   &nregions, &neval, &fail, integral, error, prob);
@@ -197,20 +225,23 @@ void* thread_main(void* threadIdPonter) {
     }
 }
 
-double minf(const gsl_vector * v, void * params) {
+double minf(const gsl_vector * v, void *) {
 
     barrierGuard(pthread_barrier_wait(&barr));
-    ax = gsl_vector_get(v, 0);
-    rh = gsl_vector_get(v, 1);
+    params.ax = gsl_vector_get(v, 0);
+    params.rh = gsl_vector_get(v, 1);
 
-    printf("%le, %le \n",ax,rh);
+    printf("%le, %le \n",params.ax,params.rh);
     /*Other threads do work here*/
     barrierGuard(pthread_barrier_wait(&barr));
 
     //Now reduce the results
     double total = 0;
-    for(long i = 0;i < length; i++) {
-        double diff = modelVals[i] - val[i];
+	
+	unsigned long size = data.size();
+	
+    for(unsigned long i = 0;i<length;i++) {
+        double diff = modelVals[i] - data[i].val;
         total += diff*diff;
     }
     printf("err = %le \n",total);
@@ -229,8 +260,8 @@ int main() {
 	cube_y_min = -5; cube_y_max = 5;
 	cube_z_min = -5; cube_z_max = 5;
 
-	ax = 1;
-	rh = 0; 
+	params.ax = 1;
+	params.rh = 0; 
 
 	cutoff2 = 0.05;
 
