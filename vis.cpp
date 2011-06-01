@@ -15,60 +15,107 @@
 
 using namespace std;
 
+class FittingWindow {
+public:
+	FittingWindow() {
+		// create sphere geometry
+		mSphere = vtkSphereSource::New();
+		mSphere->SetRadius(1.0);
+		mSphere->SetCenter(0,0,0);
+		mSphere->SetThetaResolution(18);
+		mSphere->SetPhiResolution(18);
+
+		// map to graphics library
+		mMapper = vtkPolyDataMapper::New();
+		mMapper->SetInput(mSphere->GetOutput());
+
+
+		mCalcRenderer = vtkRenderer::New(); mCalcRenderer->SetViewport(0  ,0,0.5,1);
+		mExpRenderer  = vtkRenderer::New(); mExpRenderer-> SetViewport(0.5,0,1  ,1);
+
+		mRenderWin  = vtkRenderWindow::New();
+		mRenderWin->AddRenderer(mCalcRenderer);
+		mRenderWin->AddRenderer(mExpRenderer);
+
+		mWindowInteractor = vtkRenderWindowInteractor::New();
+		mRenderWin->SetInteractor(mWindowInteractor);
+		mRenderWin->SetSize(800, 600);
+
+		//mWindowInteractor->Initialize();
+	}
+
+	~FittingWindow() {
+		mSphere->Delete();
+		mMapper->Delete();
+		mCalcRenderer->Delete();
+		mExpRenderer->Delete();
+		mRenderWin->Delete();
+		mWindowInteractor->Delete();
+	}
+	void setNuclei(const Nuclei& nuclei) {
+		mNuclei = nuclei;
+	}
+	void setCalcVals(const Vals& calcVals) {
+		setVals(mCalcRenderer, calcVals);
+	}
+	void setExpVals(const Vals& expVals) {
+		setVals(mExpRenderer, expVals);
+	}
+	void start() {
+		mWindowInteractor->Start();
+	}
+	void onMainLoop() {
+		mWindowInteractor->Render();
+	}
+private:
+	void setVals(vtkRenderer* renderer,const Vals& vals) {
+		long length = vals.size();
+		for(unsigned long i = 0; i<length;i++) {
+			double c = (vals[i]-vals.min)/(vals.max-vals.min);
+
+			vtkActor *sphereActor = vtkActor::New();
+			sphereActor->SetMapper(mMapper);
+			sphereActor->SetScale(0.1*pow(abs(vals[i]),1.0/2));
+			sphereActor->SetPosition(mNuclei[i].x,mNuclei[i].y,mNuclei[i].z);
+			sphereActor->GetProperty()->SetColor(c,0,1-c);
+
+			renderer->AddActor(sphereActor);
+
+			sphereActor->Delete();
+		}
+	}
+
+
+	//VTK Stuff
+	vtkSphereSource* mSphere;
+	vtkPolyDataMapper* mMapper;
+	vtkRenderer* mCalcRenderer;
+	vtkRenderer* mExpRenderer;
+	vtkRenderWindow* mRenderWin;
+	vtkRenderWindowInteractor* mWindowInteractor;
+
+	Nuclei mNuclei;
+
+
+};
+
+
 GaussModel gaussModel;
 
+
+
 int main () {
-    pair<Nuclei,Vals> pair_nv = fakeData(&gaussModel,100);
-    //pair<Nuclei,Vals> pair_nv = loadData("dataset_one.inp");
+    //pair<Nuclei,Vals> pair_nv = fakeData(&gaussModel,100);
+    pair<Nuclei,Vals> pair_nv = loadData("dataset_one.inp");
     Nuclei nuclei = pair_nv.first;
     Vals vals = pair_nv.second;
 
-	// create sphere geometry
-	vtkSphereSource *sphere = vtkSphereSource::New();
-	sphere->SetRadius(1.0);
-	sphere->SetCenter(0,0,0);
-	sphere->SetThetaResolution(18);
-	sphere->SetPhiResolution(18);
+	FittingWindow fittingWindow;
+	fittingWindow.setNuclei(nuclei);
+	fittingWindow.setCalcVals(vals);
+	fittingWindow.setExpVals(vals);
 
-	// map to graphics library
-	vtkPolyDataMapper *map = vtkPolyDataMapper::New();
-	map->SetInput(sphere->GetOutput());
+	fittingWindow.start();
 
-	vtkRenderer *renderer = vtkRenderer::New();
-
-	// actor coordinates geometry, properties, transformation
-    unsigned long length = nuclei.size();
-    for(unsigned long i = 0; i<length;i++) {
-        double c = (vals[i]-vals.min)/(vals.max-vals.min);
-        cout << c << endl;
-
-        vtkActor *sphereActor = vtkActor::New();
-        sphereActor->SetMapper(map);
-        sphereActor->SetScale(0.1*pow(abs(vals[i]),1.0/2));
-        sphereActor->SetPosition(nuclei[i].x,nuclei[i].y,nuclei[i].z);
-        sphereActor->GetProperty()->SetColor(c,0,1-c);
-
-        renderer->AddActor(sphereActor);
-    }
-
-	// a render window
-
-	vtkRenderWindow *renWin = vtkRenderWindow::New();
-	renWin->AddRenderer(renderer);
-
-	// an interactor
-	vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::New();
-	iren->SetRenderWindow(renWin);
-
-	// add the actor to the scene
-
-	renderer->SetBackground(1,1,1); // Background color white
-
-	// render an image (lights and cameras are created automatically)
-	renWin->Render();
-
-	// begin mouse interaction
-	iren->Start();
-  
 	return 0;
 }
