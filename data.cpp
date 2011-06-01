@@ -82,7 +82,7 @@ pair<Nuclei,Vals> loadData(const char* filename) {
             printf("Could not parse input");
             exit(1);
         }
-		DataPoint p;
+		Vector3 p;
 		p.x = x;
 		p.y = y;
 		p.z = z;
@@ -114,7 +114,7 @@ pair<Nuclei,Vals> fakeData(GaussModel* gaussModel,unsigned long count) {
 	srand(12345);
 
 	for(unsigned long i=0;i<count;i++) {
-		DataPoint p;
+		Vector3 p;
 		p.x = rfloat();
 		p.y = rfloat();
 		p.z = rfloat();

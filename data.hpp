@@ -1,16 +1,19 @@
 
+#ifndef __DATA__H__
+#define __DATA__H__
+
 #include <vector>
 #include <utility>
 
 struct GaussModel;
 
-struct DataPoint {
+struct Vector3 {
 	double x;
 	double y;
 	double z;
 };
 
-struct Nuclei : std::vector<DataPoint> {
+struct Nuclei : std::vector<Vector3> {
 	void updateMinMax();
     double xmax;
     double xmin;
@@ -33,3 +36,6 @@ typedef std::pair<Nuclei,Vals> pairNucVals;
 
 pairNucVals loadData(const char* filename);
 pairNucVals fakeData(GaussModel* gaussModel,unsigned long count);
+
+
+#endif

@@ -2,6 +2,8 @@
 class Nuclei;
 class Vals;
 
+#include "data.hpp"
+
 class GaussModel {
 public:
 	GaussModel();
@@ -13,9 +15,7 @@ public:
 	//vals. Assume that vals is already allocated to the coorect size.
 	void bulkEval(const Nuclei& nuclei,Vals& vals) const;
 
-	double metalx;
-	double metaly;
-	double metalz;
+	Vector3 metal;
 
 	double ax;
 	double rh;

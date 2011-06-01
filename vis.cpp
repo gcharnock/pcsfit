@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include "vtkSphereSource.h"
+#include "vtkArrowSource.h"
 #include "vtkPolyDataMapper.h"
 #include "vtkActor.h"
 #include "vtkProperty.h"
@@ -26,9 +27,14 @@ public:
 		mSphere->SetThetaResolution(18);
 		mSphere->SetPhiResolution(18);
 
+		mArrow = vtkArrowSource::New();
+
 		// map to graphics library
-		mMapper = vtkPolyDataMapper::New();
-		mMapper->SetInput(mSphere->GetOutput());
+		mSphereMapper = vtkPolyDataMapper::New();
+		mSphereMapper->SetInput(mSphere->GetOutput());
+
+		mArrowMapper = vtkPolyDataMapper::New();
+		mArrowMapper->SetInput(mArrow->GetOutput());
 
 
 		mCalcRenderer = vtkRenderer::New(); mCalcRenderer->SetViewport(0  ,0,0.5,1);
@@ -45,7 +51,9 @@ public:
 
 	~FittingWindow() {
 		mSphere->Delete();
-		mMapper->Delete();
+		mArrow->Delete();
+		mSphereMapper->Delete();
+		mArrowMapper->Delete();
 		mCalcRenderer->Delete();
 		mExpRenderer->Delete();
 		mRenderWin->Delete();
@@ -60,6 +68,18 @@ public:
 	void setExpVals(const Vals& expVals) {
 		setVals(mExpRenderer, expVals);
 	}
+	void setMetal(const Vector3& metal) {
+		mMetal = metal;
+		vtkActor* arrowActor = vtkActor::New();
+		arrowActor->SetMapper(mArrowMapper);
+		arrowActor->SetScale(4);
+		arrowActor->SetPosition(mMetal.x,mMetal.y,mMetal.z);
+		arrowActor->GetProperty()->SetColor(1,1,0);
+		
+		mCalcRenderer->AddActor(arrowActor);
+
+		arrowActor->Delete();
+	}
 	void start() {
 		mWindowInteractor->Start();
 	}
@@ -73,13 +93,13 @@ private:
 			double c = (vals[i]-vals.min)/(vals.max-vals.min);
 
 			vtkActor *sphereActor = vtkActor::New();
-			sphereActor->SetMapper(mMapper);
+			sphereActor->SetMapper(mSphereMapper);
 			sphereActor->SetScale(0.1*sqrt(abs(vals[i])));
 			sphereActor->SetPosition(mNuclei[i].x,mNuclei[i].y,mNuclei[i].z);
 			sphereActor->GetProperty()->SetColor(c,0,1-c);
 
 			renderer->AddActor(sphereActor);
-
+			
 			sphereActor->Delete();
 		}
 	}
@@ -87,14 +107,19 @@ private:
 
 	//VTK Stuff
 	vtkSphereSource* mSphere;
-	vtkPolyDataMapper* mMapper;
+	vtkArrowSource* mArrow;
+
+	vtkPolyDataMapper* mSphereMapper;
+	vtkPolyDataMapper* mArrowMapper;
+
 	vtkRenderer* mCalcRenderer;
 	vtkRenderer* mExpRenderer;
 	vtkRenderWindow* mRenderWin;
 	vtkRenderWindowInteractor* mWindowInteractor;
 
 	Nuclei mNuclei;
-
+	//Where to visualise the metal
+	Vector3 mMetal;
 
 };
 
@@ -113,9 +138,9 @@ int main () {
 	modelVals.resize(vals.size());
 	
 	gaussModel.ax = 10000;
-	gaussModel.metalx = (nuclei.xmax - nuclei.xmin)/2;
-	gaussModel.metaly = (nuclei.ymax - nuclei.ymin)/2;
-	gaussModel.metalz = (nuclei.zmax - nuclei.zmin)/2;
+	gaussModel.metal.x = (nuclei.xmax + nuclei.xmin)/2;
+	gaussModel.metal.y = (nuclei.ymax + nuclei.ymin)/2;
+	gaussModel.metal.z = (nuclei.zmax + nuclei.zmin)/2;
 
 	gaussModel.bulkEval(nuclei,modelVals);
 
@@ -123,6 +148,7 @@ int main () {
 	fittingWindow.setNuclei(nuclei);
 	fittingWindow.setCalcVals(modelVals);
 	fittingWindow.setExpVals(vals);
+	fittingWindow.setMetal(gaussModel.metal);
 	fittingWindow.start();
 
 

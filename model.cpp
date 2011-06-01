@@ -26,9 +26,9 @@ GaussModel::GaussModel() {
 	ax = 1;
 	rh = 0; 
 
-	metalx = 0;
-	metaly = 0;
-	metalz = 0;
+	metal.x = 0;
+	metal.y = 0;
+	metal.z = 0;
 
 	ax = 1;
 	rh = 0;
@@ -50,20 +50,25 @@ int Integrand(const int *ndim, const double xx[],
 	const GaussModel* this_ = p->first;
 	double* nuclearLocation = p->second;
 
-	//Apply the transformation into the unit cube [0,1]^2
+	//Apply the transformation from the unit cube [0,1]^2. x,y,z is
+	//the dummy variable in molecular coordinates
 	double x = xx[0]*(this_->cube_x_max - this_->cube_x_min) + this_->cube_x_min;
 	double y = xx[1]*(this_->cube_y_max - this_->cube_y_min) + this_->cube_y_min;
 	double z = xx[2]*(this_->cube_z_max - this_->cube_z_min) + this_->cube_z_min;
 
-	double gx = nuclearLocation[0] - x;
-	double gy = nuclearLocation[1] - y;
-	double gz = nuclearLocation[2] - z;
+	//The vector from the nucleous to the metal (we would use this as
+	//the input to the point model). As we are convolving, subtract
+	//the dummy variable
+	double gx = (this_->metal.x - nuclearLocation[0]) - x;
+	double gy = (this_->metal.y - nuclearLocation[1]) - y;
+	double gz = (this_->metal.z - nuclearLocation[2]) - z;
 
+	
 	double gx2 = gx*gx;
 	double gy2 = gy*gy;
 	double gz2 = gz*gz;
 
-	double r2 = gx2+ gy2 + gz2;
+	double r2 = gx2 + gy2 + gz2;
 
 	if(r2 < this_->cutoff2) {
 		ff[0] = 0;
