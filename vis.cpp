@@ -1,4 +1,6 @@
 
+#include <iostream>
+
 #include "vtkSphereSource.h"
 #include "vtkPolyDataMapper.h"
 #include "vtkActor.h"
@@ -7,8 +9,17 @@
 #include "vtkRenderer.h"
 #include "vtkRenderWindowInteractor.h"
 
+#include "data.hpp"
+#include <math.h>
+
+using namespace std;
 
 int main () {
+    //Data data = fakeData(100);
+    pair<Nuclei,Vals> pair_nv = loadData("dataset_one.inp");
+    Nuclei nuclei = pair_nv.first;
+    Vals vals = pair_nv.second;
+
 	// create sphere geometry
 	vtkSphereSource *sphere = vtkSphereSource::New();
 	sphere->SetRadius(1.0);
@@ -19,34 +30,36 @@ int main () {
 	// map to graphics library
 	vtkPolyDataMapper *map = vtkPolyDataMapper::New();
 	map->SetInput(sphere->GetOutput());
-	//map->SetInput(sphere2->GetOutput());
+
+	vtkRenderer *renderer = vtkRenderer::New();
 
 	// actor coordinates geometry, properties, transformation
-	vtkActor *aSphere = vtkActor::New();
-	aSphere->SetMapper(map);
-	aSphere->SetPosition(0,0,0);
-	aSphere->GetProperty()->SetColor(1,0,0);
+    unsigned long length = nuclei.size();
+    for(unsigned long i = 0; i<length;i++) {
+        double c = (vals[i]-vals.min)/(vals.max-vals.min);
+        cout << c << endl;
 
-	vtkActor *aSphere2 = vtkActor::New();
-	aSphere2->SetMapper(map);
-	aSphere2->SetPosition(1,1,1);
-	aSphere2->SetScale(0.3);
-	aSphere2->GetProperty()->SetColor(0,0,1);
+        vtkActor *sphereActor = vtkActor::New();
+        sphereActor->SetMapper(map);
+        sphereActor->SetScale(0.1*pow(abs(vals[i]),1.0/2));
+        sphereActor->SetPosition(nuclei[i].x,nuclei[i].y,nuclei[i].z);
+        sphereActor->GetProperty()->SetColor(c,0,1-c);
 
+        renderer->AddActor(sphereActor);
+    }
 
-	// a renderer and render window
-	vtkRenderer *ren1 = vtkRenderer::New();
+	// a render window
+
 	vtkRenderWindow *renWin = vtkRenderWindow::New();
-	renWin->AddRenderer(ren1);
+	renWin->AddRenderer(renderer);
 
 	// an interactor
 	vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::New();
 	iren->SetRenderWindow(renWin);
 
 	// add the actor to the scene
-	ren1->AddActor(aSphere);
-	ren1->AddActor(aSphere2);
-	ren1->SetBackground(1,1,1); // Background color white
+
+	renderer->SetBackground(1,1,1); // Background color white
 
 	// render an image (lights and cameras are created automatically)
 	renWin->Render();

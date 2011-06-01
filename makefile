@@ -3,9 +3,9 @@ VTKLIBS = -lvtkalglib -lvtkCommon -lvtkDICOMParser -lvtkexoIIc -lvtkFiltering -l
 
 
 all:
-	g++ -O3 -ffast-math -o run main.cpp -I../Cuba-2.1 -L../Cuba-2.1 -lcuba -lm -lrt -lgsl -lgslcblas
+	g++ -O3 -ffast-math -o run main.cpp data.cpp -I../Cuba-2.1 -L../Cuba-2.1 -lcuba -lm -lrt -lgsl -lgslcblas
 	./run
 
-vis: vis.cpp
-	g++ -g -o vis vis.cpp -I/usr/include/vtk-5.4/ ${VTKLIBS}
+vis: vis.cpp data.cpp
+	g++ -g -o vis vis.cpp data.cpp -I/usr/include/vtk-5.4/ ${VTKLIBS} -Wno-deprecated
 	./vis

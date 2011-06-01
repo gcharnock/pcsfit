@@ -6,10 +6,11 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <gsl/gsl_multimin.h>
-
 #include <vector>
-
 #include "cuba.h"
+
+#include "data.hpp"
+
 
 using namespace std;
 
@@ -27,14 +28,6 @@ using namespace std;
 /********************************************************************************
  * Data
  ********************************************************************************/
-
-struct DataPoint {
-	double nuc_x;
-	double nuc_y;
-	double nuc_z;
-
-	double val;
-};
 
 unsigned long length = 0;
 vector<DataPoint> data;
@@ -87,60 +80,6 @@ void barrierGuard(int rc) {
 
 //When set to true, created threads should exit
 bool threadExit = false;
-
-/*********************************************************************************
- *  Load Data
- *********************************************************************************/
-
-void loadData(const char* filename) {
-	double x,y,z,v;
-
-	FILE* fp = fopen(filename,"r");
-
-    if(!fp) {
-        printf("Could not open %s\n",filename);
-        exit(1);
-    }
-
-	while(!feof(fp)) {
-		if(!fscanf(fp,"%lf %lg %lg %lg \n",&x,&y,&z,&v)) {
-            printf("Could not parse input");
-            exit(1);
-        }
-		DataPoint p;
-		p.nuc_x = x;
-		p.nuc_y = y;
-		p.nuc_z = z;
-		p.val = v;
-		data.push_back(p);
-	}
-	modelVals.resize(data.size());
-	length = data.size();
-	fclose(fp);
-}
-
-double rfloat() {
-	return (double)rand()/(double)RAND_MAX;;
-}
-
-//Generates fake data by placing spins randomly in the [0,1]^3 cube
-//and evaulating a random model. Good for testing how vunerable we are
-//to local minima
-
-void fakeData(unsigned long count) {
-	srand(12345);
-
-	for(unsigned long i=0;i<count;i++) {
-		DataPoint p;
-		p.nuc_x = rfloat();
-		p.nuc_y = rfloat();
-		p.nuc_z = rfloat();
-		p.val = 0; /*TODO*/
-		data.push_back(p);
-	}
-	length = data.size();
-	modelVals.resize(data.size());
-}
 
 
 
@@ -253,8 +192,9 @@ double minf(const gsl_vector * v, void *) {
 
 int main() {
     //Load the data
-	loadData("dataset_one.inp");
-
+	data = loadData("dataset_one.inp");
+	modelVals.resize(data.size());
+	length = data.size();
 
 	//Update the global state
 	cube_x_min = -5; cube_x_max = 5;
