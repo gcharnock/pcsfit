@@ -31,7 +31,7 @@ public:
 
 	//Todo, needs to be a function of exponant
 	double cutoff2;
- private:
+
 	//3x3 rotation matrix
 	double mat[9];
 };

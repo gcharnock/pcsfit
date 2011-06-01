@@ -59,9 +59,13 @@ void GaussModel::setEulerAngles(double angle_x,double angle_y,double angle_z) {
     mat[3]  =  BD * E + A * F;
     mat[4]  = -BD * F + A * E;
     mat[5]  =  -B * C;
-    mat[7]  = -AD * E + B * F;
-    mat[8]  =  AD * F + B * E;
-    mat[9] =   A * C;
+    mat[6]  = -AD * E + B * F;
+    mat[7]  =  AD * F + B * E;
+    mat[8] =   A * C;
+
+	cout << mat[0] << mat[1] << mat[2] << endl;
+	cout << mat[3] << mat[4] << mat[5] << endl;
+	cout << mat[6] << mat[7] << mat[8] << endl;
 }
 
 
@@ -87,9 +91,15 @@ int Integrand(const int *ndim, const double xx[],
 	double gy = (this_->metal.y - nuclearLocation[1]) - y;
 	double gz = (this_->metal.z - nuclearLocation[2]) - z;
 
-	double gx2 = gx*gx;
-	double gy2 = gy*gy;
-	double gz2 = gz*gz;
+	const double* mat = this_->mat;
+
+	double gxr = mat[0]*gx + mat[1]*gy + mat[2]*gz;
+	double gyr = mat[3]*gx + mat[4]*gy + mat[5]*gz;
+	double gzr = mat[6]*gx + mat[7]*gy + mat[8]*gz;
+
+	double gx2 = gxr*gxr;
+	double gy2 = gyr*gyr;
+	double gz2 = gzr*gzr;
 
 	double r2 = gx2 + gy2 + gz2;
 
