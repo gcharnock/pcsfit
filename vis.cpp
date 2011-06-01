@@ -15,6 +15,7 @@
 
 using namespace std;
 
+
 class FittingWindow {
 public:
 	FittingWindow() {
@@ -40,8 +41,6 @@ public:
 		mWindowInteractor = vtkRenderWindowInteractor::New();
 		mRenderWin->SetInteractor(mWindowInteractor);
 		mRenderWin->SetSize(800, 600);
-
-		//mWindowInteractor->Initialize();
 	}
 
 	~FittingWindow() {
@@ -75,7 +74,7 @@ private:
 
 			vtkActor *sphereActor = vtkActor::New();
 			sphereActor->SetMapper(mMapper);
-			sphereActor->SetScale(0.1*pow(abs(vals[i]),1.0/2));
+			sphereActor->SetScale(0.1*sqrt(abs(vals[i])));
 			sphereActor->SetPosition(mNuclei[i].x,mNuclei[i].y,mNuclei[i].z);
 			sphereActor->GetProperty()->SetColor(c,0,1-c);
 
@@ -105,17 +104,27 @@ GaussModel gaussModel;
 
 
 int main () {
+
     //pair<Nuclei,Vals> pair_nv = fakeData(&gaussModel,100);
     pair<Nuclei,Vals> pair_nv = loadData("dataset_one.inp");
     Nuclei nuclei = pair_nv.first;
     Vals vals = pair_nv.second;
+	Vals modelVals;
+	modelVals.resize(vals.size());
+	
+	gaussModel.ax = 10000;
+	gaussModel.metalx = (nuclei.xmax - nuclei.xmin)/2;
+	gaussModel.metaly = (nuclei.ymax - nuclei.ymin)/2;
+	gaussModel.metalz = (nuclei.zmax - nuclei.zmin)/2;
+
+	gaussModel.bulkEval(nuclei,modelVals);
 
 	FittingWindow fittingWindow;
 	fittingWindow.setNuclei(nuclei);
-	fittingWindow.setCalcVals(vals);
+	fittingWindow.setCalcVals(modelVals);
 	fittingWindow.setExpVals(vals);
-
 	fittingWindow.start();
+
 
 	return 0;
 }
