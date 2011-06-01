@@ -8,4 +8,3 @@ all:
 
 vis: vis.cpp data.cpp model.cpp
 	g++ -g -o vis vis.cpp data.cpp model.cpp -I../Cuba-2.1 -I/usr/include/vtk-5.4/ ${VTKLIBS}  -L../Cuba-2.1 -lcuba  -Wno-deprecated
-	./vis

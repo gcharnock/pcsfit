@@ -9,13 +9,13 @@
 #include "vtkRenderWindow.h"
 #include "vtkRenderer.h"
 #include "vtkRenderWindowInteractor.h"
+#include "vtkAxes.h"
 
 #include "data.hpp"
 #include "model.hpp"
 #include <math.h>
 
 using namespace std;
-
 
 class FittingWindow {
 public:
@@ -27,14 +27,20 @@ public:
 		mSphere->SetThetaResolution(18);
 		mSphere->SetPhiResolution(18);
 
-		mArrow = vtkArrowSource::New();
+		mAxes = vtkAxes::New();
 
-		// map to graphics library
+		//Creater the mappers
 		mSphereMapper = vtkPolyDataMapper::New();
 		mSphereMapper->SetInput(mSphere->GetOutput());
 
 		mArrowMapper = vtkPolyDataMapper::New();
 		mArrowMapper->SetInput(mArrow->GetOutput());
+
+		vtkPolyDataMapper* axesMapper = vtkPolyDataMapper::New();
+		axesMapper->SetInput(mAxes->GetOutput());
+
+		vtkActor* axesActor = vtkActor::New();
+		axesActor->SetMapper(axesMapper);
 
 
 		mCalcRenderer = vtkRenderer::New(); mCalcRenderer->SetViewport(0  ,0,0.5,1);
@@ -47,6 +53,10 @@ public:
 		mWindowInteractor = vtkRenderWindowInteractor::New();
 		mRenderWin->SetInteractor(mWindowInteractor);
 		mRenderWin->SetSize(800, 600);
+
+		mCalcRenderer->AddActor(axesActor);
+		axesMapper->Delete();
+		axesActor->Delete();
 	}
 
 	~FittingWindow() {
@@ -61,6 +71,7 @@ public:
 	}
 	void setNuclei(const Nuclei& nuclei) {
 		mNuclei = nuclei;
+		
 	}
 	void setCalcVals(const Vals& calcVals) {
 		setVals(mCalcRenderer, calcVals);
@@ -108,6 +119,8 @@ private:
 	//VTK Stuff
 	vtkSphereSource* mSphere;
 	vtkArrowSource* mArrow;
+
+	vtkAxes* mAxes;
 
 	vtkPolyDataMapper* mSphereMapper;
 	vtkPolyDataMapper* mArrowMapper;
