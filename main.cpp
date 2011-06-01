@@ -7,54 +7,31 @@
 #include <unistd.h>
 #include <gsl/gsl_multimin.h>
 #include <vector>
-#include "cuba.h"
 
+
+#include "model.hpp"
 #include "data.hpp"
 
 
 using namespace std;
 
-#define NDIM 3
-#define NCOMP 1
-#define EPSREL 1
-#define EPSABS 1e-8
-#define VERBOSE 0
-#define LAST 4
-#define MINEVAL 0
-#define MAXEVAL 50000
-
-#define KEY 0
-
-/********************************************************************************
- * Data
- ********************************************************************************/
-
-unsigned long length = 0;
-vector<DataPoint> data;
-vector<double> modelVals;
-
 /*********************************************************************************
  * Global State
  *********************************************************************************/
 
-struct Params {
-	double xp;
-	double yp;
-	double zp;
-
-	double ax;
-	double rh;
-
-	double exponant;
-};
-
-double cutoff2;
+unsigned long length = 0;
 
 //The current model
-Params params;
+GaussModel gaussModel;
 
-//The best model so far
-Params bestParams;
+//Nuclear Positions
+Nuclei nuclei;
+
+//Experimental Vals
+Vals expVals;
+
+//Calculated values
+Vals calcVals;
 
 //The dimensions of the cube we will be integrating over.
 double cube_x_min, cube_x_max;
@@ -83,55 +60,10 @@ bool threadExit = false;
 
 
 
-/*********************************************************************************
- *  Integrand Function
- *********************************************************************************/
-
-
-int Integrand(const int *ndim, const double xx[],
-			  const int *ncomp, double ff[], void *userdata) {
-
-	double* nuclearLocation = (double*)userdata;
-
-	//Apply the transformation into the unit cube [0,1]^2
-	double x = xx[0]*(cube_x_max - cube_x_min) + cube_x_min;
-	double y = xx[1]*(cube_y_max - cube_y_min) + cube_y_min;
-	double z = xx[2]*(cube_z_max - cube_z_min) + cube_z_min;
-
-	double gx = nuclearLocation[0] - x;
-	double gy = nuclearLocation[1] - y;
-	double gz = nuclearLocation[2] - z;
-
-	double gx2 = gx*gx;
-	double gy2 = gy*gy;
-	double gz2 = gz*gz;
-
-	double r2 = gx2+ gy2 + gz2;
-
-	if(r2 < cutoff2) {
-		ff[0] = 0;
-		return 0;
-	}
-
-	double r = sqrt(r2);
-	double r5 = r2*r2*r;
-
-	double g = exp(-x*x-y*y-z*z);
-	double f = (params.ax*(2*gz2 - gx2 - gy2) + params.rh*(3.0/2.0)*(gx2-gy2))/r5;
-
-	double result = g * f;
-	//Scale the result
-	ff[0] = result * (cube_x_max - cube_x_min)*(cube_y_max - cube_y_min)*(cube_z_max - cube_z_min);
-
-	return 0;
-}
-
 void* thread_main(void* threadIdPonter) {
     //Whoami? Am I the special root thread?
     long threadId = *(long*)threadIdPonter;
 
-	int comp, nregions, neval, fail;
-	double integral[1], error[1], prob[1];
 
     barrierGuard(pthread_barrier_wait(&barr));
     while(!threadExit) {
@@ -140,27 +72,8 @@ void* thread_main(void* threadIdPonter) {
         barrierGuard(pthread_barrier_wait(&barr));
         printf("thread %ld is working...\n",threadId);
 
-		unsigned long size = data.size();
-
-        for(unsigned long i=0;i<size;i+=(numCPU)) {
-			double nuclearLocation[3];
-			nuclearLocation[0] = data[i].nuc_x;
-            nuclearLocation[1] = data[i].nuc_y;
-            nuclearLocation[2] = data[i].nuc_z;
-
-            double epsAbs = data[i].val/1000;
-
-        
-            Cuhre(NDIM, NCOMP, Integrand, (void*)nuclearLocation,
-                  EPSREL, epsAbs, VERBOSE | LAST,
-                  MINEVAL, MAXEVAL, KEY,
-                  &nregions, &neval, &fail, integral, error, prob);
-            modelVals[i] = *integral;
-
-            //printf("CUHRE RESULT:\tnregions  %d\tfail %d\n", nregions, fail);
-            //printf("CUHRE RESULT:\t%e +- %e \t= %.3f\n",*integral, *error, *prob);
-
-            //printf("nEval %d\n",neval);
+        for(unsigned long i=0;i<length;i+=(numCPU)) {
+			gaussModel.eval(nuclei[i].x,nuclei[i].y,nuclei[i].z,expVals[i]/100);
         }
     }
 }
@@ -168,20 +81,18 @@ void* thread_main(void* threadIdPonter) {
 double minf(const gsl_vector * v, void *) {
 
     barrierGuard(pthread_barrier_wait(&barr));
-    params.ax = gsl_vector_get(v, 0);
-    params.rh = gsl_vector_get(v, 1);
+    gaussModel.ax = gsl_vector_get(v, 0);
+    gaussModel.rh = gsl_vector_get(v, 1);
 
-    printf("%le, %le \n",params.ax,params.rh);
+    printf("%le, %le \n",gaussModel.ax,gaussModel.rh);
     /*Other threads do work here*/
     barrierGuard(pthread_barrier_wait(&barr));
 
     //Now reduce the results
     double total = 0;
 	
-	unsigned long size = data.size();
-	
     for(unsigned long i = 0;i<length;i++) {
-        double diff = modelVals[i] - data[i].val;
+        double diff = expVals[i] - calcVals[i];
         total += diff*diff;
     }
     printf("err = %le \n",total);
@@ -192,19 +103,16 @@ double minf(const gsl_vector * v, void *) {
 
 int main() {
     //Load the data
-	data = loadData("dataset_one.inp");
-	modelVals.resize(data.size());
-	length = data.size();
+	pairNucVals data = loadData("dataset_one.inp");
+	
+	nuclei = data.first;
+	expVals = data.second;
+
+	calcVals.resize(expVals.size());
+	length = expVals.size();
 
 	//Update the global state
-	cube_x_min = -5; cube_x_max = 5;
-	cube_y_min = -5; cube_y_max = 5;
-	cube_z_min = -5; cube_z_max = 5;
 
-	params.ax = 1;
-	params.rh = 0; 
-
-	cutoff2 = 0.05;
 
     // pthreads initialization
     //numCPU = 1;

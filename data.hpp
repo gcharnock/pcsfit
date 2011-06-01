@@ -24,5 +24,7 @@ struct Vals : std::vector<double> {
     double min;
 };
 
-std::pair<Nuclei,Vals> loadData(const char* filename);
-std::pair<Nuclei,Vals> fakeData(unsigned long count);
+typedef std::pair<Nuclei,Vals> pairNucVals;
+
+pairNucVals loadData(const char* filename);
+pairNucVals fakeData(unsigned long count);
