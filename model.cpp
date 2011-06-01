@@ -30,6 +30,8 @@ GaussModel::GaussModel() {
 	metal.y = 0;
 	metal.z = 0;
 
+	setEulerAngles(0,0,0);
+
 	ax = 1;
 	rh = 0;
 
@@ -38,6 +40,28 @@ GaussModel::GaussModel() {
 	cube_x_min = -5; cube_x_max = 5;
 	cube_y_min = -5; cube_y_max = 5;
 	cube_z_min = -5; cube_z_max = 5;
+}
+
+void GaussModel::setEulerAngles(double angle_x,double angle_y,double angle_z) {
+	//From the matrix and quaternion FAQ
+	double A       = cos(angle_x);
+    double B       = sin(angle_x);
+    double C       = cos(angle_y);
+    double D       = sin(angle_y);
+    double E       = cos(angle_z);
+    double F       = sin(angle_z);
+    double AD      = A * D;
+    double BD      = B * D;
+    mat[0]  =   C * E;
+    mat[1]  =  -C * F;
+    mat[2]  =   D;
+
+    mat[3]  =  BD * E + A * F;
+    mat[4]  = -BD * F + A * E;
+    mat[5]  =  -B * C;
+    mat[7]  = -AD * E + B * F;
+    mat[8]  =  AD * F + B * E;
+    mat[9] =   A * C;
 }
 
 
@@ -63,7 +87,6 @@ int Integrand(const int *ndim, const double xx[],
 	double gy = (this_->metal.y - nuclearLocation[1]) - y;
 	double gz = (this_->metal.z - nuclearLocation[2]) - z;
 
-	
 	double gx2 = gx*gx;
 	double gy2 = gy*gy;
 	double gz2 = gz*gz;
