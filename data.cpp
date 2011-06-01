@@ -4,12 +4,9 @@
 #include <limits>
 
 #include "data.hpp"
+#include "model.hpp"
 
 using namespace std;
-
-/*********************************************************************************
- *  Load Data
- *********************************************************************************/
 
 struct max_min {
     max_min()
@@ -24,7 +21,50 @@ struct max_min {
     double min;
 };
 
+
+/*********************************************************************************
+ *  Load Data
+ *********************************************************************************/
+
+void Nuclei::updateMinMax() {
+    max_min mmx;
+    max_min mmy;
+    max_min mmz;
+
+	for(Nuclei::iterator i = begin(); i!= end(); ++i) {
+        mmx.putVal(i->x);
+        mmy.putVal(i->y);
+        mmz.putVal(i->z);
+	}
+
+    xmax = mmx.max;
+    xmin = mmx.min;
+
+    ymax = mmy.max;
+    ymin = mmy.min;
+
+    zmax = mmz.max;
+    zmin = mmz.min;
+
+
+}
+
+void Vals::updateMinMax() {
+    max_min mmv;
+
+	for(Vals::iterator i = begin(); i!= end(); ++i) {
+        mmv.putVal(*i);
+	}
+
+
+    max = mmv.max;
+    min = mmv.min;
+}
+
+
+
 pair<Nuclei,Vals> loadData(const char* filename) {
+
     Nuclei nuclei;
     Vals vals;
 	double x,y,z,v;
@@ -36,10 +76,6 @@ pair<Nuclei,Vals> loadData(const char* filename) {
         exit(1);
     }
 
-    max_min mmx;
-    max_min mmy;
-    max_min mmz;
-    max_min mmv;
 
 	while(!feof(fp)) {
 		if(!fscanf(fp,"%lf %lg %lg %lg \n",&v,&x,&y,&z)) {
@@ -51,27 +87,14 @@ pair<Nuclei,Vals> loadData(const char* filename) {
 		p.y = y;
 		p.z = z;
 
-        mmx.putVal(x);
-        mmy.putVal(y);
-        mmz.putVal(z);
-        mmv.putVal(v);
 
         vals.push_back(v);
         nuclei.push_back(p);
 	}
 	fclose(fp);
 
-    nuclei.xmax = mmx.max;
-    nuclei.xmin = mmx.min;
-
-    nuclei.ymax = mmy.max;
-    nuclei.ymin = mmy.min;
-
-    nuclei.zmax = mmz.max;
-    nuclei.zmin = mmz.min;
-
-    vals.max = mmv.max;
-    vals.min = mmv.min;
+	nuclei.updateMinMax();
+	vals.updateMinMax();
 
     return pair<Nuclei,Vals>(nuclei,vals);
 }
@@ -84,7 +107,7 @@ double rfloat() {
 //and evaulating a random model. Good for testing how vunerable we are
 //to local minima
 
-pair<Nuclei,Vals> fakeData(unsigned long count) {
+pair<Nuclei,Vals> fakeData(GaussModel* gaussModel,unsigned long count) {
     Nuclei nuclei;
     Vals vals;
 
@@ -97,8 +120,12 @@ pair<Nuclei,Vals> fakeData(unsigned long count) {
 		p.z = rfloat();
 
 		nuclei.push_back(p);
-        vals.push_back(0); /* TODO */
+        vals.push_back(gaussModel->eval(p.x,p.y,p.z,1e-3));
 	}
+
+	nuclei.updateMinMax();
+	vals.updateMinMax();
+
     return pair<Nuclei,Vals>(nuclei,vals);
 }
 

@@ -2,6 +2,8 @@
 #include <vector>
 #include <utility>
 
+struct GaussModel;
+
 struct DataPoint {
 	double x;
 	double y;
@@ -9,6 +11,7 @@ struct DataPoint {
 };
 
 struct Nuclei : std::vector<DataPoint> {
+	void updateMinMax();
     double xmax;
     double xmin;
     
@@ -20,6 +23,8 @@ struct Nuclei : std::vector<DataPoint> {
 };
 
 struct Vals : std::vector<double> {    
+	void updateMinMax();
+
     double max;
     double min;
 };
@@ -27,4 +32,4 @@ struct Vals : std::vector<double> {
 typedef std::pair<Nuclei,Vals> pairNucVals;
 
 pairNucVals loadData(const char* filename);
-pairNucVals fakeData(unsigned long count);
+pairNucVals fakeData(GaussModel* gaussModel,unsigned long count);

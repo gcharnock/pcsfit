@@ -10,13 +10,16 @@
 #include "vtkRenderWindowInteractor.h"
 
 #include "data.hpp"
+#include "model.hpp"
 #include <math.h>
 
 using namespace std;
 
+GaussModel gaussModel;
+
 int main () {
-    //Data data = fakeData(100);
-    pair<Nuclei,Vals> pair_nv = loadData("dataset_one.inp");
+    pair<Nuclei,Vals> pair_nv = fakeData(&gaussModel,100);
+    //pair<Nuclei,Vals> pair_nv = loadData("dataset_one.inp");
     Nuclei nuclei = pair_nv.first;
     Vals vals = pair_nv.second;
 
