@@ -9,7 +9,6 @@
 #include "vtkRenderWindow.h"
 #include "vtkRenderer.h"
 #include "vtkRenderWindowInteractor.h"
-#include "vtkAxes.h"
 
 #include "data.hpp"
 #include "model.hpp"
@@ -27,7 +26,7 @@ public:
 		mSphere->SetThetaResolution(18);
 		mSphere->SetPhiResolution(18);
 
-		mAxes = vtkAxes::New();
+		mArrow = vtkArrowSource::New();
 
 		//Creater the mappers
 		mSphereMapper = vtkPolyDataMapper::New();
@@ -35,13 +34,6 @@ public:
 
 		mArrowMapper = vtkPolyDataMapper::New();
 		mArrowMapper->SetInput(mArrow->GetOutput());
-
-		vtkPolyDataMapper* axesMapper = vtkPolyDataMapper::New();
-		axesMapper->SetInput(mAxes->GetOutput());
-
-		vtkActor* axesActor = vtkActor::New();
-		axesActor->SetMapper(axesMapper);
-
 
 		mCalcRenderer = vtkRenderer::New(); mCalcRenderer->SetViewport(0  ,0,0.5,1);
 		mExpRenderer  = vtkRenderer::New(); mExpRenderer-> SetViewport(0.5,0,1  ,1);
@@ -53,10 +45,6 @@ public:
 		mWindowInteractor = vtkRenderWindowInteractor::New();
 		mRenderWin->SetInteractor(mWindowInteractor);
 		mRenderWin->SetSize(800, 600);
-
-		mCalcRenderer->AddActor(axesActor);
-		axesMapper->Delete();
-		axesActor->Delete();
 	}
 
 	~FittingWindow() {
@@ -119,8 +107,6 @@ private:
 	//VTK Stuff
 	vtkSphereSource* mSphere;
 	vtkArrowSource* mArrow;
-
-	vtkAxes* mAxes;
 
 	vtkPolyDataMapper* mSphereMapper;
 	vtkPolyDataMapper* mArrowMapper;
