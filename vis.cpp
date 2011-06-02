@@ -1,6 +1,7 @@
 
 #include <iostream>
 
+#include "vtkSmartPointer.h"
 #include "vtkSphereSource.h"
 #include "vtkArrowSource.h"
 #include "vtkPolyDataMapper.h"
@@ -48,14 +49,6 @@ public:
 	}
 
 	~FittingWindow() {
-		mSphere->Delete();
-		mArrow->Delete();
-		mSphereMapper->Delete();
-		mArrowMapper->Delete();
-		mCalcRenderer->Delete();
-		mExpRenderer->Delete();
-		mRenderWin->Delete();
-		mWindowInteractor->Delete();
 	}
 	void setNuclei(const Nuclei& nuclei) {
 		mNuclei = nuclei;
@@ -105,16 +98,16 @@ private:
 
 
 	//VTK Stuff
-	vtkSphereSource* mSphere;
-	vtkArrowSource* mArrow;
+	vtkSmartPointer<vtkSphereSource> mSphere;
+	vtkSmartPointer<vtkArrowSource> mArrow;
 
-	vtkPolyDataMapper* mSphereMapper;
-	vtkPolyDataMapper* mArrowMapper;
+	vtkSmartPointer<vtkPolyDataMapper> mSphereMapper;
+	vtkSmartPointer<vtkPolyDataMapper> mArrowMapper;
 
-	vtkRenderer* mCalcRenderer;
-	vtkRenderer* mExpRenderer;
-	vtkRenderWindow* mRenderWin;
-	vtkRenderWindowInteractor* mWindowInteractor;
+	vtkSmartPointer<vtkRenderer> mCalcRenderer;
+	vtkSmartPointer<vtkRenderer> mExpRenderer;
+	vtkSmartPointer<vtkRenderWindow> mRenderWin;
+	vtkSmartPointer<vtkRenderWindowInteractor> mWindowInteractor;
 
 	Nuclei mNuclei;
 	//Where to visualise the metal
