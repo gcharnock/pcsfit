@@ -1,6 +1,7 @@
 
 #include <iostream>
 
+#include <vtkCommand.h>
 #include "vtkSmartPointer.h"
 #include "vtkSphereSource.h"
 #include "vtkArrowSource.h"
@@ -16,6 +17,18 @@
 #include <math.h>
 
 using namespace std;
+
+class TimerCallback : public vtkCommand {
+public:
+	static TimerCallback* New() {
+		return new TimerCallback;
+	}
+	virtual void Execute(vtkObject *vtkNotUsed(caller), unsigned long eventId,void *vtkNotUsed(callData)) {
+		if(vtkCommand::TimerEvent == eventId) {
+			cout << "Timeout..." << endl;
+		}
+	}
+};
 
 class FittingWindow {
 public:
@@ -46,13 +59,13 @@ public:
 		mWindowInteractor = vtkRenderWindowInteractor::New();
 		mRenderWin->SetInteractor(mWindowInteractor);
 		mRenderWin->SetSize(800, 600);
+
 	}
 
 	~FittingWindow() {
 	}
 	void setNuclei(const Nuclei& nuclei) {
 		mNuclei = nuclei;
-		
 	}
 	void setCalcVals(const Vals& calcVals) {
 		setVals(mCalcRenderer, calcVals);
@@ -75,8 +88,14 @@ public:
 	void start() {
 		mWindowInteractor->Start();
 	}
-	void onMainLoop() {
-		mWindowInteractor->Render();
+	void mainLoop() {
+		mWindowInteractor->Initialize();
+
+		vtkSmartPointer<TimerCallback> timerCallback = TimerCallback::New();
+		mWindowInteractor->AddObserver(vtkCommand::TimerEvent,timerCallback);
+		mWindowInteractor->CreateRepeatingTimer(500);
+
+		mWindowInteractor->Start();
 	}
 private:
 	void setVals(vtkRenderer* renderer,const Vals& vals) {
@@ -141,8 +160,7 @@ int main () {
 	fittingWindow.setCalcVals(modelVals);
 	fittingWindow.setExpVals(vals);
 	fittingWindow.setMetal(gaussModel.metal);
-	fittingWindow.start();
-
+	fittingWindow.mainLoop();
 
 	return 0;
 }
