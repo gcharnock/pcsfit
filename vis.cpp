@@ -12,11 +12,29 @@
 #include "vtkRenderer.h"
 #include "vtkRenderWindowInteractor.h"
 
+#include "pthread.h"
+#include "unistd.h"
+
 #include "data.hpp"
 #include "model.hpp"
 #include <math.h>
 
 using namespace std;
+
+void* thread_main(void*) {
+	long i = 0;
+	while(true) {
+		cout << "starting a long calculation" << endl;
+		sleep(5);
+		cout << "calculating..." << endl;
+		sleep(5);
+		cout << "Almost there..." << endl;
+		sleep(5);
+		i++;
+		cout << "Done!" << endl;
+	}
+	return NULL;
+}
 
 class TimerCallback : public vtkCommand {
 public:
@@ -95,6 +113,14 @@ public:
 		mWindowInteractor->AddObserver(vtkCommand::TimerEvent,timerCallback);
 		mWindowInteractor->CreateRepeatingTimer(500);
 
+		pthread_t thread;
+
+		if(pthread_create(&thread, NULL, thread_main, (void *)NULL) != 0) {
+            printf("Could not create thread\n");
+			return;
+        }
+
+
 		mWindowInteractor->Start();
 	}
 private:
@@ -114,6 +140,9 @@ private:
 			sphereActor->Delete();
 		}
 	}
+
+	//Threading stuff
+    pthread_t thread;
 
 
 	//VTK Stuff
