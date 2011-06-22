@@ -333,6 +333,16 @@ int main () {
 	gaussModel.metal.x = (nuclei.xmax + nuclei.xmin)/2;
 	gaussModel.metal.y = (nuclei.ymax + nuclei.ymin)/2;
 	gaussModel.metal.z = (nuclei.zmax + nuclei.zmin)/2;
+
+    double sizex = nuclei.xmax - nuclei.xmin;
+    double sizey = nuclei.ymax - nuclei.ymin;
+    double sizez = nuclei.zmax - nuclei.zmin;
+
+	gaussModel.cube_x_min = -sizex*2; gaussModel.cube_x_max = sizex*2;
+	gaussModel.cube_y_min = -sizey*2; gaussModel.cube_y_max = sizey*2;
+	gaussModel.cube_z_min = -sizez*2; gaussModel.cube_z_max = sizez*2;
+
+
     gaussModel.setEulerAngles(0,0,0);
 
 	gaussModel.bulkEval(nuclei,calcVals);
