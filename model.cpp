@@ -47,7 +47,7 @@ GaussModel::GaussModel() {
 	cube_z_min = -5; cube_z_max = 5;
 }
 
-void GaussModel::~GaussModel() {
+GaussModel::~GaussModel() {
 
 }
 

@@ -1,14 +1,16 @@
 
 #include "threads.hpp"
 #include <unistd.h>
+#include <iostream>
 
 using namespace boost;
 using namespace std;
 
 class TestThread {
-    TestThread(long _id) id(id) {
+    TestThread(long _id)
+		: id(id) {
     }
-    operator()() {
+    void operator()() {
         cout << id << ":doing work" << endl;
         sleep(1.0);
         cout << id << ":work done" << endl;
@@ -16,14 +18,4 @@ class TestThread {
     long id;
 };
 
-
-Multithreader::Multithreader() {
-}
-
-Multithreader::exec() {
-    _barrier.wait();
-    //Threads do work here
-    _barrier.wait();
-    //Results
-}
 

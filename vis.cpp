@@ -86,8 +86,6 @@ double minf(const gsl_vector * v, void *) {
 
 
 void* thread_main(void*) {
-    numCPU = sysconf(_SC_NPROCESSORS_ONLN);
-
     static const long nParams = 9;
 
     //Initalise the minimizer
