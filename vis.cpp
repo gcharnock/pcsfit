@@ -46,14 +46,6 @@ double cube_x_min, cube_x_max;
 double cube_y_min, cube_y_max;
 double cube_z_min, cube_z_max;
 
-/********************************************************************************
- * Syncronisation
- ********************************************************************************/
-
-// Barrier variable
-pthread_barrier_t barr;
-
-int numCPU;
 
 /********************************************************************************
  * Manager thread

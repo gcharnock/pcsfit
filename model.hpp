@@ -1,12 +1,13 @@
 
+#include "data.hpp"
+
 class Nuclei;
 class Vals;
-
-#include "data.hpp"
 
 class GaussModel {
 public:
 	GaussModel();
+	~GaussModel();
 
 	//This method is thread safe due to being const
 	double eval(double x,double y,double z,double epsAbs) const;

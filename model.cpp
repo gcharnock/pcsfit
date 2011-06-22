@@ -20,9 +20,12 @@
 
 #define KEY 0
 
+
 using namespace std;
 
 typedef pair<const GaussModel*,double*> pairModelDouble;
+
+
 
 GaussModel::GaussModel() {
 	ax = 1;
@@ -42,6 +45,10 @@ GaussModel::GaussModel() {
 	cube_x_min = -5; cube_x_max = 5;
 	cube_y_min = -5; cube_y_max = 5;
 	cube_z_min = -5; cube_z_max = 5;
+}
+
+void GaussModel::~GaussModel() {
+
 }
 
 void GaussModel::setEulerAngles(double _angle_x,double _angle_y,double _angle_z) {
@@ -149,7 +156,6 @@ double GaussModel::eval(double x,double y,double z,double epsAbs) const {
 }
 
 void GaussModel::bulkEval(const Nuclei& nuclei,Vals& vals) const {
-	//Todo, replace with 
     cout << nuclei.size() << endl;
 	for(long i=0;i<nuclei.size();i++) {
 		vals[i] = eval(nuclei[i].x,nuclei[i].y,nuclei[i].z,1e-4);
