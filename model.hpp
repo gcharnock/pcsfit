@@ -21,16 +21,14 @@ public:
 	double rh;
 
 	//Set the euler angles
-	void setEulerAngles(double angle_x,double angle_y,double angle_z);
+	void setEulerAngles(double _angle_x,double _angle_y,double _angle_z);
+    double angle_x,angle_y,angle_z;
 
 	double exponant;
 
 	double cube_x_min, cube_x_max;
 	double cube_y_min, cube_y_max;
 	double cube_z_min, cube_z_max;
-
-	//Todo, needs to be a function of exponant
-	double cutoff2;
 
 	//3x3 rotation matrix
 	double mat[9];

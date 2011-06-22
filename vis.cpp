@@ -19,34 +19,153 @@
 #include "model.hpp"
 #include <math.h>
 
+#include <gsl/gsl_multimin.h>
+
 using namespace std;
 
+
+/*********************************************************************************
+ * Global State
+ *********************************************************************************/
+
+//The current model
+GaussModel gaussModel;
+
+//Nuclear Positions
+Nuclei nuclei;
+
+//Experimental Vals
+Vals expVals;
+
+//Calculated values
+volatile unsigned long iteraction_number = 0;
+Vals calcVals;
+
+//The dimensions of the cube we will be integrating over.
+double cube_x_min, cube_x_max;
+double cube_y_min, cube_y_max;
+double cube_z_min, cube_z_max;
+
+/********************************************************************************
+ * Syncronisation
+ ********************************************************************************/
+
+// Barrier variable
+pthread_barrier_t barr;
+
+int numCPU;
+
+/********************************************************************************
+ * Manager thread
+ ********************************************************************************/
+
+double minf(const gsl_vector * v, void *) {
+    gaussModel.ax = gsl_vector_get(v, 0);
+    gaussModel.rh = gsl_vector_get(v, 1);
+    gaussModel.metal.x = gsl_vector_get(v, 2);
+    gaussModel.metal.y = gsl_vector_get(v, 3);
+    gaussModel.metal.z = gsl_vector_get(v, 4);
+    gaussModel.setEulerAngles(gsl_vector_get(v, 5),gsl_vector_get(v, 6),gsl_vector_get(v, 7));
+    gaussModel.exponant = gsl_vector_get(v, 8);
+
+	gaussModel.bulkEval(nuclei,calcVals);
+
+    cout << "x = " << gaussModel.metal.x;
+    cout << " y = " << gaussModel.metal.y;
+    cout << " z = " << gaussModel.metal.z;
+    cout << " ax = " << gaussModel.ax;
+    cout << " rh = " << gaussModel.rh;
+    cout << " ax = " << gaussModel.angle_x;
+    cout << " ay = " << gaussModel.angle_y;
+    cout << " az = " << gaussModel.angle_z;
+    cout << " exp = " << gaussModel.exponant;
+    cout << endl;
+
+    //Now reduce the results
+    double total = 0;
+	
+    for(unsigned long i = 0;i<calcVals.size();i++) {
+        double diff = expVals[i] - calcVals[i];
+        total += diff*diff;
+    }
+    cout << "Error = " << total << endl;
+    return total;
+}
+
+
 void* thread_main(void*) {
-	long i = 0;
-	while(true) {
-		cout << "starting a long calculation" << endl;
-		sleep(5);
-		cout << "calculating..." << endl;
-		sleep(5);
-		cout << "Almost there..." << endl;
-		sleep(5);
-		i++;
-		cout << "Done!" << endl;
-	}
+    numCPU = sysconf(_SC_NPROCESSORS_ONLN);
+
+    static const long nParams = 9;
+
+    //Initalise the minimizer
+    gsl_multimin_fminimizer* minimizer = gsl_multimin_fminimizer_alloc(gsl_multimin_fminimizer_nmsimplex2,nParams);
+    gsl_multimin_function minfunc;
+
+    minfunc.f = &minf;
+    minfunc.n = nParams;
+    minfunc.params = NULL;
+
+    gsl_vector *vec = gsl_vector_alloc (nParams);
+    gsl_vector_set (vec, 0, gaussModel.ax); 
+    gsl_vector_set (vec, 1, gaussModel.rh); 
+    gsl_vector_set (vec, 2, gaussModel.metal.x);
+    gsl_vector_set (vec, 3, gaussModel.metal.y);
+    gsl_vector_set (vec, 4, gaussModel.metal.z);
+    gsl_vector_set (vec, 5, gaussModel.angle_x);
+    gsl_vector_set (vec, 6, gaussModel.angle_y);
+    gsl_vector_set (vec, 7, gaussModel.angle_z);
+    gsl_vector_set (vec, 8, gaussModel.exponant);
+
+
+    gsl_vector *step_size = gsl_vector_alloc (nParams);
+    gsl_vector_set (step_size, 0, 0.1);
+    gsl_vector_set (step_size, 1, 0.1);
+    gsl_vector_set (step_size, 2, 0.1);
+    gsl_vector_set (step_size, 3, 0.1);
+    gsl_vector_set (step_size, 4, 0.1);
+    gsl_vector_set (step_size, 5, 0.1);
+    gsl_vector_set (step_size, 6, 0.1);
+    gsl_vector_set (step_size, 7, 0.1);
+    gsl_vector_set (step_size, 8, 0.1);
+
+    gsl_multimin_fminimizer_set (minimizer, &minfunc, vec, step_size);
+
+    //When the treads are ready...
+
+    for(long i = 0;true;i++) {
+        //Root thread also handls timing
+        timespec start;
+        timespec end;
+        clock_gettime(CLOCK_MONOTONIC, &start);
+
+        gsl_multimin_fminimizer_iterate (minimizer);
+        iteraction_number = i;
+
+        // Calculate time it took
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        double time_taken = ( end.tv_sec - start.tv_sec ) + ( end.tv_nsec - start.tv_nsec ) / 1e9;
+        printf("Took %e\n",time_taken);
+    }
 	return NULL;
 }
+
+
+/********************************************************************************
+ * Visuals/main thread
+ ********************************************************************************/
+
+class FittingWindow;
 
 class TimerCallback : public vtkCommand {
 public:
 	static TimerCallback* New() {
 		return new TimerCallback;
 	}
-	virtual void Execute(vtkObject *vtkNotUsed(caller), unsigned long eventId,void *vtkNotUsed(callData)) {
-		if(vtkCommand::TimerEvent == eventId) {
-			cout << "Timeout..." << endl;
-		}
-	}
+	virtual void Execute(vtkObject *vtkNotUsed(caller), unsigned long eventId,void *vtkNotUsed(callData));
+    FittingWindow* mParent;
 };
+
 
 class FittingWindow {
 public:
@@ -78,12 +197,42 @@ public:
 		mRenderWin->SetInteractor(mWindowInteractor);
 		mRenderWin->SetSize(800, 600);
 
-	}
+        //We start by visualising iteraction 0
+        visualisedIteraction = 0;
 
+
+	}
+    void onTimeout(unsigned long n) {
+        if(n != visualisedIteraction) {
+            //There is new data avaiable. We should change the visualisation
+            visualisedIteraction = n;
+            cout << "Need to update the visualisation" << endl;
+            setCalcVals(calcVals);
+            setMetal(gaussModel.metal);
+            mRenderWin->Render();
+        }
+    }
 	~FittingWindow() {
 	}
 	void setNuclei(const Nuclei& nuclei) {
 		mNuclei = nuclei;
+        unsigned long length = nuclei.size();
+		for(unsigned long i = 0; i<length;i++) {
+			vtkActor *sphereActor = vtkActor::New();
+			sphereActor->SetMapper(mSphereMapper);
+			sphereActor->SetPosition(mNuclei[i].x,mNuclei[i].y,mNuclei[i].z);
+			mCalcRenderer->AddActor(sphereActor);
+			
+			sphereActor->Delete();
+		}
+		for(unsigned long i = 0; i<length;i++) {
+			vtkActor *sphereActor = vtkActor::New();
+			sphereActor->SetMapper(mSphereMapper);
+			sphereActor->SetPosition(mNuclei[i].x,mNuclei[i].y,mNuclei[i].z);
+			mExpRenderer->AddActor(sphereActor);
+			
+			sphereActor->Delete();
+		}
 	}
 	void setCalcVals(const Vals& calcVals) {
 		setVals(mCalcRenderer, calcVals);
@@ -110,6 +259,7 @@ public:
 		mWindowInteractor->Initialize();
 
 		vtkSmartPointer<TimerCallback> timerCallback = TimerCallback::New();
+        timerCallback->mParent = this;
 		mWindowInteractor->AddObserver(vtkCommand::TimerEvent,timerCallback);
 		mWindowInteractor->CreateRepeatingTimer(500);
 
@@ -119,30 +269,31 @@ public:
             printf("Could not create thread\n");
 			return;
         }
-
-
 		mWindowInteractor->Start();
 	}
 private:
 	void setVals(vtkRenderer* renderer,const Vals& vals) {
 		long length = vals.size();
-		for(unsigned long i = 0; i<length;i++) {
+        vtkActorCollection* actors = renderer->GetActors();
+        vtkActor* actor = NULL;
+        actors->InitTraversal();
+        long i =0;
+        while(true) {
+            actor=actors->GetNextActor();
+            if(!actor) {
+                break;
+            }
 			double c = (vals[i]-vals.min)/(vals.max-vals.min);
+			actor->SetScale(0.1*sqrt(abs(vals[i])));
+			actor->GetProperty()->SetColor(c,0,1-c);
+            i++;
+        }
 
-			vtkActor *sphereActor = vtkActor::New();
-			sphereActor->SetMapper(mSphereMapper);
-			sphereActor->SetScale(0.1*sqrt(abs(vals[i])));
-			sphereActor->SetPosition(mNuclei[i].x,mNuclei[i].y,mNuclei[i].z);
-			sphereActor->GetProperty()->SetColor(c,0,1-c);
-
-			renderer->AddActor(sphereActor);
-			
-			sphereActor->Delete();
-		}
 	}
 
 	//Threading stuff
     pthread_t thread;
+    unsigned long visualisedIteraction;
 
 
 	//VTK Stuff
@@ -162,9 +313,11 @@ private:
 	Vector3 mMetal;
 
 };
-
-
-GaussModel gaussModel;
+void TimerCallback::Execute(vtkObject *vtkNotUsed(caller), unsigned long eventId,void *vtkNotUsed(callData)) {
+    if(vtkCommand::TimerEvent == eventId) {
+        mParent->onTimeout(iteraction_number);
+    }
+}
 
 
 
@@ -172,22 +325,22 @@ int main () {
 
     //pair<Nuclei,Vals> pair_nv = fakeData(&gaussModel,100);
     pair<Nuclei,Vals> pair_nv = loadData("dataset_one.inp");
-    Nuclei nuclei = pair_nv.first;
-    Vals vals = pair_nv.second;
-	Vals modelVals;
-	modelVals.resize(vals.size());
+    nuclei = pair_nv.first;
+    expVals = pair_nv.second;
+	calcVals.resize(expVals.size());
 	
-	gaussModel.ax = 10000;
+	gaussModel.ax = 0;
 	gaussModel.metal.x = (nuclei.xmax + nuclei.xmin)/2;
 	gaussModel.metal.y = (nuclei.ymax + nuclei.ymin)/2;
 	gaussModel.metal.z = (nuclei.zmax + nuclei.zmin)/2;
+    gaussModel.setEulerAngles(0,0,0);
 
-	gaussModel.bulkEval(nuclei,modelVals);
+	gaussModel.bulkEval(nuclei,calcVals);
 
 	FittingWindow fittingWindow;
 	fittingWindow.setNuclei(nuclei);
-	fittingWindow.setCalcVals(modelVals);
-	fittingWindow.setExpVals(vals);
+	fittingWindow.setCalcVals(calcVals);
+	fittingWindow.setExpVals(expVals);
 	fittingWindow.setMetal(gaussModel.metal);
 	fittingWindow.mainLoop();
 

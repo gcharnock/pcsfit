@@ -7,13 +7,15 @@
 
 #include <iostream>
 
+#define LN2
+
 #define NDIM 3
 #define NCOMP 1
-#define EPSREL 1
+#define EPSREL 1e-4
 #define EPSABS 1e-8
 #define VERBOSE 0
 #define LAST 4
-#define MINEVAL 0
+#define MINEVAL 8000
 #define MAXEVAL 50000
 
 #define KEY 0
@@ -42,7 +44,11 @@ GaussModel::GaussModel() {
 	cube_z_min = -5; cube_z_max = 5;
 }
 
-void GaussModel::setEulerAngles(double angle_x,double angle_y,double angle_z) {
+void GaussModel::setEulerAngles(double _angle_x,double _angle_y,double _angle_z) {
+    angle_x=_angle_x;
+    angle_y=_angle_y;
+    angle_z=_angle_z;
+
 	//From the matrix and quaternion FAQ
 	double A       = cos(angle_x);
     double B       = sin(angle_x);
@@ -62,10 +68,6 @@ void GaussModel::setEulerAngles(double angle_x,double angle_y,double angle_z) {
     mat[6]  = -AD * E + B * F;
     mat[7]  =  AD * F + B * E;
     mat[8] =   A * C;
-
-	cout << mat[0] << mat[1] << mat[2] << endl;
-	cout << mat[3] << mat[4] << mat[5] << endl;
-	cout << mat[6] << mat[7] << mat[8] << endl;
 }
 
 
@@ -103,7 +105,10 @@ int Integrand(const int *ndim, const double xx[],
 
 	double r2 = gx2 + gy2 + gz2;
 
-	if(r2 < this_->cutoff2) {
+    //The cutoff should be small compaired to the full width half
+    //maximum of the electron gaussian
+    double cutoff2 = 0.3/this_->exponant;
+	if(r2 < cutoff2) {
 		ff[0] = 0;
 		return 0;
 	}
@@ -145,9 +150,9 @@ double GaussModel::eval(double x,double y,double z,double epsAbs) const {
 
 void GaussModel::bulkEval(const Nuclei& nuclei,Vals& vals) const {
 	//Todo, replace with 
+    cout << nuclei.size() << endl;
 	for(long i=0;i<nuclei.size();i++) {
 		vals[i] = eval(nuclei[i].x,nuclei[i].y,nuclei[i].z,1e-4);
-		cout << vals[i] << endl;
 	}
 	vals.updateMinMax();
 }
