@@ -4,8 +4,8 @@ VTKLIBS = -lvtkalglib -lvtkCommon -lvtkDICOMParser -lvtkexoIIc -lvtkFiltering -l
 LIBS = -lgsl -lgslcblas -L../Cuba-2.1 -lcuba -lboost_thread
 
 all:
-	g++ -O3 -ffast-math -o run main.cpp data.cpp model.cpp -I../Cuba-2.1 -L../Cuba-2.1 -lcuba -lm -lrt -lgsl -lgslcblas
+	g++ -Wall -O3 -ffast-math -o run main.cpp data.cpp model.cpp -I../Cuba-2.1 -L../Cuba-2.1 -lcuba -lm -lrt -lgsl -lgslcblas
 	./run
 
 vis: vis.cpp data.cpp model.cpp 
-	g++ -g -o vis vis.cpp data.cpp model.cpp -I../Cuba-2.1 -I/usr/include/vtk-5.4/ ${VTKLIBS}  ${LIBS} -Wno-deprecated
+	g++ -Wall -g -o vis vis.cpp data.cpp model.cpp -I../Cuba-2.1 -I/usr/include/vtk-5.4/ ${VTKLIBS}  ${LIBS} -Wno-deprecated

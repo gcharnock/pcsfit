@@ -37,9 +37,8 @@ private:
 	const std::vector<boost::function<T ()> >* mFuncs;
 	std::vector<T> mMapTo;
 
-	int numCPU;
     boost::barrier* _barrier;
-
+	int numCPU;
 
 	class WorkerThread {
 	public:
