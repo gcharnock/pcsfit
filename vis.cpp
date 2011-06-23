@@ -47,6 +47,8 @@ double cube_y_min, cube_y_max;
 double cube_z_min, cube_z_max;
 
 
+int numCPU = 1;
+
 /********************************************************************************
  * Manager thread
  ********************************************************************************/
@@ -321,7 +323,8 @@ int main () {
     expVals = pair_nv.second;
 	calcVals.resize(expVals.size());
 	
-	gaussModel.ax = 0;
+	gaussModel.ax = 1000;
+	gaussModel.rh = 0;
 	gaussModel.metal.x = (nuclei.xmax + nuclei.xmin)/2;
 	gaussModel.metal.y = (nuclei.ymax + nuclei.ymin)/2;
 	gaussModel.metal.z = (nuclei.zmax + nuclei.zmin)/2;

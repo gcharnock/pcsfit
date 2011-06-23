@@ -11,11 +11,11 @@
 
 #define NDIM 3
 #define NCOMP 1
-#define EPSREL 1e-4
-#define EPSABS 1e-8
+#define EPSREL 1
+#define EPSABS 1e-2
 #define VERBOSE 0
 #define LAST 4
-#define MINEVAL 8000
+#define MINEVAL 800
 #define MAXEVAL 50000
 
 #define KEY 0
@@ -24,6 +24,27 @@
 using namespace std;
 
 typedef pair<const GaussModel*,double*> pairModelDouble;
+
+
+PointModel::PointModel() {
+	ax = 1;
+	rh = 0; 
+
+	metal.x = 0;
+	metal.y = 0;
+	metal.z = 0;
+
+	setEulerAngles(0,0,0);
+
+	ax = 1;
+	rh = 0;
+
+	exponant = 1;
+
+	cube_x_min = -5; cube_x_max = 5;
+	cube_y_min = -5; cube_y_max = 5;
+	cube_z_min = -5; cube_z_max = 5;
+}
 
 
 
@@ -47,7 +68,7 @@ GaussModel::GaussModel() {
 	cube_z_min = -5; cube_z_max = 5;
 }
 
-void GaussModel::~GaussModel() {
+GaussModel::~GaussModel() {
 
 }
 
