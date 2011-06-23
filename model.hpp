@@ -30,7 +30,7 @@ class PointModel {
 	//3x3 rotation matrix
 	double mat[9];
 
-}
+};
 
 class GaussModel {
 public:

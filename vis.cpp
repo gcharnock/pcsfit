@@ -265,7 +265,6 @@ public:
 	}
 private:
 	void setVals(vtkRenderer* renderer,const Vals& vals) {
-		long length = vals.size();
         vtkActorCollection* actors = renderer->GetActors();
         vtkActor* actor = NULL;
         actors->InitTraversal();

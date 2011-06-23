@@ -39,12 +39,37 @@ PointModel::PointModel() {
 	ax = 1;
 	rh = 0;
 
-	exponant = 1;
-
 	cube_x_min = -5; cube_x_max = 5;
 	cube_y_min = -5; cube_y_max = 5;
 	cube_z_min = -5; cube_z_max = 5;
 }
+
+void PointModel::setEulerAngles(double _angle_x,double _angle_y,double _angle_z) {
+    angle_x=_angle_x;
+    angle_y=_angle_y;
+    angle_z=_angle_z;
+
+	//From the matrix and quaternion FAQ
+	double A       = cos(angle_x);
+    double B       = sin(angle_x);
+    double C       = cos(angle_y);
+    double D       = sin(angle_y);
+    double E       = cos(angle_z);
+    double F       = sin(angle_z);
+    double AD      = A * D;
+    double BD      = B * D;
+    mat[0]  =   C * E;
+    mat[1]  =  -C * F;
+    mat[2]  =   D;
+
+    mat[3]  =  BD * E + A * F;
+    mat[4]  = -BD * F + A * E;
+    mat[5]  =  -B * C;
+    mat[6]  = -AD * E + B * F;
+    mat[7]  =  AD * F + B * E;
+    mat[8] =   A * C;
+}
+
 
 
 
@@ -165,7 +190,7 @@ double GaussModel::eval(double x,double y,double z,double epsAbs) const {
 	nuclearLocation[1] = y;
 	nuclearLocation[2] = z;
 
-	int comp, nregions, neval, fail;
+	int nregions, neval, fail;
 	double integral[1], error[1], prob[1];
 
 	pairModelDouble p(this,nuclearLocation);
@@ -178,7 +203,7 @@ double GaussModel::eval(double x,double y,double z,double epsAbs) const {
 
 void GaussModel::bulkEval(const Nuclei& nuclei,Vals& vals) const {
     cout << nuclei.size() << endl;
-	for(long i=0;i<nuclei.size();i++) {
+	for(unsigned long i=0;i<nuclei.size();i++) {
 		vals[i] = eval(nuclei[i].x,nuclei[i].y,nuclei[i].z,1e-4);
 	}
 	vals.updateMinMax();
