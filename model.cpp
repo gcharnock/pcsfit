@@ -26,51 +26,6 @@ using namespace std;
 typedef pair<const GaussModel*,double*> pairModelDouble;
 
 
-PointModel::PointModel() {
-	ax = 1;
-	rh = 0; 
-
-	metal.x = 0;
-	metal.y = 0;
-	metal.z = 0;
-
-	setEulerAngles(0,0,0);
-
-	ax = 1;
-	rh = 0;
-
-	cube_x_min = -5; cube_x_max = 5;
-	cube_y_min = -5; cube_y_max = 5;
-	cube_z_min = -5; cube_z_max = 5;
-}
-
-void PointModel::setEulerAngles(double _angle_x,double _angle_y,double _angle_z) {
-    angle_x=_angle_x;
-    angle_y=_angle_y;
-    angle_z=_angle_z;
-
-	//From the matrix and quaternion FAQ
-	double A       = cos(angle_x);
-    double B       = sin(angle_x);
-    double C       = cos(angle_y);
-    double D       = sin(angle_y);
-    double E       = cos(angle_z);
-    double F       = sin(angle_z);
-    double AD      = A * D;
-    double BD      = B * D;
-    mat[0]  =   C * E;
-    mat[1]  =  -C * F;
-    mat[2]  =   D;
-
-    mat[3]  =  BD * E + A * F;
-    mat[4]  = -BD * F + A * E;
-    mat[5]  =  -B * C;
-    mat[6]  = -AD * E + B * F;
-    mat[7]  =  AD * F + B * E;
-    mat[8] =   A * C;
-}
-
-
 
 
 GaussModel::GaussModel() {

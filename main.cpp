@@ -8,7 +8,7 @@
 #include <gsl/gsl_multimin.h>
 #include <vector>
 
-
+#include "threads.hpp"
 #include "model.hpp"
 #include "data.hpp"
 
@@ -19,10 +19,11 @@ using namespace std;
  * Global State
  *********************************************************************************/
 
-unsigned long length = 0;
+//The thread pool
+Multithreader<double> pool;
 
 //The current model
-GaussModel gaussModel;
+vector<GaussModel> models;
 
 //Nuclear Positions
 Nuclei nuclei;
@@ -31,7 +32,7 @@ Nuclei nuclei;
 Vals expVals;
 
 //Calculated values
-Vals calcVals;
+vector<Vals> calcVals;
 
 //The dimensions of the cube we will be integrating over.
 double cube_x_min, cube_x_max;
@@ -58,45 +59,55 @@ void barrierGuard(int rc) {
 //When set to true, created threads should exit
 bool threadExit = false;
 
-
-
-void* thread_main(void* threadIdPonter) {
-    //Whoami? Am I the special root thread?
-    long threadId = *(long*)threadIdPonter;
-
-
-    barrierGuard(pthread_barrier_wait(&barr));
-    while(!threadExit) {
-        barrierGuard(pthread_barrier_wait(&barr));
-        /* Master thread is setting the global state here */
-        barrierGuard(pthread_barrier_wait(&barr));
-        printf("thread %ld is working...\n",threadId);
-
-        for(unsigned long i=0;i<length;i+=(numCPU)) {
-			gaussModel.eval(nuclei[i].x,nuclei[i].y,nuclei[i].z,expVals[i]/100);
-        }
-    }
-}
-
 double minf(const gsl_vector * v, void *) {
+    //Unpack the model
+    GaussModel thisModel;
 
+    //Unpack the model
     barrierGuard(pthread_barrier_wait(&barr));
-    gaussModel.ax = gsl_vector_get(v, 0);
-    gaussModel.rh = gsl_vector_get(v, 1);
+    thisModel.ax       = gsl_vector_get(v, 0);
+    thisModel.rh       = gsl_vector_get(v, 1);
+    thisModel.metal.x  = gsl_vector_get(v, 2);
+    thisModel.metal.y  = gsl_vector_get(v, 3);
+    thisModel.metal.z  = gsl_vector_get(v, 4);
+    thisModel.setEulerAngles(gsl_vector_get(v, 5),
+                             gsl_vector_get(v, 6),
+                             gsl_vector_get(v, 7));
+    thisModel.exponant = gsl_vector_get(v, 9);
 
-    printf("%le, %le \n",gaussModel.ax,gaussModel.rh);
-    /*Other threads do work here*/
-    barrierGuard(pthread_barrier_wait(&barr));
+    //TODO, we can reduce the integration region safley by quite a bit.
+    thisModel.cube_x_min = thisModel.metal.x-100;
+    thisModel.cube_x_max = thisModel.metal.x+100;
+    thisModel.cube_y_min = thisModel.metal.y-100;
+    thisModel.cube_y_max = thisModel.metal.y+100;
+    thisModel.cube_z_min = thisModel.metal.z-100;
+    thisModel.cube_z_max = thisModel.metal.z+100;
+
+	//Prepare the work
+	std::vector<boost::function<double()> > work;
+
+	for(unsigned long i = 0;i<nuclei.size();i++) {
+		work.push_back(boost::bind(&GaussModel::eval,&thisModel,nuclei[i].x,nuclei[i].y,nuclei[i].z,1e-4));
+	}
+	Vals results;
+    results.resize(work.size());
+
+	//Execute in parallel
+    pool.map(work,results);
 
     //Now reduce the results
     double total = 0;
 	
-    for(unsigned long i = 0;i<length;i++) {
-        double diff = expVals[i] - calcVals[i];
+    for(unsigned long i = 0;i<expVals.size();i++) {
+        double diff = expVals[i] - results[i];
         total += diff*diff;
     }
     printf("err = %le \n",total);
-    printf("\n",total);
+    printf("\n");
+
+    //Push the results into 
+    calcVals.push_back(results);
+    models.push_back(thisModel);
 
     return total;
 }
@@ -109,71 +120,47 @@ int main() {
 	expVals = data.second;
 
 	calcVals.resize(expVals.size());
-	length = expVals.size();
 
 	//Update the global state
 
 
-    // pthreads initialization
-    //numCPU = 1;
-    numCPU = sysconf(_SC_NPROCESSORS_ONLN);
-    if(pthread_barrier_init(&barr, NULL, numCPU + 1)) {
-        printf("Could not create a barrier\n");
-        return -1;
-    }
-
-    //Start the worker threads
-    long* thread_args = (long*)malloc(numCPU * sizeof(long));
-    pthread_t* threads = (pthread_t*)malloc(numCPU * sizeof(pthread_t));
-
-    for(long i=0; i< numCPU; i++) {
-        thread_args[i] = i;
-        if(pthread_create(&threads[i], NULL, thread_main, (void *) &thread_args[i]) != 0) {
-            printf("Could not create thread %ld\n", i);
-            return -1;
-        }
-    }
-
 
     //Initalise the minimizer
-    gsl_multimin_fminimizer* minimizer = gsl_multimin_fminimizer_alloc(gsl_multimin_fminimizer_nmsimplex2,2);
+    static const unsigned long nParams = 9;
+    gsl_multimin_fminimizer* minimizer = gsl_multimin_fminimizer_alloc(gsl_multimin_fminimizer_nmsimplex2,nParams);
     gsl_multimin_function minfunc;
 
     minfunc.f = &minf;
-    minfunc.n = 2;
+    minfunc.n = nParams;
     minfunc.params = NULL;
 
-    gsl_vector *vec = gsl_vector_alloc (2);
-    gsl_vector_set (vec, 0, 1.0);
-    gsl_vector_set (vec, 1, 0.0);
+    gsl_vector *vec = gsl_vector_alloc (nParams);
+    gsl_vector_set (vec, 0, 0.0); //Ax
+    gsl_vector_set (vec, 1, 0.0); //Rh
+    gsl_vector_set (vec, 2, (nuclei.xmin+nuclei.xmax)/2); //x
+    gsl_vector_set (vec, 3, (nuclei.ymin+nuclei.ymax)/2); //y
+    gsl_vector_set (vec, 4, (nuclei.zmin+nuclei.zmax)/2); //z
+    gsl_vector_set (vec, 5, 0.0); //angle_x
+    gsl_vector_set (vec, 6, 0.0); //angle_y
+    gsl_vector_set (vec, 7, 0.0); //angle_z
+    gsl_vector_set (vec, 8, 1.0); //exponant
 
-    gsl_vector *step_size = gsl_vector_alloc (2);
+    gsl_vector *step_size = gsl_vector_alloc (nParams);
     gsl_vector_set (step_size, 0, 0.1);
     gsl_vector_set (step_size, 1, 0.1);
-
+    gsl_vector_set (step_size, 2, 0.1);
+    gsl_vector_set (step_size, 3, 0.1);
+    gsl_vector_set (step_size, 4, 0.1);
+    gsl_vector_set (step_size, 5, 0.1);
+    gsl_vector_set (step_size, 6, 0.1);
+    gsl_vector_set (step_size, 7, 0.1);
+    gsl_vector_set (step_size, 8, 0.1);
 
     gsl_multimin_fminimizer_set (minimizer, &minfunc, vec, step_size);
      
-    //When the treads are ready...
-
-    barrierGuard(pthread_barrier_wait(&barr));
-    for(long i = 0;i<20;i++) {
-        //Root thread also handls timing
-        timespec start;
-        timespec end;
-        clock_gettime(CLOCK_MONOTONIC, &start);
-
-
+    while(true) {
         gsl_multimin_fminimizer_iterate (minimizer);
-
-
-        // Calculate time it took
-        clock_gettime(CLOCK_MONOTONIC, &end);
-        double time_taken = ( end.tv_sec - start.tv_sec ) + ( end.tv_nsec - start.tv_nsec ) / 1e9;
-        //printf("Took %e\n",time_taken);
     }
-
-    threadExit = true;
 
     return 0;
 }

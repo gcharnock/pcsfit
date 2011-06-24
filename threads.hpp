@@ -9,55 +9,57 @@
 
 template<typename T>
 class Multithreader {
+public:
     Multithreader()
 		: numCPU(sysconf(_SC_NPROCESSORS_ONLN)),
-		  _barrier(new boost::barrier(numCPU+1)),
-		  mFuncs(NULL) {
+		  _barrier(numCPU+1),
+		  mFuncs(NULL),
+          mMapTo(NULL){
 		//Start the thread pool
 		for(long i = 0;i<numCPU;i++) {
-			boost::thread(WorkerThread(i,_barrier,*this));
+			boost::thread(WorkerThread(i,this));
 		}
 	}
 
 	~Multithreader() {
 		//Terminate the threads
-
 		//todo
-
-		delete _barrier;
 	}
 
 
     void map(const std::vector<boost::function<T ()> >& funcs,std::vector<T>& mapTo) {
 		mFuncs = &funcs;
-		_barrier->wait();
-		_barrier->wait();
+		mMapTo = &mapTo;
+		_barrier.wait();
+        //Threads do work here
+		_barrier.wait();
     }
 private:
-	const std::vector<boost::function<T ()> >* mFuncs;
-	std::vector<T> mMapTo;
-
-    boost::barrier* _barrier;
 	int numCPU;
+    boost::barrier _barrier;
+
+	const std::vector<boost::function<T ()> >* mFuncs;
+	std::vector<T>* mMapTo;
+
+
 
 	class WorkerThread {
 	public:
-		WorkerThread(long _id,boost::barrier* b,Multithreader _parent)
-			: id(id),_barrier(b),parent(_parent) {
+		WorkerThread(long _id,Multithreader* _parent)
+			: id(id),parent(_parent) {
 		}
 		void operator()() {
 			while(true) {
-				_barrier->wait();
+				parent->_barrier.wait();
 				//Do work
-				for(long i = 0;i<parent->mFuncs.size();i+=parent->numCPU) {
-					parent->mMapTo[i] = parent->mFuncs[i]();
+				for(unsigned long i = 0;i<parent->mFuncs->size();i+=parent->numCPU) {
+					parent->mMapTo->at(i) = parent->mFuncs->at(i)();
 				}
-				_barrier->wait();
+				parent->_barrier.wait();
 			}
 		}
 		long id;
-		Multithreader& parent;
-		boost::barrier* _barrier;
+		Multithreader* parent;
 	};
 
 };
