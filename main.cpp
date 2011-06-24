@@ -20,7 +20,7 @@ using namespace std;
  *********************************************************************************/
 
 //The thread pool
-Multithreader<double> pool;
+Multithreader<double>* pool = NULL;
 
 //The current model
 vector<GaussModel> models;
@@ -93,7 +93,7 @@ double minf(const gsl_vector * v, void *) {
     results.resize(work.size());
 
 	//Execute in parallel
-    pool.map(work,results);
+    pool->map(work,results);
 
     //Now reduce the results
     double total = 0;
@@ -113,6 +113,9 @@ double minf(const gsl_vector * v, void *) {
 }
 
 int main() {
+    //Start the thread pool
+    pool = new Multithreader<double>;
+
     //Load the data
 	pairNucVals data = loadData("dataset_one.inp");
 	
@@ -161,6 +164,6 @@ int main() {
     while(true) {
         gsl_multimin_fminimizer_iterate (minimizer);
     }
-
+    delete pool;
     return 0;
 }
