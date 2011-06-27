@@ -1,10 +1,12 @@
 
 VTKLIBS = -lvtkalglib -lvtkCommon -lvtkDICOMParser -lvtkexoIIc -lvtkFiltering -lvtkftgl -lvtkGenericFiltering -lvtkGeovis -lvtkHybrid -lvtkImaging -lvtkInfovis -lvtkIO -lvtkmetaio -lvtkNetCDF -lvtkParallel -lvtkproj4 -lvtkRendering -lvtksqlite -lvtksys -lvtkverdict -lvtkViews -lvtkVolumeRendering -lvtkWidgets
 
-LIBS = -lgsl -lgslcblas -L../Cuba-2.1 -lcuba -lboost_thread
+LIBS = -lgsl -lgslcblas -L../Cuba-2.1 -lcuba -lboost_thread-mt
+INCS = -I../Cuba-2.1
+CFLAGS = -g #-O3 -ffast-math 
 
 all:
-	g++ -O3 -ffast-math -o run main.cpp data.cpp model.cpp -I../Cuba-2.1 -L../Cuba-2.1 -lcuba -lm -lrt -lgsl -lgslcblas
+	g++ ${CFLAGS} -o run main.cpp data.cpp model.cpp ${INCS} ${LIBS} 
 	./run
 
 vis: vis.cpp data.cpp model.cpp threads.cpp
