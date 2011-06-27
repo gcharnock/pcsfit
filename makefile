@@ -3,7 +3,7 @@ VTKLIBS = -lvtkalglib -lvtkCommon -lvtkDICOMParser -lvtkexoIIc -lvtkFiltering -l
 
 LIBS = -lgsl -lgslcblas -L../Cuba-2.1 -lcuba -L. -lboost_thread-gcc44-mt-d-1_46_1 -lpthread
 
-OBJS = main.cpp data.cpp model.cpp #vis.cpp
+OBJS = main.cpp data.cpp model.cpp vis.cpp
 
 INCS = -I../Cuba-2.1 -I/usr/include/vtk-5.4/ -I../../src/boost_1_46_1
 

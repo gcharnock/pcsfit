@@ -7,10 +7,12 @@
 #include <unistd.h>
 #include <gsl/gsl_multimin.h>
 #include <vector>
+#include <boost/thread.hpp>
 
 #include "threads.hpp"
 #include "model.hpp"
 #include "data.hpp"
+#include "vis.hpp"
 
 
 using namespace std;
@@ -39,22 +41,16 @@ double cube_x_min, cube_x_max;
 double cube_y_min, cube_y_max;
 double cube_z_min, cube_z_max;
 
-
 /********************************************************************************
- * Syncronisation
- ********************************************************************************/
+ * Visuliser
+ *********************************************************************************/
 
-// Barrier variable
-pthread_barrier_t barr;
-
-int numCPU;
-
-void barrierGuard(int rc) {
-    if(rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD) {
-        printf("Could not wait on barrier\n");
-        exit(-1);
+struct VisualThread {
+    void operator()() {
+        fw.mainLoop();
     }
-}
+    FittingWindow fw;
+};
 
 //When set to true, created threads should exit
 bool threadExit = false;
@@ -64,7 +60,6 @@ double minf(const gsl_vector * v, void *) {
     GaussModel thisModel;
 
     //Unpack the model
-    barrierGuard(pthread_barrier_wait(&barr));
     thisModel.ax       = gsl_vector_get(v, 0);
     thisModel.rh       = gsl_vector_get(v, 1);
     thisModel.metal.x  = gsl_vector_get(v, 2);
@@ -73,7 +68,7 @@ double minf(const gsl_vector * v, void *) {
     thisModel.setEulerAngles(gsl_vector_get(v, 5),
                              gsl_vector_get(v, 6),
                              gsl_vector_get(v, 7));
-    thisModel.exponant = gsl_vector_get(v, 9);
+    thisModel.exponant = gsl_vector_get(v, 8);
 
     //TODO, we can reduce the integration region safley by quite a bit.
     thisModel.cube_x_min = thisModel.metal.x-100;
@@ -124,10 +119,6 @@ int main() {
 
 	calcVals.resize(expVals.size());
 
-	//Update the global state
-
-
-
     //Initalise the minimizer
     static const unsigned long nParams = 9;
     gsl_multimin_fminimizer* minimizer = gsl_multimin_fminimizer_alloc(gsl_multimin_fminimizer_nmsimplex2,nParams);
@@ -160,9 +151,19 @@ int main() {
     gsl_vector_set (step_size, 8, 0.1);
 
     gsl_multimin_fminimizer_set (minimizer, &minfunc, vec, step_size);
+
+    //Start the visualisation thread
+    VisualThread visualThread;
+    visualThread.fw.setNuclei(nuclei);
+    visualThread.fw.setExpVals(expVals);
+    boost::thread boostVisualThread(visualThread);
+
+
+    //Main loop
      
     while(true) {
         gsl_multimin_fminimizer_iterate (minimizer);
+        visualThread.fw.setCalcVals(*(calcVals.rbegin()),models.rbegin()->metal);
     }
     delete pool;
     return 0;

@@ -19,9 +19,6 @@ using namespace std;
  * Visuals/main thread
  ********************************************************************************/
 
-double iteraction_number = 0;
-
-class FittingWindow;
 
 class TimerCallback : public vtkCommand {
 public:
@@ -29,15 +26,16 @@ public:
 		return new TimerCallback;
 	}
 	virtual void Execute(vtkObject *vtkNotUsed(caller), unsigned long eventId,void *vtkNotUsed(callData)) {
-    if(vtkCommand::TimerEvent == eventId) {
-        mParent->onTimeout(iteraction_number);
+        if(vtkCommand::TimerEvent == eventId) {
+            mParent->onTimeout();
+        }
     }
-}
     FittingWindow* mParent;
 };
 
 
-FittingWindow::FittingWindow() {
+FittingWindow::FittingWindow()
+    : mDataChanged(true) {
     // create sphere geometry
     mSphere = vtkSphereSource::New();
     mSphere->SetRadius(1.0);
@@ -70,54 +68,33 @@ FittingWindow::FittingWindow() {
 
 
 }
-void FittingWindow::onTimeout(unsigned long n) {
-    if(n != visualisedIteraction) {
-        //There is new data avaiable. We should change the visualisation
-        visualisedIteraction = n;
-        mRenderWin->Render();
-    }
-}
+
 FittingWindow::~FittingWindow() {
 }
+
+void FittingWindow::onTimeout() {
+    if(mDataChanged) {
+        //There is new data avaiable. We should change the visualisation
+        mDataChanged = false;
+        update();
+    }
+}
+
 void FittingWindow::setNuclei(const Nuclei& nuclei) {
     mNuclei = nuclei;
-    unsigned long length = nuclei.size();
-    for(unsigned long i = 0; i<length;i++) {
-        vtkActor *sphereActor = vtkActor::New();
-        sphereActor->SetMapper(mSphereMapper);
-        sphereActor->SetPosition(mNuclei[i].x,mNuclei[i].y,mNuclei[i].z);
-        mCalcRenderer->AddActor(sphereActor);
-			
-        sphereActor->Delete();
-    }
-    for(unsigned long i = 0; i<length;i++) {
-        vtkActor *sphereActor = vtkActor::New();
-        sphereActor->SetMapper(mSphereMapper);
-        sphereActor->SetPosition(mNuclei[i].x,mNuclei[i].y,mNuclei[i].z);
-        mExpRenderer->AddActor(sphereActor);
-			
-        sphereActor->Delete();
-    }
+    mDataChanged = true;
 }
 void FittingWindow::setCalcVals(const Vals& calcVals,const Vector3& metal) {
     mCalcVals = calcVals;
-    setVals(mCalcRenderer, calcVals);
-
     mMetal = metal;
-    vtkActor* arrowActor = vtkActor::New();
-    arrowActor->SetMapper(mArrowMapper);
-    arrowActor->SetScale(4);
-    arrowActor->SetPosition(mMetal.x,mMetal.y,mMetal.z);
-    arrowActor->GetProperty()->SetColor(1,1,0);
-		
-    mCalcRenderer->AddActor(arrowActor);
-
-    arrowActor->Delete();
-
+    mDataChanged = true;
 }
 void FittingWindow::setExpVals(const Vals& expVals) {
-    setVals(mExpRenderer, expVals);
+    mExpVals = expVals;
+    mDataChanged = true;
 }
+
+
 void FittingWindow::start() {
     mWindowInteractor->Start();
 }
@@ -129,23 +106,46 @@ void FittingWindow::mainLoop() {
     mWindowInteractor->AddObserver(vtkCommand::TimerEvent,timerCallback);
     mWindowInteractor->CreateRepeatingTimer(500);
 
-    pthread_t thread;
-
-    if(pthread_create(&thread, NULL, thread_main, (void *)NULL) != 0) {
-        printf("Could not create thread\n");
-        return;
-    }
     mWindowInteractor->Start();
 }
 
-void FittingWindow::setVals(vtkRenderer* renderer,const Vals& vals) {
+void FittingWindow::update() {
+    updateNuclei(mCalcRenderer);
+    updateNuclei(mExpRenderer);
+    updateVals(mCalcRenderer,mCalcVals);
+    updateVals(mExpRenderer, mExpVals);
+
+    //Move the arrow
+    vtkActor* arrowActor = vtkActor::New();
+    arrowActor->SetMapper(mArrowMapper);
+    arrowActor->SetScale(4);
+    arrowActor->SetPosition(mMetal.x,mMetal.y,mMetal.z);
+    arrowActor->GetProperty()->SetColor(1,1,0);
+		
+    mCalcRenderer->AddActor(arrowActor);
+
+    arrowActor->Delete();
+}
+
+void FittingWindow::updateNuclei(vtkRenderer* renderer) {
+    for(unsigned long i = 0; i<mNuclei.size();i++) {
+        vtkActor *sphereActor = vtkActor::New();
+        sphereActor->SetMapper(mSphereMapper);
+        sphereActor->SetPosition(mNuclei[i].x,mNuclei[i].y,mNuclei[i].z);
+        renderer->AddActor(sphereActor);
+
+        sphereActor->Delete();
+    }
+}
+
+void FittingWindow::updateVals(vtkRenderer* renderer,const Vals& vals) {
     vtkActorCollection* actors = renderer->GetActors();
     vtkActor* actor = NULL;
     actors->InitTraversal();
-    long i =0;
+    unsigned long i =0;
     while(true) {
         actor=actors->GetNextActor();
-        if(!actor) {
+        if(!actor || vals.size() >= i) {
             break;
         }
         double c = (vals[i]-vals.min)/(vals.max-vals.min);
@@ -153,6 +153,5 @@ void FittingWindow::setVals(vtkRenderer* renderer,const Vals& vals) {
         actor->GetProperty()->SetColor(c,0,1-c);
         i++;
     }
-
 }
 
