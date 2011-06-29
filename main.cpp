@@ -8,6 +8,7 @@
 #include <gsl/gsl_multimin.h>
 #include <vector>
 #include <boost/thread.hpp>
+#include <boost/ref.hpp>
 
 #include "threads.hpp"
 #include "model.hpp"
@@ -46,10 +47,13 @@ double cube_z_min, cube_z_max;
  *********************************************************************************/
 
 struct VisualThread {
+    VisualThread(){}
     void operator()() {
         fw.mainLoop();
     }
     FittingWindow fw;
+private:
+    VisualThread(const VisualThread&);
 };
 
 //When set to true, created threads should exit
@@ -97,10 +101,8 @@ double minf(const gsl_vector * v, void *) {
         double diff = expVals[i] - results[i];
         total += diff*diff;
     }
-    printf("err = %le \n",total);
-    printf("\n");
-
     //Push the results into 
+    cout << "Pushing back results, results.size()=" << results.size() << endl;
     calcVals.push_back(results);
     models.push_back(thisModel);
 
@@ -156,7 +158,7 @@ int main() {
     VisualThread visualThread;
     visualThread.fw.setNuclei(nuclei);
     visualThread.fw.setExpVals(expVals);
-    boost::thread boostVisualThread(visualThread);
+    boost::thread boostVisualThread(boost::ref(visualThread));
 
 
     //Main loop

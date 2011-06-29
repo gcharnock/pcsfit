@@ -11,12 +11,12 @@
 
 #define NDIM 3
 #define NCOMP 1
-#define EPSREL 1
-#define EPSABS 1e-2
+#define EPSREL 1e-11
+#define EPSABS 1e-11
 #define VERBOSE 0
 #define LAST 4
 #define MINEVAL 800
-#define MAXEVAL 50000
+#define MAXEVAL 5000000
 
 #define KEY 0
 
@@ -157,7 +157,6 @@ double GaussModel::eval(double x,double y,double z,double epsAbs) const {
 }
 
 void GaussModel::bulkEval(const Nuclei& nuclei,Vals& vals) const {
-    cout << nuclei.size() << endl;
 	for(unsigned long i=0;i<nuclei.size();i++) {
 		vals[i] = eval(nuclei[i].x,nuclei[i].y,nuclei[i].z,1e-4);
 	}

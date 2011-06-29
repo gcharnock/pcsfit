@@ -73,7 +73,10 @@ FittingWindow::~FittingWindow() {
 }
 
 void FittingWindow::onTimeout() {
+    cout << "Timeout" << endl;
+    cout << "mDataChanged=" << mDataChanged << endl;
     if(mDataChanged) {
+        cout << "we need to update" << endl;
         //There is new data avaiable. We should change the visualisation
         mDataChanged = false;
         update();
@@ -82,12 +85,15 @@ void FittingWindow::onTimeout() {
 
 void FittingWindow::setNuclei(const Nuclei& nuclei) {
     mNuclei = nuclei;
-    mDataChanged = true;
+    updateNuclei(mCalcRenderer);
+    updateNuclei(mExpRenderer);
 }
 void FittingWindow::setCalcVals(const Vals& calcVals,const Vector3& metal) {
+    cout << "calc vals set, calcVals.size() = " << calcVals.size() << endl;
     mCalcVals = calcVals;
     mMetal = metal;
     mDataChanged = true;
+    cout << "mDataChanged=" << mDataChanged << endl;    
 }
 void FittingWindow::setExpVals(const Vals& expVals) {
     mExpVals = expVals;
@@ -110,8 +116,7 @@ void FittingWindow::mainLoop() {
 }
 
 void FittingWindow::update() {
-    updateNuclei(mCalcRenderer);
-    updateNuclei(mExpRenderer);
+    cout << "FittingWindow::update()" << endl;
     updateVals(mCalcRenderer,mCalcVals);
     updateVals(mExpRenderer, mExpVals);
 
@@ -128,17 +133,18 @@ void FittingWindow::update() {
 }
 
 void FittingWindow::updateNuclei(vtkRenderer* renderer) {
+    cout << "FittingWindow::updateNuclei(" << renderer << "); mNuclei.size() = " << mNuclei.size() << endl;
     for(unsigned long i = 0; i<mNuclei.size();i++) {
-        vtkActor *sphereActor = vtkActor::New();
+        vtkSmartPointer<vtkActor> sphereActor = vtkActor::New();
         sphereActor->SetMapper(mSphereMapper);
         sphereActor->SetPosition(mNuclei[i].x,mNuclei[i].y,mNuclei[i].z);
         renderer->AddActor(sphereActor);
-
-        sphereActor->Delete();
     }
+    renderer->ResetCameraClippingRange();
 }
 
 void FittingWindow::updateVals(vtkRenderer* renderer,const Vals& vals) {
+    cout << "FittingWindow::updateVals(" << renderer << ",vals.size = " << vals.size() << ")" << endl;
     vtkActorCollection* actors = renderer->GetActors();
     vtkActor* actor = NULL;
     actors->InitTraversal();
@@ -150,6 +156,7 @@ void FittingWindow::updateVals(vtkRenderer* renderer,const Vals& vals) {
         }
         double c = (vals[i]-vals.min)/(vals.max-vals.min);
         actor->SetScale(0.1*sqrt(abs(vals[i])));
+        cout << "Setting scale to " << 0.1*sqrt(abs(vals[i])) << endl;
         actor->GetProperty()->SetColor(c,0,1-c);
         i++;
     }
