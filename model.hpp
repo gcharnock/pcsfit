@@ -1,5 +1,6 @@
 
 #include "data.hpp"
+#include <vector>
 
 class Nuclei;
 class Vals;
@@ -34,3 +35,5 @@ public:
 	//3x3 rotation matrix
 	double mat[9];
 };
+std::vector<double> packGaussModel(const GaussModel& m);
+GaussModel unpackGaussModel(const std::vector<double>& v);

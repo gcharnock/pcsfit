@@ -61,7 +61,7 @@ public:
 	Minimiser(boost::function<T(const PList&)> unpack,
 			  boost::function<PList(const T&)> pack,  
 			  boost::function<double(T)> fmin,		  
-			  boost::function<void(T)> logger)		  
+			  boost::function<void(const T&)> logger)		  
 		: mUnpack(unpack),mPack(pack),mFMin(fmin),mLogger(logger) {
 	}
 
@@ -75,7 +75,7 @@ public:
 			gsl_multimin_fminimizer_alloc(gsl_multimin_fminimizer_nmsimplex2,nParams);
 
 		gsl_multimin_function minfunc;
-		minfunc.f = &Minimiser::minf;
+		minfunc.f = &Minimiser::minf_static;
 		minfunc.n = nParams;
 		minfunc.params = (void*)this;
 
@@ -96,7 +96,7 @@ public:
 	}
 private:
 	double _minf(const gsl_vector * v) {
-		T params = unpack(gSLVec2pList(v));
+		T params = mUnpack(gSLVec2pList(v));
 		mLogger(params);
 		return mFMin(params);
 	}
@@ -111,7 +111,7 @@ private:
 		}
 		return vec;
 	}
-	static PList gSLVec2pList(gsl_vector* vec) {
+	static PList gSLVec2pList(const gsl_vector* vec) {
 		PList retVal;
 		for(size_t i = 0;i<vec->size;i++) {
 			retVal.push_back(gsl_vector_get(vec,i));
@@ -142,21 +142,7 @@ private:
 //When set to true, created threads should exit
 bool threadExit = false;
 
-double minf(const gsl_vector * v, void *) {
-    //Unpack the model
-    GaussModel thisModel;
-
-    //Unpack the model
-    thisModel.ax       = gsl_vector_get(v, 0);
-    thisModel.rh       = gsl_vector_get(v, 1);
-    thisModel.metal.x  = gsl_vector_get(v, 2);
-    thisModel.metal.y  = gsl_vector_get(v, 3);
-    thisModel.metal.z  = gsl_vector_get(v, 4);
-    thisModel.setEulerAngles(gsl_vector_get(v, 5),
-                             gsl_vector_get(v, 6),
-                             gsl_vector_get(v, 7));
-    thisModel.exponant = gsl_vector_get(v, 8);
-
+double minf(GaussModel thisModel) {
     //TODO, we can reduce the integration region safley by quite a bit.
     thisModel.cube_x_min = thisModel.metal.x-100;
     thisModel.cube_x_max = thisModel.metal.x+100;
@@ -212,6 +198,10 @@ double minf(const gsl_vector * v, void *) {
     return total;
 }
 
+void onIterate(const GaussModel& m) {
+	cout << "logging functions go here..." << endl;
+}
+
 int main() {
     //Start the thread pool
     pool = new Multithreader<double>;
@@ -225,38 +215,20 @@ int main() {
 	calcVals.resize(expVals.size());
 
     //Initalise the minimizer
-    static const unsigned long nParams = 9;
-    gsl_multimin_fminimizer* minimizer =
-		gsl_multimin_fminimizer_alloc(gsl_multimin_fminimizer_nmsimplex2,nParams);
-    gsl_multimin_function minfunc;
-
-    minfunc.f = &minf;
-    minfunc.n = nParams;
-    minfunc.params = NULL;
-
-    gsl_vector *vec = gsl_vector_alloc (nParams);
-    gsl_vector_set (vec, 0, 100.0); //Ax
-    gsl_vector_set (vec, 1, 0.0); //Rh
-    gsl_vector_set (vec, 2, (nuclei.xmin+nuclei.xmax)/2); //x
-    gsl_vector_set (vec, 3, (nuclei.ymin+nuclei.ymax)/2); //y
-    gsl_vector_set (vec, 4, (nuclei.zmin+nuclei.zmax)/2); //z
-    gsl_vector_set (vec, 5, 0.0); //angle_x
-    gsl_vector_set (vec, 6, 0.0); //angle_y
-    gsl_vector_set (vec, 7, 0.0); //angle_z
-    gsl_vector_set (vec, 8, 1.0); //exponant
-
-    gsl_vector *step_size = gsl_vector_alloc (nParams);
-    gsl_vector_set (step_size, 0, 1);
-    gsl_vector_set (step_size, 1, 1);
-    gsl_vector_set (step_size, 2, 1);
-    gsl_vector_set (step_size, 3, 1);
-    gsl_vector_set (step_size, 4, 1);
-    gsl_vector_set (step_size, 5, 1);
-    gsl_vector_set (step_size, 6, 1);
-    gsl_vector_set (step_size, 7, 1);
-    gsl_vector_set (step_size, 8, 1);
-
-    gsl_multimin_fminimizer_set (minimizer, &minfunc, vec, step_size);
+	Minimiser<GaussModel> minimiser(unpackGaussModel,
+									packGaussModel,
+									fmin,
+									onIterate);
+	
+	//Set up the model
+	GaussModel gm;
+	gm.ax = 100.0;
+	gm.rh = 0.0;
+	gm.metal = Vector3((nuclei.xmin+nuclei.xmax)/2,
+					   (nuclei.ymin+nuclei.ymax)/2,
+					   (nuclei.zmin+nuclei.zmax)/2);
+	gm.setEulerAngles(0,0,0);
+	gm.exponant = 1;
 
     //Start the visualisation thread
     VisualThread visualThread;
@@ -274,13 +246,9 @@ int main() {
 	system("rm results/*");
 
     //Main loop
-    while(true) {
-        gsl_multimin_fminimizer_iterate (minimizer);
-        visualThread.fw.setCalcVals(*(calcVals.rbegin()),models.rbegin()->metal,
-									models.rbegin()->angle_x,
-									models.rbegin()->angle_y,
-									models.rbegin()->angle_z);
-    }
+	minimiser.minimise(gm);
+
     delete pool;
     return 0;
+
 }
