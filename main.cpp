@@ -9,6 +9,7 @@
 #include <vector>
 #include <boost/thread.hpp>
 #include <boost/ref.hpp>
+#include <sstream>
 
 #include "threads.hpp"
 #include "model.hpp"
@@ -41,6 +42,13 @@ vector<Vals> calcVals;
 double cube_x_min, cube_x_max;
 double cube_y_min, cube_y_max;
 double cube_z_min, cube_z_max;
+
+/********************************************************************************
+ * Logging
+ ********************************************************************************/
+
+ofstream fout;
+
 
 /********************************************************************************
  * Visuliser
@@ -105,9 +113,26 @@ double minf(const gsl_vector * v, void *) {
         total += diff*diff;
     }
     //Push the results into 
-    cout << "Pushing back results, results.size()=" << results.size() << endl;
     calcVals.push_back(results);
     models.push_back(thisModel);
+
+	//Record the results
+	fout << thisModel.ax       << " "
+		 << thisModel.rh       << " "
+		 << thisModel.metal.x  << " "
+		 << thisModel.metal.y  << " "
+		 << thisModel.metal.z  << " "
+		 << thisModel.angle_x  << " "
+		 << thisModel.angle_y  << " "
+		 << thisModel.angle_z  << " "
+		 << thisModel.exponant << endl;
+
+	stringstream fnameStream;
+	fnameStream << "results/points" << models.size() << ".log";
+	ofstream fpoints(fnameStream.str().c_str());
+	for(unsigned long i = 0;i<results.size();i++) {
+		fpoints << expVals[i] << " " << results[i] << " " << (expVals[i]-results[i]) << endl;
+	}
 
     return total;
 }
@@ -135,7 +160,7 @@ int main() {
     minfunc.params = NULL;
 
     gsl_vector *vec = gsl_vector_alloc (nParams);
-    gsl_vector_set (vec, 0, 0.0); //Ax
+    gsl_vector_set (vec, 0, 100.0); //Ax
     gsl_vector_set (vec, 1, 0.0); //Rh
     gsl_vector_set (vec, 2, (nuclei.xmin+nuclei.xmax)/2); //x
     gsl_vector_set (vec, 3, (nuclei.ymin+nuclei.ymax)/2); //y
@@ -164,9 +189,16 @@ int main() {
     visualThread.fw.setExpVals(expVals);
     boost::thread boostVisualThread(boost::ref(visualThread));
 
+	//Open the log file
+	fout.open("params.log");
+	if(!fout.is_open()) {
+		cerr << "Could not open params.log for writing" << endl;
+		return 1;
+	}
+	//Clear the results directory
+	system("rm results/*");
 
     //Main loop
-     
     while(true) {
         gsl_multimin_fminimizer_iterate (minimizer);
         visualThread.fw.setCalcVals(*(calcVals.rbegin()),models.rbegin()->metal);
