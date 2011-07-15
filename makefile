@@ -1,7 +1,7 @@
 
 VTKLIBS = -lvtkalglib -lvtkCommon -lvtkDICOMParser -lvtkexoIIc -lvtkFiltering -lvtkftgl -lvtkGenericFiltering -lvtkGeovis -lvtkHybrid -lvtkImaging -lvtkInfovis -lvtkIO -lvtkmetaio -lvtkNetCDF -lvtkParallel -lvtkproj4 -lvtkRendering -lvtksqlite -lvtksys -lvtkverdict -lvtkViews -lvtkVolumeRendering -lvtkWidgets
 
-LIBS = -lgsl -lgslcblas -L../Cuba-2.1 -lcuba -L. -lboost_thread-gcc44-mt-d-1_46_1 -lpthread
+LIBS = -lgsl -lgslcblas -L../Cuba-2.1 -lcuba -L. -lboost_thread_link -lpthread
 
 OBJS = main.cpp data.cpp model.cpp vis.cpp
 

@@ -15,7 +15,7 @@
 #define EPSABS 1e-11
 #define VERBOSE 0
 #define LAST 4
-#define MINEVAL 800
+#define MINEVAL 2000
 #define MAXEVAL 5000000
 
 #define KEY 0
@@ -113,10 +113,8 @@ int Integrand(const int *ndim, const double xx[],
 
 	double r2 = gx2 + gy2 + gz2;
 
-    //The cutoff should be small compaired to the full width half
-    //maximum of the electron gaussian
-    double cutoff2 = 0.3/this_->exponant;
-	if(r2 < cutoff2) {
+	//Prevent division by zero errors
+	if(r2 == 0) {
 		ff[0] = 0;
 		return 0;
 	}

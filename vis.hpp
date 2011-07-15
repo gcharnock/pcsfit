@@ -30,8 +30,11 @@ public:
 	void mainLoop();
 private:
     void update();
-    void updateNuclei(vtkRenderer* renderer);
-	void updateVals(vtkRenderer* renderer,const Vals& vals);
+    void updateNuclei(vtkRenderer* renderer,
+					  std::vector<vtkSmartPointer<vtkActor> >& spheres);
+	void updateVals(vtkRenderer* renderer,
+					const Vals& vals,
+					std::vector<vtkSmartPointer<vtkActor> >& spheres);
     void onTimeout();
 
 	//Threading stuff
@@ -49,6 +52,11 @@ private:
 	vtkSmartPointer<vtkRenderer> mExpRenderer;
 	vtkSmartPointer<vtkRenderWindow> mRenderWin;
 	vtkSmartPointer<vtkRenderWindowInteractor> mWindowInteractor;
+
+	//VTK iteration over collections is pretty awful. We'll store
+	//references to the spheres we create in std::vectors
+	std::vector<vtkSmartPointer<vtkActor> > mCalcSpheres;
+	std::vector<vtkSmartPointer<vtkActor> > mExpSpheres ;
 
     bool    mDataChanged;
     Vals    mExpVals;

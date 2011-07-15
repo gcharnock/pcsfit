@@ -86,7 +86,10 @@ double minf(const gsl_vector * v, void *) {
 	std::vector<boost::function<double()> > work;
 
 	for(unsigned long i = 0;i<nuclei.size();i++) {
-		work.push_back(boost::bind(&GaussModel::eval,&thisModel,nuclei[i].x,nuclei[i].y,nuclei[i].z,1e-4));
+		work.push_back(boost::bind(
+								   &GaussModel::eval,
+								   &thisModel,nuclei[i].x,nuclei[i].y,nuclei[i].z,1e-4
+								   ));
 	}
 	Vals results;
     results.resize(work.size());
@@ -123,7 +126,8 @@ int main() {
 
     //Initalise the minimizer
     static const unsigned long nParams = 9;
-    gsl_multimin_fminimizer* minimizer = gsl_multimin_fminimizer_alloc(gsl_multimin_fminimizer_nmsimplex2,nParams);
+    gsl_multimin_fminimizer* minimizer =
+		gsl_multimin_fminimizer_alloc(gsl_multimin_fminimizer_nmsimplex2,nParams);
     gsl_multimin_function minfunc;
 
     minfunc.f = &minf;
