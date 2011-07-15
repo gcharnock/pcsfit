@@ -36,6 +36,11 @@ public:
 
 FittingWindow::FittingWindow()
     : mDataChanged(true) {
+
+	mAngle_x = 0;
+	mAngle_y = 0;
+	mAngle_z = 0;
+
     // create sphere geometry
     mSphere = vtkSphereSource::New();
     mSphere->SetRadius(1.0);
@@ -85,10 +90,16 @@ void FittingWindow::setNuclei(const Nuclei& nuclei) {
     updateNuclei(mCalcRenderer,mCalcSpheres);
     updateNuclei(mExpRenderer ,mExpSpheres);
 }
-void FittingWindow::setCalcVals(const Vals& calcVals,const Vector3& metal) {
+void FittingWindow::setCalcVals(const Vals& calcVals,const Vector3& metal,
+								double angle_x,double angle_y,double angle_z) {
     mCalcVals = calcVals;
     mMetal = metal;
     mDataChanged = true;
+
+	mAngle_x = angle_x;
+	mAngle_y = angle_y;
+	mAngle_z = angle_z;
+
 }
 void FittingWindow::setExpVals(const Vals& expVals) {
     mExpVals = expVals;
@@ -119,6 +130,9 @@ void FittingWindow::update() {
     vtkActor* arrowActor = vtkActor::New();
     arrowActor->SetMapper(mArrowMapper);
     arrowActor->SetScale(4);
+	arrowActor->RotateX(mAngle_x);
+	arrowActor->RotateY(mAngle_y);
+	arrowActor->RotateZ(mAngle_z);
     arrowActor->SetPosition(mMetal.x,mMetal.y,mMetal.z);
     arrowActor->GetProperty()->SetColor(1,1,0);
 		

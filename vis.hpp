@@ -23,7 +23,8 @@ public:
     //visualised. As VTK is not thread safe the display doesn't update
     //imediately, instead these functions make a copy of the data
 	void setNuclei(const Nuclei& nuclei);
-	void setCalcVals(const Vals& calcVals,const Vector3& metal);
+	void setCalcVals(const Vals& calcVals,const Vector3& metal,
+					 double angle_x,double angle_y,double angle_z);
 	void setExpVals(const Vals& expVals);
 
 	void start();
@@ -61,6 +62,7 @@ private:
     bool    mDataChanged;
     Vals    mExpVals;
     Vals    mCalcVals;
+	double  mAngle_x,mAngle_y,mAngle_z;
 	Vector3 mMetal;
 	Nuclei  mNuclei;
 	//Where to visualise the metal

@@ -171,15 +171,15 @@ int main() {
     gsl_vector_set (vec, 8, 1.0); //exponant
 
     gsl_vector *step_size = gsl_vector_alloc (nParams);
-    gsl_vector_set (step_size, 0, 0.1);
-    gsl_vector_set (step_size, 1, 0.1);
-    gsl_vector_set (step_size, 2, 0.1);
-    gsl_vector_set (step_size, 3, 0.1);
-    gsl_vector_set (step_size, 4, 0.1);
-    gsl_vector_set (step_size, 5, 0.1);
-    gsl_vector_set (step_size, 6, 0.1);
-    gsl_vector_set (step_size, 7, 0.1);
-    gsl_vector_set (step_size, 8, 0.1);
+    gsl_vector_set (step_size, 0, 1);
+    gsl_vector_set (step_size, 1, 1);
+    gsl_vector_set (step_size, 2, 1);
+    gsl_vector_set (step_size, 3, 1);
+    gsl_vector_set (step_size, 4, 1);
+    gsl_vector_set (step_size, 5, 1);
+    gsl_vector_set (step_size, 6, 1);
+    gsl_vector_set (step_size, 7, 1);
+    gsl_vector_set (step_size, 8, 1);
 
     gsl_multimin_fminimizer_set (minimizer, &minfunc, vec, step_size);
 
@@ -201,7 +201,10 @@ int main() {
     //Main loop
     while(true) {
         gsl_multimin_fminimizer_iterate (minimizer);
-        visualThread.fw.setCalcVals(*(calcVals.rbegin()),models.rbegin()->metal);
+        visualThread.fw.setCalcVals(*(calcVals.rbegin()),models.rbegin()->metal,
+									models.rbegin()->angle_x,
+									models.rbegin()->angle_y,
+									models.rbegin()->angle_z);
     }
     delete pool;
     return 0;
