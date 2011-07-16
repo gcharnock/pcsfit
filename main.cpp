@@ -60,9 +60,9 @@ public:
 	typedef std::vector<double> PList;
 	Minimiser(boost::function<T(const PList&)> unpack,
 			  boost::function<PList(const T&)> pack,  
-			  boost::function<double(T)> fmin,		  
+			  boost::function<double(T)> min_funcion,		  
 			  boost::function<void(const T&)> logger)		  
-		: mUnpack(unpack),mPack(pack),mFMin(fmin),mLogger(logger) {
+		: mUnpack(unpack),mPack(pack),mFMin(min_funcion),mLogger(logger) {
 	}
 
 	void minimise(T startingModel) {
@@ -215,10 +215,10 @@ int main() {
 	calcVals.resize(expVals.size());
 
     //Initalise the minimizer
-	Minimiser<GaussModel> minimiser(unpackGaussModel,
-									packGaussModel,
-									fmin,
-									onIterate);
+	Minimiser<GaussModel> minimiser(&unpackGaussModel,
+									&packGaussModel,
+									&minf,
+									&onIterate);
 	
 	//Set up the model
 	GaussModel gm;

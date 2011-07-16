@@ -162,3 +162,34 @@ void GaussModel::bulkEval(const Nuclei& nuclei,Vals& vals) const {
 }
 
 
+std::vector<double> packGaussModel(const GaussModel& m) {
+	std::vector<double> vec;
+    vec.push_back(m.ax     );
+    vec.push_back(m.rh     );
+                           
+    vec.push_back(m.metal.x);
+    vec.push_back(m.metal.y);
+    vec.push_back(m.metal.z);
+                           
+    vec.push_back(m.angle_x);
+    vec.push_back(m.angle_y);
+    vec.push_back(m.angle_z);
+
+    vec.push_back(m.exponant);
+    return vec;
+}
+
+GaussModel unpackGaussModel(const std::vector<double>& v) {
+    GaussModel m;
+    m.ax      = v[0];
+    m.rh      = v[1];
+             
+    m.metal.x = v[2];
+    m.metal.y = v[3];
+    m.metal.z = v[4];
+             
+	m.setEulerAngles(v[5],v[6],v[7]);
+
+    m.exponant = v[8];
+    return m;
+}
