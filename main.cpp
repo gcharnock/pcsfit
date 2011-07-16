@@ -16,9 +16,11 @@
 #include "model.hpp"
 #include "data.hpp"
 #include "vis.hpp"
+#include "minimiser.hpp"
 
 
 using namespace std;
+using namespace boost;
 
 /*********************************************************************************
  * Global State
@@ -50,80 +52,6 @@ double cube_z_min, cube_z_max;
 
 ofstream fout;
 
-/********************************************************************************
- * minimiser class
- ********************************************************************************/
-
-template<typename T>
-class Minimiser {
-public:
-	typedef std::vector<double> PList;
-	Minimiser(boost::function<T(const PList&)> unpack,
-			  boost::function<PList(const T&)> pack,  
-			  boost::function<double(T)> min_funcion,		  
-			  boost::function<void(const T&)> logger)		  
-		: mUnpack(unpack),mPack(pack),mFMin(min_funcion),mLogger(logger) {
-	}
-
-	void minimise(T startingModel) {
-		//Unpack the starting model
-		PList plist = mPack(startingModel);
-		unsigned long nParams = plist.size();
-
-		//Initalise the minimiser
-		gsl_multimin_fminimizer* gslmin =
-			gsl_multimin_fminimizer_alloc(gsl_multimin_fminimizer_nmsimplex2,nParams);
-
-		gsl_multimin_function minfunc;
-		minfunc.f = &Minimiser::minf_static;
-		minfunc.n = nParams;
-		minfunc.params = (void*)this;
-
-		gsl_vector* vec = pList2GSLVec(plist);
-		gsl_vector* step_size = gsl_vector_alloc(plist.size());
-		
-		for(unsigned long i = 0;i<plist.size();i++) {
-			gsl_vector_set(step_size,i,plist[i] == 0 ? 1 : plist[i]*0.5);
-		}
-
-		gsl_multimin_fminimizer_set (gslmin, &minfunc, vec, step_size);
-		for(unsigned long i = 0; i<200;i++) {
-			gsl_multimin_fminimizer_iterate (gslmin);
-		}
-
-		gsl_multimin_fminimizer_free(gslmin);
-		gsl_vector_free(step_size);
-	}
-private:
-	double _minf(const gsl_vector * v) {
-		T params = mUnpack(gSLVec2pList(v));
-		mLogger(params);
-		return mFMin(params);
-	}
-	static double minf_static(const gsl_vector * v, void* _this) {
-		return ((Minimiser*)_this)->_minf(v);
-	}
-
-	static gsl_vector* pList2GSLVec(PList pList) {
-		gsl_vector* vec = gsl_vector_alloc (pList.size());
-		for(unsigned long i = 0; i<pList.size();i++) {
-			gsl_vector_set(vec,i,pList[i]);
-		}
-		return vec;
-	}
-	static PList gSLVec2pList(const gsl_vector* vec) {
-		PList retVal;
-		for(size_t i = 0;i<vec->size;i++) {
-			retVal.push_back(gsl_vector_get(vec,i));
-		}
-		return retVal;
-	}
-
-	boost::function<T(const PList&)> mUnpack;
-	boost::function<PList(const T&)> mPack;
-	boost::function<double(T)> mFMin;
-	boost::function<void(T)> mLogger;	  
-};
 
 /********************************************************************************
  * Visuliser
@@ -198,8 +126,8 @@ double minf(GaussModel thisModel) {
     return total;
 }
 
-void onIterate(const GaussModel& m) {
-	cout << "logging functions go here..." << endl;
+void onIterate(VisualThread& visualThread,const GaussModel& m) {
+    visualThread.fw.setCalcVals(*(calcVals.rbegin()),models.rbegin()->metal,m.angle_x,m.angle_y,m.angle_z);
 }
 
 int main() {
@@ -214,11 +142,6 @@ int main() {
 
 	calcVals.resize(expVals.size());
 
-    //Initalise the minimizer
-	Minimiser<GaussModel> minimiser(&unpackGaussModel,
-									&packGaussModel,
-									&minf,
-									&onIterate);
 	
 	//Set up the model
 	GaussModel gm;
@@ -235,6 +158,12 @@ int main() {
     visualThread.fw.setNuclei(nuclei);
     visualThread.fw.setExpVals(expVals);
     boost::thread boostVisualThread(boost::ref(visualThread));
+
+    //Initalise the minimizer
+	Minimiser<GaussModel> minimiser(&unpackGaussModel,
+									&packGaussModel,
+									&minf,
+									bind(onIterate,ref(visualThread),_1));
 
 	//Open the log file
 	fout.open("params.log");

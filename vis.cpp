@@ -12,7 +12,10 @@
 
 #include "vis.hpp"
 
+#define PI 3.141592654
+
 using namespace std;
+
 
 
 /********************************************************************************
@@ -71,7 +74,10 @@ FittingWindow::FittingWindow()
     //We start by visualising iteraction 0
     visualisedIteraction = 0;
 
-
+    mArrowActor = vtkActor::New();
+    mArrowActor->SetMapper(mArrowMapper);
+    mArrowActor->SetScale(4);
+    mArrowActor->GetProperty()->SetColor(1,1,0);
 }
 
 FittingWindow::~FittingWindow() {
@@ -95,6 +101,7 @@ void FittingWindow::setCalcVals(const Vals& calcVals,const Vector3& metal,
     mCalcVals = calcVals;
     mMetal = metal;
     mDataChanged = true;
+
 
 	mAngle_x = angle_x;
 	mAngle_y = angle_y;
@@ -127,18 +134,12 @@ void FittingWindow::update() {
     updateVals(mExpRenderer, mExpVals ,mExpSpheres );
 
     //Move the arrow
-    vtkActor* arrowActor = vtkActor::New();
-    arrowActor->SetMapper(mArrowMapper);
-    arrowActor->SetScale(4);
-	arrowActor->RotateX(mAngle_x);
-	arrowActor->RotateY(mAngle_y);
-	arrowActor->RotateZ(mAngle_z);
-    arrowActor->SetPosition(mMetal.x,mMetal.y,mMetal.z);
-    arrowActor->GetProperty()->SetColor(1,1,0);
+    mArrowActor->SetOrientation(mAngle_x /2/PI * 360,
+                                mAngle_y /2/PI * 360,
+                                mAngle_z /2/PI * 360);
+    mArrowActor->SetPosition(mMetal.x,mMetal.y,mMetal.z);
 		
-    mCalcRenderer->AddActor(arrowActor);
-
-    arrowActor->Delete();
+    mCalcRenderer->AddActor(mArrowActor);
 
 	mRenderWin->Render();
 }

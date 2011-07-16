@@ -59,6 +59,8 @@ private:
 	std::vector<vtkSmartPointer<vtkActor> > mCalcSpheres;
 	std::vector<vtkSmartPointer<vtkActor> > mExpSpheres ;
 
+    vtkSmartPointer<vtkActor> mArrowActor;
+
     bool    mDataChanged;
     Vals    mExpVals;
     Vals    mCalcVals;
