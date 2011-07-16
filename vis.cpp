@@ -160,11 +160,12 @@ void FittingWindow::updateNuclei(vtkRenderer* renderer,
 void FittingWindow::updateVals(vtkRenderer* renderer,
 							   const Vals& vals,
 							   std::vector<vtkSmartPointer<vtkActor> >& spheres) {
+    double maxAbs = abs(abs(mExpVals.max) > abs(mExpVals.min) ? mExpVals.max : mExpVals.min);
 	for(unsigned long i = 0;i<vals.size();i++) {
 		vtkSmartPointer<vtkActor> actor = spheres[i];
-        double c = (vals[i]-mExpVals.min)/(mExpVals.max-mExpVals.min);
+        double c = vals[i]/(maxAbs*2)+0.5;
         actor->SetScale(0.1+0.1*sqrt(abs(vals[i])));
-        actor->GetProperty()->SetColor(c,0,1-c);
+        actor->GetProperty()->SetColor(0,c,1-c);
 	}
 }
 

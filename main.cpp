@@ -98,8 +98,14 @@ double minf(GaussModel thisModel) {
     double total = 0;
 	
     for(unsigned long i = 0;i<expVals.size();i++) {
-        double diff = expVals[i] - results[i];
-        total += diff*diff;
+        double g = exp(-nuclei[i].x*nuclei[i].x
+                       -nuclei[i].y*nuclei[i].y
+                       -nuclei[i].z*nuclei[i].z);
+        total+=g;
+        if(expVals[i] > 1) {
+            double diff = expVals[i] - results[i];
+            total += diff*diff;
+        }
     }
     //Push the results into 
     calcVals.push_back(results);
