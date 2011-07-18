@@ -3,6 +3,8 @@
 #include "data.hpp"
 #include "cuba.h"
 #include <utility>
+#include <cassert>
+#include <cmath>
 
 #include <iostream>
 
@@ -99,7 +101,7 @@ GaussModel::GaussModel() {
 
 	setEulerAngles(0,0,0);
 
-	exponant = 1;
+	stddev = 1;
 
 	cube_x_min = -5; cube_x_max = 5;
 	cube_y_min = -5; cube_y_max = 5;
@@ -152,8 +154,9 @@ int Integrand(const int *ndim, const double xx[],
 
 	double r = sqrt(r2);
 	double r5 = r2*r2*r;
-
-	double g = exp(-x*x-y*y-z*z);
+    
+    double stddev2 = this_->stddev*this_->stddev;
+	double g = exp((-x*x-y*y-z*z)/(2*stddev2)) / sqrt(2*M_PI*stddev2);
 	double f = (this_->ax*(2*gz2 - gx2 - gy2) + this_->rh*(3.0/2.0)*(gx2-gy2))/r5;
 
 
@@ -163,6 +166,7 @@ int Integrand(const int *ndim, const double xx[],
 		(this_->cube_x_max - this_->cube_x_min)*
 		(this_->cube_y_max - this_->cube_y_min)*
 		(this_->cube_z_max - this_->cube_z_min);
+    assert(isfinite(ff[0]));
 
 	return 0;
 }
@@ -182,6 +186,7 @@ double GaussModel::eval(double x,double y,double z) const {
 		  EPSREL, EPSABS, VERBOSE | LAST,
 		  MINEVAL, MAXEVAL, KEY,
 		  &nregions, &neval, &fail, integral, error, prob);
+    assert(!isinf(*integral));
 	return *integral;
 }
 
@@ -198,7 +203,7 @@ std::vector<double> packGaussModel(const GaussModel& m) {
     vec.push_back(m.angle_y);
     vec.push_back(m.angle_z);
 
-    vec.push_back(m.exponant);
+    vec.push_back(m.stddev);
     return vec;
 }
 
@@ -213,6 +218,6 @@ GaussModel unpackGaussModel(const std::vector<double>& v) {
              
 	m.setEulerAngles(v[5],v[6],v[7]);
 
-    m.exponant = v[8];
+    m.stddev = v[8];
     return m;
 }

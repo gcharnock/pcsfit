@@ -2,6 +2,7 @@
 #include "data.hpp"
 #include <cmath>
 #include <vector>
+#include <cassert>
 
 class Nuclei;
 class Vals;
@@ -45,6 +46,10 @@ public:
         mat[6]  = -AD * E + B * F;
         mat[7]  =  AD * F + B * E;
         mat[8] =   A * C;
+
+        for(unsigned long i = 0;i<9;i++) {
+            assert(std::isfinite(mat[i]));
+        }
     }
 	//Evaluate at the points in Nuclei and dump the values in
 	//vals. Assume that vals is already allocated to the coorect size.
@@ -85,14 +90,11 @@ public:
 	//This method is thread safe due to being const
 	double eval(double x,double y,double z) const;
 
-	double exponant;
+	double stddev;
 
 	double cube_x_min, cube_x_max;
 	double cube_y_min, cube_y_max;
 	double cube_z_min, cube_z_max;
-
-	//3x3 rotation matrix
-	double mat[9];
 };
 std::vector<double> packGaussModel(const GaussModel& m);
 GaussModel unpackGaussModel(const std::vector<double>& v);

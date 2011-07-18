@@ -119,7 +119,7 @@ double minf(GaussModel thisModel) {
 		 << thisModel.angle_x  << " "
 		 << thisModel.angle_y  << " "
 		 << thisModel.angle_z  << " "
-		 << thisModel.exponant << endl;
+		 << thisModel.stddev << endl;
 
 	stringstream fnameStream;
 	fnameStream << "results/points" << models.size() << ".log";
@@ -156,7 +156,7 @@ int main() {
 					   (nuclei.ymin+nuclei.ymax)/2,
 					   (nuclei.zmin+nuclei.zmax)/2);
 	gm.setEulerAngles(0,0,0);
-	gm.exponant = 1;
+	gm.stddev = 1;
 
     //Start the visualisation thread
     VisualThread visualThread;
