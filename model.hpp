@@ -5,6 +5,26 @@
 class Nuclei;
 class Vals;
 
+class PointModel {
+public:
+    PointModel();
+    ~PointModel();
+
+    double eval(double x, double y, double z) const;
+    
+    Vector3 metal;
+    
+    double ax;
+    double rh;
+    
+    void setEulerAngles(double _angle_x,double _angle_y,double _angle_z);
+    double angle_x,angle_y,angle_z;
+
+    double mat[9];
+};
+std::vector<double> packPointModel(const PointModel& m);
+PointModel unpackPointModel(const std::vector<double>& v);
+
 class GaussModel {
 public:
 	GaussModel();

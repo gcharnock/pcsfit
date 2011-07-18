@@ -31,8 +31,8 @@ public:
 	void mainLoop();
 private:
     void update();
-    void updateNuclei(vtkRenderer* renderer,
-					  std::vector<vtkSmartPointer<vtkActor> >& spheres);
+    void updateNuclei(std::vector<vtkSmartPointer<vtkActor> >& spheres,
+                      bool wireframe);
 	void updateVals(vtkRenderer* renderer,
 					const Vals& vals,
 					std::vector<vtkSmartPointer<vtkActor> >& spheres);
@@ -50,7 +50,6 @@ private:
 	vtkSmartPointer<vtkPolyDataMapper> mArrowMapper;
 
 	vtkSmartPointer<vtkRenderer> mCalcRenderer;
-	vtkSmartPointer<vtkRenderer> mExpRenderer;
 	vtkSmartPointer<vtkRenderWindow> mRenderWin;
 	vtkSmartPointer<vtkRenderWindowInteractor> mWindowInteractor;
 

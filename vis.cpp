@@ -48,8 +48,8 @@ FittingWindow::FittingWindow()
     mSphere = vtkSphereSource::New();
     mSphere->SetRadius(1.0);
     mSphere->SetCenter(0,0,0);
-    mSphere->SetThetaResolution(18);
-    mSphere->SetPhiResolution(18);
+    mSphere->SetThetaResolution(9);
+    mSphere->SetPhiResolution(9);
 
     mArrow = vtkArrowSource::New();
 
@@ -60,12 +60,10 @@ FittingWindow::FittingWindow()
     mArrowMapper = vtkPolyDataMapper::New();
     mArrowMapper->SetInput(mArrow->GetOutput());
 
-    mCalcRenderer = vtkRenderer::New(); mCalcRenderer->SetViewport(0  ,0,0.5,1);
-    mExpRenderer  = vtkRenderer::New(); mExpRenderer-> SetViewport(0.5,0,1  ,1);
+    mCalcRenderer = vtkRenderer::New();
 
     mRenderWin  = vtkRenderWindow::New();
     mRenderWin->AddRenderer(mCalcRenderer);
-    mRenderWin->AddRenderer(mExpRenderer);
 
     mWindowInteractor = vtkRenderWindowInteractor::New();
     mRenderWin->SetInteractor(mWindowInteractor);
@@ -93,8 +91,8 @@ void FittingWindow::onTimeout() {
 
 void FittingWindow::setNuclei(const Nuclei& nuclei) {
     mNuclei = nuclei;
-    updateNuclei(mCalcRenderer,mCalcSpheres);
-    updateNuclei(mExpRenderer ,mExpSpheres);
+    updateNuclei(mCalcSpheres,true);
+    updateNuclei(mExpSpheres ,false);
 }
 void FittingWindow::setCalcVals(const Vals& calcVals,const Vector3& metal,
 								double angle_x,double angle_y,double angle_z) {
@@ -131,7 +129,7 @@ void FittingWindow::mainLoop() {
 void FittingWindow::update() {
     cout << "FittingWindow::update()" << endl;
     updateVals(mCalcRenderer,mCalcVals,mCalcSpheres);
-    updateVals(mExpRenderer, mExpVals ,mExpSpheres );
+    updateVals(mCalcRenderer,mExpVals ,mExpSpheres );
 
     //Move the arrow
     mArrowActor->SetOrientation(mAngle_x /2/PI * 360,
@@ -144,17 +142,23 @@ void FittingWindow::update() {
 	mRenderWin->Render();
 }
 
-void FittingWindow::updateNuclei(vtkRenderer* renderer,
-								 std::vector<vtkSmartPointer<vtkActor> >& actors) {
-    cout << "FittingWindow::updateNuclei(" << renderer << "); mNuclei.size() = " << mNuclei.size() << endl;
+void FittingWindow::updateNuclei(std::vector<vtkSmartPointer<vtkActor> >& actors,
+                                 bool wireframe) {
     for(unsigned long i = 0; i<mNuclei.size();i++) {
         vtkSmartPointer<vtkActor> sphereActor = vtkActor::New();
         sphereActor->SetMapper(mSphereMapper);
+        if(/*wireframe*/ i%2 == 0) {
+            sphereActor->GetProperty()->SetRepresentationToWireframe();
+        } else {
+            sphereActor->GetProperty()->SetRepresentationToSurface();
+        }
+
+
         sphereActor->SetPosition(mNuclei[i].x,mNuclei[i].y,mNuclei[i].z);
-        renderer->AddActor(sphereActor);
+        mCalcRenderer->AddActor(sphereActor);
 		actors.push_back(sphereActor);
     }
-    renderer->ResetCameraClippingRange();
+    mCalcRenderer->ResetCameraClippingRange();
 }
 
 void FittingWindow::updateVals(vtkRenderer* renderer,
@@ -163,9 +167,15 @@ void FittingWindow::updateVals(vtkRenderer* renderer,
     double maxAbs = abs(abs(mExpVals.max) > abs(mExpVals.min) ? mExpVals.max : mExpVals.min);
 	for(unsigned long i = 0;i<vals.size();i++) {
 		vtkSmartPointer<vtkActor> actor = spheres[i];
+
         double c = vals[i]/(maxAbs*2)+0.5;
         actor->SetScale(0.1+0.1*sqrt(abs(vals[i])));
         actor->GetProperty()->SetColor(0,c,1-c);
+        if(/*wireframe*/ i%2 == 0) {
+            actor->GetProperty()->SetRepresentationToWireframe();
+        } else {
+            actor->GetProperty()->SetRepresentationToSurface();
+        }
 	}
 }
 

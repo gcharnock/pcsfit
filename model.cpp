@@ -20,13 +20,113 @@
 
 #define KEY 0
 
-
 using namespace std;
 
 typedef pair<const GaussModel*,double*> pairModelDouble;
 
+PointModel::PointModel() {
+	ax = 1;
+	rh = 0; 
+
+	metal.x = 0;
+	metal.y = 0;
+	metal.z = 0;
+
+	setEulerAngles(0,0,0);
+
+	ax = 1;
+	rh = 0;
+}
+
+PointModel::~PointModel() {
+
+}
+
+void PointModel::setEulerAngles(double _angle_x,double _angle_y,double _angle_z) {
+    angle_x=_angle_x;
+    angle_y=_angle_y;
+    angle_z=_angle_z;
+
+	//From the matrix and quaternion FAQ
+	double A       = cos(angle_x);
+    double B       = sin(angle_x);
+    double C       = cos(angle_y);
+    double D       = sin(angle_y);
+    double E       = cos(angle_z);
+    double F       = sin(angle_z);
+    double AD      = A * D;
+    double BD      = B * D;
+    mat[0]  =   C * E;
+    mat[1]  =  -C * F;
+    mat[2]  =   D;
+
+    mat[3]  =  BD * E + A * F;
+    mat[4]  = -BD * F + A * E;
+    mat[5]  =  -B * C;
+    mat[6]  = -AD * E + B * F;
+    mat[7]  =  AD * F + B * E;
+    mat[8] =   A * C;
+}
 
 
+double PointModel::eval(double x,double y,double z) const {
+	double gx = x - metal.x;
+	double gy = y - metal.y;
+	double gz = z - metal.z;
+
+	double gxr = mat[0]*gx + mat[1]*gy + mat[2]*gz;
+	double gyr = mat[3]*gx + mat[4]*gy + mat[5]*gz;
+	double gzr = mat[6]*gx + mat[7]*gy + mat[8]*gz;
+
+	double gx2 = gxr*gxr;
+	double gy2 = gyr*gyr;
+	double gz2 = gzr*gzr;
+
+	double r2 = gx2 + gy2 + gz2;
+
+	//Prevent division by zero errors
+	if(r2 == 0) {
+		return 0;
+	}
+
+	double r = sqrt(r2);
+	double r5 = r2*r2*r;
+
+	return (ax*(2*gz2 - gx2 - gy2) + rh*(3.0/2.0)*(gx2-gy2))/r5;
+}
+
+
+std::vector<double> packPointModel(const GaussModel& m) {
+	std::vector<double> vec;
+    vec.push_back(m.ax     );
+    vec.push_back(m.rh     );
+                           
+    vec.push_back(m.metal.x);
+    vec.push_back(m.metal.y);
+    vec.push_back(m.metal.z);
+                           
+    vec.push_back(m.angle_x);
+    vec.push_back(m.angle_y);
+    vec.push_back(m.angle_z);
+
+    return vec;
+}
+
+PointModel unpackPointModel(const std::vector<double>& v) {
+    PointModel m;
+    m.ax      = v[0];
+    m.rh      = v[1];
+             
+    m.metal.x = v[2];
+    m.metal.y = v[3];
+    m.metal.z = v[4];
+             
+	m.setEulerAngles(v[5],v[6],v[7]);
+
+    return m;
+}
+
+//================================================================================//
 
 GaussModel::GaussModel() {
 	ax = 1;
