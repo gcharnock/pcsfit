@@ -3,7 +3,6 @@
 #include "data.hpp"
 #include "cuba.h"
 #include <utility>
-#include <math.h>
 
 #include <iostream>
 
@@ -11,8 +10,8 @@
 
 #define NDIM 3
 #define NCOMP 1
-#define EPSREL 1e-11
-#define EPSABS 1e-11
+#define EPSREL 1e-5
+#define EPSABS 1e-5
 #define VERBOSE 0
 #define LAST 4
 #define MINEVAL 2000
@@ -25,44 +24,9 @@ using namespace std;
 typedef pair<const GaussModel*,double*> pairModelDouble;
 
 PointModel::PointModel() {
-	ax = 1;
-	rh = 0; 
-
-	metal.x = 0;
-	metal.y = 0;
-	metal.z = 0;
-
-	setEulerAngles(0,0,0);
 }
 
 PointModel::~PointModel() {
-
-}
-
-void PointModel::setEulerAngles(double _angle_x,double _angle_y,double _angle_z) {
-    angle_x=_angle_x;
-    angle_y=_angle_y;
-    angle_z=_angle_z;
-
-	//From the matrix and quaternion FAQ
-	double A       = cos(angle_x);
-    double B       = sin(angle_x);
-    double C       = cos(angle_y);
-    double D       = sin(angle_y);
-    double E       = cos(angle_z);
-    double F       = sin(angle_z);
-    double AD      = A * D;
-    double BD      = B * D;
-    mat[0]  =   C * E;
-    mat[1]  =  -C * F;
-    mat[2]  =   D;
-
-    mat[3]  =  BD * E + A * F;
-    mat[4]  = -BD * F + A * E;
-    mat[5]  =  -B * C;
-    mat[6]  = -AD * E + B * F;
-    mat[7]  =  AD * F + B * E;
-    mat[8] =   A * C;
 }
 
 
@@ -146,33 +110,6 @@ GaussModel::~GaussModel() {
 
 }
 
-void GaussModel::setEulerAngles(double _angle_x,double _angle_y,double _angle_z) {
-    angle_x=_angle_x;
-    angle_y=_angle_y;
-    angle_z=_angle_z;
-
-	//From the matrix and quaternion FAQ
-	double A       = cos(angle_x);
-    double B       = sin(angle_x);
-    double C       = cos(angle_y);
-    double D       = sin(angle_y);
-    double E       = cos(angle_z);
-    double F       = sin(angle_z);
-    double AD      = A * D;
-    double BD      = B * D;
-    mat[0]  =   C * E;
-    mat[1]  =  -C * F;
-    mat[2]  =   D;
-
-    mat[3]  =  BD * E + A * F;
-    mat[4]  = -BD * F + A * E;
-    mat[5]  =  -B * C;
-    mat[6]  = -AD * E + B * F;
-    mat[7]  =  AD * F + B * E;
-    mat[8] =   A * C;
-}
-
-
 //Since we need to pass this function to a C api it can't actually be
 //a member function. We'll pass the this pointer explicitly to fake a
 //member
@@ -231,7 +168,7 @@ int Integrand(const int *ndim, const double xx[],
 }
 
 
-double GaussModel::eval(double x,double y,double z,double epsAbs) const {
+double GaussModel::eval(double x,double y,double z) const {
 	double nuclearLocation[3];
 	nuclearLocation[0] = x;
 	nuclearLocation[1] = y;
@@ -242,19 +179,11 @@ double GaussModel::eval(double x,double y,double z,double epsAbs) const {
 
 	pairModelDouble p(this,nuclearLocation);
 	Cuhre(NDIM, NCOMP, Integrand, (void*)&p,
-		  EPSREL, epsAbs, VERBOSE | LAST,
+		  EPSREL, EPSABS, VERBOSE | LAST,
 		  MINEVAL, MAXEVAL, KEY,
 		  &nregions, &neval, &fail, integral, error, prob);
 	return *integral;
 }
-
-void GaussModel::bulkEval(const Nuclei& nuclei,Vals& vals) const {
-	for(unsigned long i=0;i<nuclei.size();i++) {
-		vals[i] = eval(nuclei[i].x,nuclei[i].y,nuclei[i].z,1e-4);
-	}
-	vals.updateMinMax();
-}
-
 
 std::vector<double> packGaussModel(const GaussModel& m) {
 	std::vector<double> vec;

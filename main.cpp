@@ -84,7 +84,7 @@ double minf(GaussModel thisModel) {
 	for(unsigned long i = 0;i<nuclei.size();i++) {
 		work.push_back(boost::bind(
 								   &GaussModel::eval,
-								   &thisModel,nuclei[i].x,nuclei[i].y,nuclei[i].z,1e-4
+								   &thisModel,nuclei[i].x,nuclei[i].y,nuclei[i].z
 								   ));
 	}
 	Vals results;

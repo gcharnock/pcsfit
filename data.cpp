@@ -107,7 +107,8 @@ double rfloat() {
 //and evaulating a random model. Good for testing how vunerable we are
 //to local minima
 
-pair<Nuclei,Vals> fakeData(GaussModel* gaussModel,unsigned long count) {
+template<typename Model>
+pair<Nuclei,Vals> fakeData(Model* model,unsigned long count) {
     Nuclei nuclei;
     Vals vals;
 
@@ -120,7 +121,7 @@ pair<Nuclei,Vals> fakeData(GaussModel* gaussModel,unsigned long count) {
 		p.z = rfloat();
 
 		nuclei.push_back(p);
-        vals.push_back(gaussModel->eval(p.x,p.y,p.z,1e-3));
+        vals.push_back(model->eval(p.x,p.y,p.z));
 	}
 
 	nuclei.updateMinMax();

@@ -58,6 +58,7 @@ private:
 		T params = mUnpack(gSLVec2pList(v));
         double result = mFMin(params);
 		mLogger(params);
+        assert(std::isinf(result));
 		return result;
 	}
 	static double minf_static(const gsl_vector * v, void* _this) {
