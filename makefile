@@ -13,7 +13,7 @@ HEADERS = minimiser.hpp
 INCS = -I../Cuba-2.1 -I/usr/include/vtk-5.4/ -I../../src/boost_1_46_1
 
 #CFLAGS = -O3 -ffast-math -Wno-deprecated
-CFLAGS = -g -Wno-deprecated
+CFLAGS = -g -Wno-deprecated -std=c++0x 
 
 all:gauss point
 

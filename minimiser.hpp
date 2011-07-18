@@ -17,7 +17,7 @@ public:
 		: mUnpack(unpack),mPack(pack),mFMin(min_funcion),mLogger(logger) {
 	}
 
-	void minimise(T startingModel) {
+	double minimise(T startingModel) {
 		//Unpack the starting model
 		PList plist = mPack(startingModel);
 		unsigned long nParams = plist.size();
@@ -39,12 +39,14 @@ public:
 		}
 
 		gsl_multimin_fminimizer_set (gslmin, &minfunc, vec, step_size);
-		for(unsigned long i = 0; true;i++) {
+		for(unsigned long i = 0; i<1000;i++) {
 			gsl_multimin_fminimizer_iterate (gslmin);
 		}
 
+        double min = gsl_multimin_fminimizer_minimum(gslmin);
 		gsl_multimin_fminimizer_free(gslmin);
 		gsl_vector_free(step_size);
+        return min;
 	}
 private:
 	double _minf(const gsl_vector * v) {
