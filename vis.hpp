@@ -1,5 +1,5 @@
 
-#include <vtkCommand.h>
+#include "vtkCommand.h"
 #include "vtkSmartPointer.h"
 #include "vtkSphereSource.h"
 #include "vtkArrowSource.h"
