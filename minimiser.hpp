@@ -17,7 +17,7 @@ public:
 		: mUnpack(unpack),mPack(pack),mFMin(min_funcion),mLogger(logger) {
 	}
 
-	double minimise(T startingModel) {
+    std::pair<double,T> minimise(T startingModel) {
 		//Unpack the starting model
 		PList plist = mPack(startingModel);
 		unsigned long nParams = plist.size();
@@ -44,9 +44,14 @@ public:
 		}
 
         double min = gsl_multimin_fminimizer_minimum(gslmin);
+        gsl_vector* minVec = gsl_multimin_fminimizer_x(gslmin);
+        T best_model = mUnpack(gSLVec2pList(minVec));
+
 		gsl_multimin_fminimizer_free(gslmin);
 		gsl_vector_free(step_size);
-        return min;
+
+
+        return std::pair<double,T>(min,best_model);
 	}
 private:
 	double _minf(const gsl_vector * v) {

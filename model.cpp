@@ -33,9 +33,6 @@ PointModel::PointModel() {
 	metal.z = 0;
 
 	setEulerAngles(0,0,0);
-
-	ax = 1;
-	rh = 0;
 }
 
 PointModel::~PointModel() {
@@ -137,9 +134,6 @@ GaussModel::GaussModel() {
 	metal.z = 0;
 
 	setEulerAngles(0,0,0);
-
-	ax = 1;
-	rh = 0;
 
 	exponant = 1;
 

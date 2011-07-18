@@ -8,7 +8,6 @@
 #include <gsl/gsl_multimin.h>
 #include <vector>
 #include <boost/thread.hpp>
-#include <boost/ref.hpp>
 #include <sstream>
 
 #include "foreach.hpp"
@@ -133,7 +132,7 @@ double minf(GaussModel thisModel) {
 }
 
 void onIterate(VisualThread& visualThread,const GaussModel& m) {
-    visualThread.fw.setCalcVals(*(calcVals.rbegin()),models.rbegin()->metal,m.angle_x,m.angle_y,m.angle_z);
+    visualThread.fw.setCalcVals(*(calcVals.rbegin()),m.metal,m.angle_x,m.angle_y,m.angle_z);
 }
 
 int main() {
@@ -169,7 +168,7 @@ int main() {
 	Minimiser<GaussModel> minimiser(&unpackGaussModel,
 									&packGaussModel,
 									&minf,
-									bind(onIterate,ref(visualThread),_1));
+									bind(onIterate,boost::ref(visualThread),_1));
 
 	//Open the log file
 	fout.open("params.log");
