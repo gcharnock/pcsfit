@@ -96,7 +96,7 @@ double PointModel::eval(double x,double y,double z) const {
 }
 
 
-std::vector<double> packPointModel(const GaussModel& m) {
+std::vector<double> packPointModel(const PointModel& m) {
 	std::vector<double> vec;
     vec.push_back(m.ax     );
     vec.push_back(m.rh     );
