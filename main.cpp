@@ -70,14 +70,6 @@ private:
 bool threadExit = false;
 
 double minf(GaussModel thisModel) {
-    //TODO, we can reduce the integration region safley by quite a bit.
-    thisModel.cube_x_min = thisModel.metal.x-100;
-    thisModel.cube_x_max = thisModel.metal.x+100;
-    thisModel.cube_y_min = thisModel.metal.y-100;
-    thisModel.cube_y_max = thisModel.metal.y+100;
-    thisModel.cube_z_min = thisModel.metal.z-100;
-    thisModel.cube_z_max = thisModel.metal.z+100;
-
 	//Prepare the work
 	std::vector<boost::function<double()> > work;
 
@@ -136,6 +128,7 @@ void onIterate(VisualThread& visualThread,const GaussModel& m) {
 }
 
 int main() {
+
     //Start the thread pool
     pool = new Multithreader<double>;
 

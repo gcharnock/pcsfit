@@ -23,7 +23,23 @@
 
 using namespace std;
 
-typedef pair<const GaussModel*,double*> pairModelDouble;
+//Used to pass information to Intergral though the C code
+struct IntegralDetails {
+    const GaussModel* model;
+    
+    double x;
+    double y;
+    double z;
+    
+    double xmax;
+    double xmin;
+               
+    double ymax;
+    double ymin;
+               
+    double zmax;
+    double zmin;
+};
 
 PointModel::PointModel() {
 }
@@ -102,10 +118,6 @@ GaussModel::GaussModel() {
 	setEulerAngles(0,0,0);
 
 	stddev = 1;
-
-	cube_x_min = -5; cube_x_max = 5;
-	cube_y_min = -5; cube_y_max = 5;
-	cube_z_min = -5; cube_z_max = 5;
 }
 
 GaussModel::~GaussModel() {
@@ -117,22 +129,21 @@ GaussModel::~GaussModel() {
 //member
 int Integrand(const int *ndim, const double xx[],
 			  const int *ncomp, double ff[], void *userdata) {
-	pairModelDouble* p = (pairModelDouble*)userdata;
-	const GaussModel* this_ = p->first;
-	double* nuclearLocation = p->second;
+    IntegralDetails* intDet = (IntegralDetails*)userdata;
+	const GaussModel* this_ = intDet->model;
 
 	//Apply the transformation from the unit cube [0,1]^2. x,y,z is
 	//the dummy variable in molecular coordinates
-	double x = xx[0]*(this_->cube_x_max - this_->cube_x_min) + this_->cube_x_min;
-	double y = xx[1]*(this_->cube_y_max - this_->cube_y_min) + this_->cube_y_min;
-	double z = xx[2]*(this_->cube_z_max - this_->cube_z_min) + this_->cube_z_min;
+	double x = xx[0]*(intDet->xmax - intDet->xmin) + intDet->xmin;
+	double y = xx[1]*(intDet->ymax - intDet->ymin) + intDet->ymin;
+	double z = xx[2]*(intDet->zmax - intDet->zmin) + intDet->zmin;
 
 	//The vector from the nucleous to the metal (we would use this as
 	//the input to the point model). As we are convolving, subtract
 	//the dummy variable
-	double gx = (this_->metal.x - nuclearLocation[0]) - x;
-	double gy = (this_->metal.y - nuclearLocation[1]) - y;
-	double gz = (this_->metal.z - nuclearLocation[2]) - z;
+	double gx = (this_->metal.x - intDet->x) - x;
+	double gy = (this_->metal.y - intDet->y) - y;
+	double gz = (this_->metal.z - intDet->z) - z;
 
 	const double* mat = this_->mat;
 
@@ -163,9 +174,9 @@ int Integrand(const int *ndim, const double xx[],
 	double result = g * f;
 	//Scale the result
 	ff[0] = result * 
-		(this_->cube_x_max - this_->cube_x_min)*
-		(this_->cube_y_max - this_->cube_y_min)*
-		(this_->cube_z_max - this_->cube_z_min);
+		(intDet->xmax - intDet->xmin)*
+		(intDet->ymax - intDet->ymin)*
+		(intDet->zmax - intDet->zmin);
     assert(isfinite(ff[0]));
 
 	return 0;
@@ -173,20 +184,32 @@ int Integrand(const int *ndim, const double xx[],
 
 
 double GaussModel::eval(double x,double y,double z) const {
-	double nuclearLocation[3];
-	nuclearLocation[0] = x;
-	nuclearLocation[1] = y;
-	nuclearLocation[2] = z;
+    IntegralDetails intDet;
+    intDet.model = this;
+
+    intDet.x = x;
+    intDet.y = y;
+    intDet.z = z;
+
+    intDet.xmax = x+5*stddev;
+    intDet.xmin = x-5*stddev;
+    
+    intDet.ymax = y+5*stddev;
+    intDet.ymin = y-5*stddev;
+    
+    intDet.zmax = z+5*stddev;
+    intDet.zmin = z-5*stddev;
 
 	int nregions, neval, fail;
 	double integral[1], error[1], prob[1];
 
-	pairModelDouble p(this,nuclearLocation);
-	Cuhre(NDIM, NCOMP, Integrand, (void*)&p,
+
+	Cuhre(NDIM, NCOMP, Integrand, (void*)&intDet,
 		  EPSREL, EPSABS, VERBOSE | LAST,
 		  MINEVAL, MAXEVAL, KEY,
 		  &nregions, &neval, &fail, integral, error, prob);
-    assert(!isinf(*integral));
+
+    assert(isfinite(*integral));
 	return *integral;
 }
 
