@@ -71,7 +71,7 @@ double PointModel::eval(double x,double y,double z) const {
 	double r = sqrt(r2);
 	double r5 = r2*r2*r;
 
-	return (ax*(2*gz2 - gx2 - gy2) + rh*(3.0/2.0)*(gx2-gy2))/r5;
+	return (   ax*(2*gz2 - gx2 - gy2) + rh*(3.0/2.0)*(gx2-gy2)  )/r5/M_PI/12;
 }
 
 

@@ -74,9 +74,13 @@ ofstream fout;
 template<typename M> //M stands for Model
 class NumericalExperiment {
 public:
-	NumericalExperiment(const Nuclei& _nuclei,const Vals& _expVals,bool withGUI)
-		: minimiser(&M::unpack,
-					&M::pack,
+	NumericalExperiment(const Nuclei& _nuclei,
+						const Vals& _expVals,
+						bool withGUI,
+						boost::function<M(const vector<double>&)> unpack,
+						boost::function<vector<double>(const M&)> pack)
+		: minimiser(unpack,
+					pack,
 					[=](const M& m){return this->minf(m);},
 					[=](const M& m){this->onIterate(m);}),
 		  nuclei(_nuclei),
@@ -98,6 +102,10 @@ public:
 		return  minimiser.minimise(input);
 	}
 	double minf(const M& thisModel) {
+		static int paused = 0;
+		if(paused > 2) sleep(1);
+		paused++;
+
 		//Prepare the work
 		std::vector<boost::function<double()> > work;
 
@@ -117,15 +125,13 @@ public:
 		double total = 0;
 	
 		for(unsigned long i = 0;i<expVals.size();i++) {
-			double g = exp(-nuclei[i].x*nuclei[i].x
-						   -nuclei[i].y*nuclei[i].y
-						   -nuclei[i].z*nuclei[i].z);
-			total+=g;
 			if(expVals[i] > 1) {
 				double diff = expVals[i] - results[i];
 				total += diff*diff;
 			}
 		}
+
+		calcVals = results;
 
 		//Record the results
 		fout << total << "\t\t" <<  thisModel << endl;
@@ -227,14 +233,38 @@ int main(int argc,char** argv) {
 
 	if(modelType == "point") {
 		PointModel pm;
-		pm.ax = -5889.0;  
+		pm.ax = -5889.0 *100;  
 		pm.rh =  -5491.0;
 		pm.metal = Vector3(4.165,18.875,17.180);/*Vector3((nuclei.xmin+nuclei.xmax)/2,
 						   (nuclei.ymin+nuclei.ymax)/2,
 						   (nuclei.zmin+nuclei.zmax)/2);*/
-		pm.setEulerAngles(0,0,0);
+		pm.setEulerAngles(4.26073, 1.18864, -3.54324);
 
-		NumericalExperiment<PointModel> p_exp(nuclei,expVals,variablesMap.count("gui") > 0);
+		NumericalExperiment<PointModel> p_exp(nuclei,expVals,variablesMap.count("gui") > 0,
+											  [=](std::vector<double> v){
+												  PointModel m;
+												  m.ax      = v[0];
+												  m.rh      = v[1];
+												  
+												  m.metal.x = 4.165;
+												  m.metal.y = 18.875;
+												  m.metal.z = 17.180;
+												  
+												  m.setEulerAngles(v[2],v[3],v[4]);
+												  
+												  return m;
+											  },
+											  [=](const PointModel& m){
+												  	std::vector<double> vec;
+													vec.push_back(m.ax     );
+													vec.push_back(m.rh     );
+													
+													vec.push_back(m.angle_x);
+													vec.push_back(m.angle_y);
+													vec.push_back(m.angle_z);
+													
+													return vec;
+											  });
 		p_exp.minimise(pm);
 	} else if(variablesMap["model"].as<string>() == "gauss") {
 		GaussModel gm;
@@ -245,7 +275,33 @@ int main(int argc,char** argv) {
 						   (nuclei.zmin+nuclei.zmax)/2);
 		gm.setEulerAngles(0,0,0);
 		gm.stddev = 1;
-		NumericalExperiment<GaussModel> g_exp(nuclei,expVals,variablesMap.count("gui") > 0);
+		NumericalExperiment<GaussModel> g_exp(nuclei,expVals,variablesMap.count("gui") > 0,
+											  [=](std::vector<double> v){
+												  GaussModel m;
+												  m.ax      = v[0];
+												  m.rh      = v[1];
+												  
+												  m.metal.x = 4.165;
+												  m.metal.y = 18.875;
+												  m.metal.z = 17.180;
+												  
+												  m.setEulerAngles(v[2],v[3],v[4]);
+												  
+												  m.stddev = v[5];
+												  return m;
+											  },
+											  [=](const GaussModel& m){
+												  	std::vector<double> vec;
+													vec.push_back(m.ax     );
+													vec.push_back(m.rh     );
+													
+													vec.push_back(m.angle_x);
+													vec.push_back(m.angle_y);
+													vec.push_back(m.angle_z);
+													
+													vec.push_back(m.stddev);
+													return vec;
+											  });
 
 		g_exp.minimise(gm);
 	} else {

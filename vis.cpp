@@ -48,8 +48,8 @@ FittingWindow::FittingWindow()
     mSphere = vtkSphereSource::New();
     mSphere->SetRadius(1.0);
     mSphere->SetCenter(0,0,0);
-    mSphere->SetThetaResolution(9);
-    mSphere->SetPhiResolution(9);
+    mSphere->SetThetaResolution(5);
+    mSphere->SetPhiResolution(5);
 
     mArrow = vtkArrowSource::New();
 
@@ -166,6 +166,7 @@ void FittingWindow::updateVals(vtkRenderer* renderer,
 							   std::vector<vtkSmartPointer<vtkActor> >& spheres) {
     double maxAbs = abs(abs(mExpVals.max) > abs(mExpVals.min) ? mExpVals.max : mExpVals.min);
 	for(unsigned long i = 0;i<vals.size();i++) {
+		cout << vals[i] << endl;
 		vtkSmartPointer<vtkActor> actor = spheres[i];
 
         double c = vals[i]/(maxAbs*2)+0.5;

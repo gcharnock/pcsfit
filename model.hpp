@@ -83,6 +83,8 @@ public:
 	static PointModel unpack(const std::vector<double>& v);
 };
 
+
+
 std::ostream& operator <<(std::ostream& out,const PointModel& m);
 
 class GaussModel : public ModelBase<GaussModel>  {
@@ -95,11 +97,10 @@ public:
 
 	double stddev;
 
-	double cube_x_min, cube_x_max;
-	double cube_y_min, cube_y_max;
-	double cube_z_min, cube_z_max;
-
 	static std::vector<double> pack(const GaussModel& m);
 	static GaussModel unpack(const std::vector<double>& v);
 };
+
+
+
 std::ostream& operator <<(std::ostream& out,const GaussModel& m);
