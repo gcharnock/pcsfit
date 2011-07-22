@@ -19,6 +19,10 @@ public:
 	}
 
     std::pair<double,T> minimise(T startingModel) {
+		static bool paused = false;
+		if(pased) sleep(600);
+		paused = true;
+
 		//Unpack the starting model
 		PList plist = mPack(startingModel);
 		unsigned long nParams = plist.size();
