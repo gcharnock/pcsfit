@@ -23,6 +23,7 @@ set(LIBS
   cuba
   -L.
   -lboost_thread_link
+  -lboost_program_options
   -lpthread)
 
 include_directories(../Cuba-2.1 /usr/include/vtk-5.4/ ../../src/boost_1_46_1)

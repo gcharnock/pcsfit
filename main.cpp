@@ -8,7 +8,9 @@
 #include <gsl/gsl_multimin.h>
 #include <vector>
 #include <boost/thread.hpp>
+#include <boost/program_options.hpp>
 #include <sstream>
+#include <cassert>
 
 #include "foreach.hpp"
 #include "threads.hpp"
@@ -51,17 +53,29 @@ double cube_z_min, cube_z_max;
 
 ofstream fout;
 
-
 /********************************************************************************
  * Visuliser
  *********************************************************************************/
 
 struct VisualThread {
-    VisualThread(){}
+    VisualThread(){
+		fw = NULL;
+	}
+	~VisualThread() {
+		if(fw) delete fw;
+	}
+	void start() {
+		fw = new FittingWindow;
+	}
     void operator()() {
-        fw.mainLoop();
+		if(!fw) {
+			cerr << "Fitting window not allocated" << endl;
+			assert(false);
+			return;
+		}
+        fw->mainLoop();
     }
-    FittingWindow fw;
+    FittingWindow* fw;
 private:
     VisualThread(const VisualThread&);
 };
@@ -124,10 +138,54 @@ double minf(GaussModel thisModel) {
 }
 
 void onIterate(VisualThread& visualThread,const GaussModel& m) {
-    visualThread.fw.setCalcVals(*(calcVals.rbegin()),m.metal,m.angle_x,m.angle_y,m.angle_z);
+	if(visualThread.fw) {
+		visualThread.fw->setCalcVals(*(calcVals.rbegin()),m.metal,m.angle_x,m.angle_y,m.angle_z);
+	}
 }
 
-int main() {
+
+int main(int argc,char** argv) {
+	//Parse the command line and decide what to do
+	using namespace boost::program_options;
+	variables_map variablesMap;
+	try {
+		options_description optDesc("Options");
+
+		optDesc.add_options()
+			("help","print this help page and exit")
+			("gui","Visualise the fitting process with VTK")
+			("model","")
+			("input-file","")
+			("grid","perform a grid search");
+
+		positional_options_description positional;
+		positional.add("model",1);
+		positional.add("input-file",2);
+
+		try {
+			store(command_line_parser(argc,argv).options(optDesc).positional(positional).run(),variablesMap);
+		} catch(std::exception& e) {
+			cerr << e.what() << endl;
+
+			cout << "Usage:" << endl;
+			cout << optDesc << endl;
+			return 1;
+
+		}
+		if(variablesMap.count("help")) {
+			cout << "Usage:" << endl;
+			cout << optDesc << endl;
+			return 0;
+		}
+		if(variablesMap.count("input-file") != 1) {
+			cout << "Specify exactly one input file" << endl;
+			return 0;
+		}
+
+	} catch(std::exception& e) {
+		//I'm not sure if this is possible
+		cerr << "An error occured when trying to parse the command line" << endl;
+	}
 
     //Start the thread pool
     pool = new Multithreader<double>;
@@ -153,9 +211,12 @@ int main() {
 
     //Start the visualisation thread
     VisualThread visualThread;
-    visualThread.fw.setNuclei(nuclei);
-    visualThread.fw.setExpVals(expVals);
-    boost::thread boostVisualThread(boost::ref(visualThread));
+	if(variablesMap.count("gui") > 0) {
+		visualThread.start();
+		visualThread.fw->setNuclei(nuclei);
+		visualThread.fw->setExpVals(expVals);
+		boost::thread boostVisualThread(boost::ref(visualThread));
+	}
 
     //Initalise the minimizer
 	Minimiser<GaussModel> minimiser(&unpackGaussModel,
