@@ -94,7 +94,8 @@ public:
 		}
 	}
 
-	M minimise(const M& input) {
+	std::pair<double,M> minimise(const M& input) {
+		return  minimiser.minimise(input);
 	}
 	double minf(const M& thisModel) {
 		//Prepare the work
@@ -127,7 +128,7 @@ public:
 		}
 
 		//Record the results
-		fout << thisModel << endl;
+		fout << total << "\t\t" <<  thisModel << endl;
 
 		return total;
 	}
@@ -168,22 +169,20 @@ int main(int argc,char** argv) {
 	//Parse the command line and decide what to do
 	using namespace boost::program_options;
 	variables_map variablesMap;
+	string modelType;
+	string filename;
 	try {
 		options_description optDesc("Options");
 
 		optDesc.add_options()
 			("help","print this help page and exit")
 			("gui","Visualise the fitting process with VTK")
-			("model","")
-			("input-file","")
+			("model",value<string>(&modelType)->default_value("point"),"Select the model to use")
+			("input-file",value<string>(&filename),"specify an input file")
 			("grid","perform a grid search");
 
-		positional_options_description positional;
-		positional.add("model",1);
-		positional.add("input-file",2);
-
 		try {
-			store(command_line_parser(argc,argv).options(optDesc).positional(positional).run(),variablesMap);
+			store(command_line_parser(argc,argv).options(optDesc).run(),variablesMap);
 		} catch(std::exception& e) {
 			cerr << e.what() << endl;
 
@@ -206,12 +205,12 @@ int main(int argc,char** argv) {
 		//I'm not sure if this is possible
 		cerr << "An error occured when trying to parse the command line" << endl;
 	}
+	notify(variablesMap);
 
     //Start the thread pool
     pool = new Multithreader<double>;
 
 	//Load the data
-	string filename = variablesMap["file-name"].as<string>();
 	pairNucVals data = loadData(filename);
 		
 	Nuclei nuclei = data.first;
@@ -226,16 +225,17 @@ int main(int argc,char** argv) {
 
 	//Set up the model
 
-	if(variablesMap["model"].as<string>() == "point") {
+	if(modelType == "point") {
 		PointModel pm;
-		pm.ax = 100.0;
-		pm.rh = 0.0;
-		pm.metal = Vector3((nuclei.xmin+nuclei.xmax)/2,
+		pm.ax = -5889.0;  
+		pm.rh =  -5491.0;
+		pm.metal = Vector3(4.165,18.875,17.180);/*Vector3((nuclei.xmin+nuclei.xmax)/2,
 						   (nuclei.ymin+nuclei.ymax)/2,
-						   (nuclei.zmin+nuclei.zmax)/2);
+						   (nuclei.zmin+nuclei.zmax)/2);*/
 		pm.setEulerAngles(0,0,0);
 
 		NumericalExperiment<PointModel> p_exp(nuclei,expVals,variablesMap.count("gui") > 0);
+		p_exp.minimise(pm);
 	} else if(variablesMap["model"].as<string>() == "gauss") {
 		GaussModel gm;
 		gm.ax = 100.0;
@@ -247,13 +247,14 @@ int main(int argc,char** argv) {
 		gm.stddev = 1;
 		NumericalExperiment<GaussModel> g_exp(nuclei,expVals,variablesMap.count("gui") > 0);
 
+		g_exp.minimise(gm);
 	} else {
 		cerr << "Unknown model typw" << endl;
 		return 1;
 	}
 
 
-    delete pool;
+	delete pool;
     return 0;
 
 }
