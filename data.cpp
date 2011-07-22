@@ -63,16 +63,16 @@ void Vals::updateMinMax() {
 
 
 
-pair<Nuclei,Vals> loadData(const char* filename) {
+pair<Nuclei,Vals> loadData(const string& filename) {
 
     Nuclei nuclei;
     Vals vals;
 	double x,y,z,v;
 
-	FILE* fp = fopen(filename,"r");
+	FILE* fp = fopen(filename.c_str(),"r");
 
     if(!fp) {
-        printf("Could not open %s\n",filename);
+        printf("Could not open %s\n",filename.c_str());
         exit(1);
     }
 

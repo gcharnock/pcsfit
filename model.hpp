@@ -3,6 +3,7 @@
 #include <cmath>
 #include <vector>
 #include <cassert>
+#include <iosfwd>
 
 class Nuclei;
 class Vals;
@@ -77,10 +78,12 @@ public:
     ~PointModel();
 
     double eval(double x, double y, double z) const;
-    
+
+	static std::vector<double> pack(const PointModel& m);
+	static PointModel unpack(const std::vector<double>& v);
 };
-std::vector<double> packPointModel(const PointModel& m);
-PointModel unpackPointModel(const std::vector<double>& v);
+
+std::ostream& operator <<(std::ostream& out,const PointModel& m);
 
 class GaussModel : public ModelBase<GaussModel>  {
 public:
@@ -95,6 +98,8 @@ public:
 	double cube_x_min, cube_x_max;
 	double cube_y_min, cube_y_max;
 	double cube_z_min, cube_z_max;
+
+	static std::vector<double> pack(const GaussModel& m);
+	static GaussModel unpack(const std::vector<double>& v);
 };
-std::vector<double> packGaussModel(const GaussModel& m);
-GaussModel unpackGaussModel(const std::vector<double>& v);
+std::ostream& operator <<(std::ostream& out,const GaussModel& m);

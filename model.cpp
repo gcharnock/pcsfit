@@ -75,7 +75,7 @@ double PointModel::eval(double x,double y,double z) const {
 }
 
 
-std::vector<double> packPointModel(const PointModel& m) {
+std::vector<double> PointModel::pack(const PointModel& m) {
 	std::vector<double> vec;
     vec.push_back(m.ax     );
     vec.push_back(m.rh     );
@@ -91,7 +91,7 @@ std::vector<double> packPointModel(const PointModel& m) {
     return vec;
 }
 
-PointModel unpackPointModel(const std::vector<double>& v) {
+PointModel PointModel::unpack(const std::vector<double>& v) {
     PointModel m;
     m.ax      = v[0];
     m.rh      = v[1];
@@ -104,6 +104,19 @@ PointModel unpackPointModel(const std::vector<double>& v) {
 
     return m;
 }
+
+ostream& operator <<(ostream& out,const PointModel& m) {
+	out << m.ax       << " "
+		<< m.rh       << " "
+		<< m.metal.x  << " "
+		<< m.metal.y  << " "
+		<< m.metal.z  << " "
+		<< m.angle_x  << " "
+		<< m.angle_y  << " "
+		<< m.angle_z;
+	return out;
+}
+
 
 //================================================================================//
 
@@ -213,7 +226,7 @@ double GaussModel::eval(double x,double y,double z) const {
 	return *integral;
 }
 
-std::vector<double> packGaussModel(const GaussModel& m) {
+std::vector<double> GaussModel::pack(const GaussModel& m) {
 	std::vector<double> vec;
     vec.push_back(m.ax     );
     vec.push_back(m.rh     );
@@ -230,7 +243,7 @@ std::vector<double> packGaussModel(const GaussModel& m) {
     return vec;
 }
 
-GaussModel unpackGaussModel(const std::vector<double>& v) {
+GaussModel GaussModel::unpack(const std::vector<double>& v) {
     GaussModel m;
     m.ax      = v[0];
     m.rh      = v[1];
@@ -243,4 +256,16 @@ GaussModel unpackGaussModel(const std::vector<double>& v) {
 
     m.stddev = v[8];
     return m;
+}
+ostream& operator <<(ostream& out,const GaussModel& m) {
+	out << m.ax       << " "
+		<< m.rh       << " "
+		<< m.metal.x  << " "
+		<< m.metal.y  << " "
+		<< m.metal.z  << " "
+		<< m.angle_x  << " "
+		<< m.angle_y  << " "
+		<< m.angle_z  << " "
+		<< m.stddev;
+	return out;
 }

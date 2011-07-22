@@ -4,6 +4,7 @@
 
 /********************************************************************************
  * minimiser class
+ * A thin OO wrapper around the gsl_multimin* functions and nothing more
  ********************************************************************************/
 
 template<typename T>

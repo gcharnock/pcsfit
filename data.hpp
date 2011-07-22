@@ -3,6 +3,7 @@
 #define __DATA__H__
 
 #include <vector>
+#include <string>
 #include <utility>
 
 struct GaussModel;
@@ -37,7 +38,7 @@ struct Vals : std::vector<double> {
 
 typedef std::pair<Nuclei,Vals> pairNucVals;
 
-pairNucVals loadData(const char* filename);
+pairNucVals loadData(const std::string& filename);
 pairNucVals fakeData(GaussModel* gaussModel,unsigned long count);
 
 

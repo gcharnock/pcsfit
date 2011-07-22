@@ -37,9 +37,6 @@ set(cmake_cxx_flags_release "-O3 -ffast-math")
 set(sources  model.cpp  data.cpp  vis.cpp)
 
 
-add_executable(gauss main.cpp  ${sources})
-target_link_libraries(gauss ${LIBS} ${VTKLIBS})
-
-add_executable(point point.cpp ${sources})
-target_link_libraries(point ${LIBS} ${VTKLIBS})
+add_executable(pcsfit main.cpp  ${sources})
+target_link_libraries(pcsfit ${LIBS} ${VTKLIBS})
 
