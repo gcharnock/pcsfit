@@ -103,7 +103,7 @@ public:
 
 	static std::vector<double> pack(const PointModel& m);
 	static PointModel unpack(const std::vector<double>& v);
-	static PointModel randomModel(unsigned int seed);
+	static PointModel randomModel(long seed);
 };
 
 
@@ -122,7 +122,7 @@ public:
 
 	static std::vector<double> pack(const GaussModel& m);
 	static GaussModel unpack(const std::vector<double>& v);
-	static GaussModel randomModel(unsigned int seed);
+	static GaussModel randomModel(long seed);
 };
 
 

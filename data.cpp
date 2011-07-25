@@ -99,7 +99,4 @@ pair<Nuclei,Vals> loadData(const string& filename) {
     return pair<Nuclei,Vals>(nuclei,vals);
 }
 
-double rdouble() {
-	return (double)rand()/(double)RAND_MAX;;
-}
 

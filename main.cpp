@@ -24,7 +24,6 @@
 using namespace std;
 using namespace boost;
 
-
 /********************************************************************************
  * Visuliser
  *********************************************************************************/
@@ -206,7 +205,8 @@ int main(int argc,char** argv) {
 			cout << optDesc << endl;
 			return 0;
 		}
-		if(variablesMap.count("input-file") != 1) {
+		if(variablesMap.count("input-file") != 1 && 
+		   variablesMap.count("random-data") == 0) {
 			cout << "Specify exactly one input file" << endl;
 			return 0;
 		}
@@ -225,8 +225,7 @@ int main(int argc,char** argv) {
 	if(variablesMap.count("random-data") == 0) {
 		data = loadData(filename);
 	} else {
-        cout << "Fixme: This isn't really random data" << endl;
-		data = loadData(filename);
+		data = fakeData(123456,PointModel::randomModel(54321),200);
     }
 		
 	Nuclei nuclei = data.first;

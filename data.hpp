@@ -5,6 +5,11 @@
 #include <vector>
 #include <string>
 #include <utility>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_01.hpp>
+
+typedef boost::mt19937 PRNG;
+typedef boost::uniform_01<> RandomDist;
 
 struct GaussModel;
 
@@ -40,27 +45,26 @@ typedef std::pair<Nuclei,Vals> pairNucVals;
 
 pairNucVals loadData(const std::string& filename);
 
-double rfloat();
 
-//Generates fake data by placing spins randomly in the [0,1]^3 cube
+//Generates fake data by placing spins randomly in the [0,50]^3 cube
 //and evaulating a random model. Good for testing how vunerable we are
 //to local minima
 
 template<typename Model>
-std::pair<Nuclei,Vals> fakeData(const Model* model,unsigned long count) {
+pairNucVals fakeData(long seed,const Model& model,unsigned long count) {
     Nuclei nuclei;
     Vals vals;
-
-	srand(12345);
+	PRNG prng(seed);
+	RandomDist rand;
 
 	for(unsigned long i=0;i<count;i++) {
 		Vector3 p;
-		p.x = rfloat();
-		p.y = rfloat();
-		p.z = rfloat();
+		p.x = 50*rand(prng);
+		p.y = 50*rand(prng);
+		p.z = 50*rand(prng);
 
 		nuclei.push_back(p);
-        vals.push_back(model->eval(p.x,p.y,p.z));
+        vals.push_back(model.eval(p.x,p.y,p.z));
 	}
 
 	nuclei.updateMinMax();
@@ -68,8 +72,5 @@ std::pair<Nuclei,Vals> fakeData(const Model* model,unsigned long count) {
 
     return std::pair<Nuclei,Vals>(nuclei,vals);
 }
-
-
-double rdouble();
 
 #endif

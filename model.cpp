@@ -1,11 +1,13 @@
 
 #include "model.hpp"
-#include "data.hpp"
 #include "cuba.h"
 #include <utility>
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_01.hpp>
+
 
 #include <iostream>
 
@@ -118,18 +120,19 @@ ostream& operator <<(ostream& out,const PointModel& m) {
 	return out;
 }
 
-PointModel PointModel::randomModel(unsigned int seed) {
-	srand(seed);
+PointModel PointModel::randomModel(long seed) {
+	PRNG prng(seed);
+	RandomDist rand;
     
     PointModel m;
-    m.ax = rdouble();
-    m.rh = rdouble();
+    m.ax = 1-2*rand(prng);
+    m.rh = 1-2*rand(prng);
 
-    m.metal.x = rdouble();
-    m.metal.y = rdouble();
-    m.metal.z = rdouble();
+    m.metal.x = rand(prng);
+    m.metal.y = rand(prng);
+    m.metal.z = rand(prng);
 
-    m.setEulerAngles(rdouble(),rdouble(),rdouble());
+    m.setEulerAngles(2*M_PI*rand(prng),M_PI*rand(prng),2*M_PI*rand(prng));
 
     return m;
 }
@@ -290,18 +293,21 @@ ostream& operator <<(ostream& out,const GaussModel& m) {
 	return out;
 }
 
-GaussModel GaussModel::randomModel(unsigned int seed) {
-	srand(seed);
+GaussModel GaussModel::randomModel(long seed) {
+	PRNG prng(seed);
+	RandomDist rand;
     
     GaussModel m;
-    m.ax = rdouble();
-    m.rh = rdouble();
+    m.ax = 1-2*rand(prng);
+    m.rh = 1-2*rand(prng);
 
-    m.metal.x = rdouble();
-    m.metal.y = rdouble();
-    m.metal.z = rdouble();
+    m.metal.x = rand(prng);
+    m.metal.y = rand(prng);
+    m.metal.z = rand(prng);
 
-    m.setEulerAngles(rdouble(),rdouble(),rdouble());
+    m.setEulerAngles(2*M_PI*rand(prng),M_PI*rand(prng),2*M_PI*rand(prng));
+
+	m.stddev = 0.2*rand(prng);
 
     return m;
 }
