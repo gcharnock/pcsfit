@@ -169,8 +169,6 @@ private:
 bool threadExit = false;
 
 
-
-
 int main(int argc,char** argv) {
 	//Parse the command line and decide what to do
 	using namespace boost::program_options;
@@ -185,6 +183,7 @@ int main(int argc,char** argv) {
 			("gui","Visualise the fitting process with VTK")
 			("model",value<string>(&modelType)->default_value("point"),"Select the model to use")
 			("input-file",value<string>(&filename),"specify an input file")
+			("random-data","Instead of loading a file, generate random data and try and fit that")
 			("grid","perform a grid search");
 
 		try {
@@ -217,7 +216,13 @@ int main(int argc,char** argv) {
     pool = new Multithreader<double>;
 
 	//Load the data
-	pairNucVals data = loadData(filename);
+	pairNucVals data;
+	if(variablesMap.count("random-data") == 0) {
+		data = loadData(filename);
+	} else {
+        cout << "Fixme: This isn't really random data" << endl;
+		data = loadData(filename);
+    }
 		
 	Nuclei nuclei = data.first;
 	Vals expVals = data.second;
@@ -233,7 +238,7 @@ int main(int argc,char** argv) {
 
 	if(modelType == "point") {
 		PointModel pm;
-		pm.ax = -5889.0 *100;  
+		pm.ax = -5889.0;  
 		pm.rh =  -5491.0;
 		pm.metal = Vector3(4.165,18.875,17.180);/*Vector3((nuclei.xmin+nuclei.xmax)/2,
 						   (nuclei.ymin+nuclei.ymax)/2,
@@ -268,12 +273,12 @@ int main(int argc,char** argv) {
 		p_exp.minimise(pm);
 	} else if(variablesMap["model"].as<string>() == "gauss") {
 		GaussModel gm;
-		gm.ax = 100.0;
-		gm.rh = 0.0;
-		gm.metal = Vector3((nuclei.xmin+nuclei.xmax)/2,
+		gm.ax = -5889.0;
+		gm.rh = -5491.0;
+		gm.metal = Vector3(4.165,18.875,17.180);/*(nuclei.xmin+nuclei.xmax)/2,
 						   (nuclei.ymin+nuclei.ymax)/2,
-						   (nuclei.zmin+nuclei.zmax)/2);
-		gm.setEulerAngles(0,0,0);
+						   (nuclei.zmin+nuclei.zmax)/2);*/
+		gm.setEulerAngles(4.26073, 1.18864, -3.54324);
 		gm.stddev = 1;
 		NumericalExperiment<GaussModel> g_exp(nuclei,expVals,variablesMap.count("gui") > 0,
 											  [=](std::vector<double> v){
@@ -309,7 +314,9 @@ int main(int argc,char** argv) {
 		return 1;
 	}
 
-
+    
+    //NB: This delete currently causes an assert error in boost, I
+    //don't know why.
 	delete pool;
     return 0;
 

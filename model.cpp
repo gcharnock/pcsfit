@@ -5,6 +5,7 @@
 #include <utility>
 #include <cassert>
 #include <cmath>
+#include <cstdlib>
 
 #include <iostream>
 
@@ -117,6 +118,24 @@ ostream& operator <<(ostream& out,const PointModel& m) {
 	return out;
 }
 
+PointModel PointModel::randomModel(unsigned int seed) {
+	srand(seed);
+    
+    PointModel m;
+    m.ax = rdouble();
+    m.rh = rdouble();
+
+    m.metal.x = rdouble();
+    m.metal.y = rdouble();
+    m.metal.z = rdouble();
+
+    m.setEulerAngles(rdouble(),rdouble(),rdouble());
+
+    return m;
+}
+
+
+
 
 //================================================================================//
 
@@ -223,6 +242,7 @@ double GaussModel::eval(double x,double y,double z) const {
 		  &nregions, &neval, &fail, integral, error, prob);
 
     assert(isfinite(*integral));
+
 	return *integral;
 }
 
@@ -269,3 +289,20 @@ ostream& operator <<(ostream& out,const GaussModel& m) {
 		<< m.stddev;
 	return out;
 }
+
+GaussModel GaussModel::randomModel(unsigned int seed) {
+	srand(seed);
+    
+    GaussModel m;
+    m.ax = rdouble();
+    m.rh = rdouble();
+
+    m.metal.x = rdouble();
+    m.metal.y = rdouble();
+    m.metal.z = rdouble();
+
+    m.setEulerAngles(rdouble(),rdouble(),rdouble());
+
+    return m;
+}
+
