@@ -8,19 +8,40 @@
 class Nuclei;
 class Vals;
 
+//Okay, we've made the somewhat odd choice of using the curiously
+//recuring template patten rather than polymorphisum here which means
+//that writing code that is general over the type of model would be
+//harder and would require templating. Effectively we are generating
+//two or more code paths at compile time rather than one.
+
+//Firstly CRTP has the potential to be slightly more efficent, but
+//that probably isn't worth the extra hassel. The real problem is that
+//dynamic polymorphisum doesn't seem to gain us much. The only
+//function that makes sense to make virtual is eval. At what point can
+//we hide the exact model type safely? We have to wait until it gets
+//to the minimiser
+
 template<typename Derived>
 class ModelBase {
 public:
     ModelBase() {
-        ax = 1;
-        rh = 0; 
-
-        metal.x = 0;
-        metal.y = 0;
-        metal.z = 0;
-
-        setEulerAngles(0,0,0);
+		setBasicParams(1,0,
+					   0,0,0,
+					   0,0,0);
     }
+
+	void setBasicParams(double _ax,double _rh,
+						double x,double y, double z,
+						double alpha,double beta,double gamma) {
+        ax = _ax;
+        rh = _rh; 
+
+        metal.x = x;
+        metal.y = y;
+        metal.z = z;
+
+        setEulerAngles(alpha,beta,gamma);
+	}
 
     
     void setEulerAngles(double _angle_x,double _angle_y,double _angle_z) {
@@ -56,7 +77,8 @@ public:
 	//vals. Assume that vals is already allocated to the coorect size.
 	void bulkEval(const Nuclei& nuclei,Vals& vals) const {
         for(unsigned long i=0;i<nuclei.size();i++) {
-            vals[i] = (static_cast<Derived*>(this))->eval(nuclei[i].x,nuclei[i].y,nuclei[i].z);
+            vals[i] = (static_cast<Derived*>(this))->
+				eval(nuclei[i].x,nuclei[i].y,nuclei[i].z);
         }
         vals.updateMinMax();
     }

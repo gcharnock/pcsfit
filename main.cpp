@@ -11,6 +11,7 @@
 #include <boost/program_options.hpp>
 #include <sstream>
 #include <cassert>
+#include <functional>
 
 #include "foreach.hpp"
 #include "threads.hpp"
@@ -68,8 +69,11 @@ ofstream fout;
 
 
 /*********************************************************************************
- * Global State
+ * NumericalExperiment class
  *********************************************************************************/
+
+//
+
 
 template<typename M> //M stands for Model
 class NumericalExperiment {
@@ -169,6 +173,7 @@ private:
 bool threadExit = false;
 
 
+
 int main(int argc,char** argv) {
 	//Parse the command line and decide what to do
 	using namespace boost::program_options;
@@ -245,31 +250,37 @@ int main(int argc,char** argv) {
 						   (nuclei.zmin+nuclei.zmax)/2);*/
 		pm.setEulerAngles(4.26073, 1.18864, -3.54324);
 
-		NumericalExperiment<PointModel> p_exp(nuclei,expVals,variablesMap.count("gui") > 0,
-											  [=](std::vector<double> v){
-												  PointModel m;
-												  m.ax      = v[0];
-												  m.rh      = v[1];
+		std::function<PointModel(vector<double>)> 
+			unpackPoint = [](vector<double> v) {
+			PointModel m;
+			m.ax      = v[0];
+			m.rh      = v[1];
+			
+			m.metal.x = 4.165;
+			m.metal.y = 18.875;
+			m.metal.z = 17.180;
 												  
-												  m.metal.x = 4.165;
-												  m.metal.y = 18.875;
-												  m.metal.z = 17.180;
-												  
-												  m.setEulerAngles(v[2],v[3],v[4]);
-												  
-												  return m;
-											  },
-											  [=](const PointModel& m){
-												  	std::vector<double> vec;
-													vec.push_back(m.ax     );
-													vec.push_back(m.rh     );
-													
-													vec.push_back(m.angle_x);
-													vec.push_back(m.angle_y);
-													vec.push_back(m.angle_z);
-													
-													return vec;
-											  });
+			m.setEulerAngles(v[2],v[3],v[4]);
+			
+			return m;
+		};
+
+		std::function<vector<double>(PointModel)>
+			packPoint = [](const PointModel& m){
+			vector<double> vec;
+			vec.push_back(m.ax     );
+			vec.push_back(m.rh     );
+			
+			vec.push_back(m.angle_x);
+			vec.push_back(m.angle_y);
+			vec.push_back(m.angle_z);
+			
+			return vec;
+		};
+
+		NumericalExperiment<PointModel>
+			p_exp(nuclei,expVals,variablesMap.count("gui") > 0,unpackPoint,packPoint);
+
 		p_exp.minimise(pm);
 	} else if(variablesMap["model"].as<string>() == "gauss") {
 		GaussModel gm;
@@ -280,33 +291,39 @@ int main(int argc,char** argv) {
 						   (nuclei.zmin+nuclei.zmax)/2);*/
 		gm.setEulerAngles(4.26073, 1.18864, -3.54324);
 		gm.stddev = 1;
-		NumericalExperiment<GaussModel> g_exp(nuclei,expVals,variablesMap.count("gui") > 0,
-											  [=](std::vector<double> v){
-												  GaussModel m;
-												  m.ax      = v[0];
-												  m.rh      = v[1];
+
+		std::function<GaussModel(vector<double>)>
+			packGauss = [](vector<double> v){
+			GaussModel m;
+			m.ax      = v[0];
+			m.rh      = v[1];
+			
+			m.metal.x = 4.165;
+			m.metal.y = 18.875;
+			m.metal.z = 17.180;
 												  
-												  m.metal.x = 4.165;
-												  m.metal.y = 18.875;
-												  m.metal.z = 17.180;
+			m.setEulerAngles(v[2],v[3],v[4]);
 												  
-												  m.setEulerAngles(v[2],v[3],v[4]);
-												  
-												  m.stddev = v[5];
-												  return m;
-											  },
-											  [=](const GaussModel& m){
-												  	std::vector<double> vec;
-													vec.push_back(m.ax     );
-													vec.push_back(m.rh     );
+			m.stddev = v[5];
+			return m;
+		};
+
+		std::function<vector<double>(const GaussModel&)>
+			unpackGauss = [](const GaussModel& m){
+			std::vector<double> vec;
+			vec.push_back(m.ax     );
+			vec.push_back(m.rh     );
 													
-													vec.push_back(m.angle_x);
-													vec.push_back(m.angle_y);
-													vec.push_back(m.angle_z);
+			vec.push_back(m.angle_x);
+			vec.push_back(m.angle_y);
+			vec.push_back(m.angle_z);
 													
-													vec.push_back(m.stddev);
-													return vec;
-											  });
+			vec.push_back(m.stddev);
+			return vec;
+		};
+
+		NumericalExperiment<GaussModel>
+			g_exp(nuclei,expVals,variablesMap.count("gui") > 0,packGauss,unpackGauss);
 
 		g_exp.minimise(gm);
 	} else {
@@ -319,5 +336,4 @@ int main(int argc,char** argv) {
     //don't know why.
 	delete pool;
     return 0;
-
 }
