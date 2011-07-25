@@ -65,7 +65,7 @@ Multithreader<double>* pool = NULL;
  ********************************************************************************/
 
 ofstream fout;
-
+ofstream flog;
 
 /*********************************************************************************
  * NumericalExperiment class
@@ -185,10 +185,14 @@ int main(int argc,char** argv) {
 		optDesc.add_options()
 			("help","print this help page and exit")
 			("gui","Visualise the fitting process with VTK")
-			("model",value<string>(&modelType)->default_value("point"),"Select the model to use")
+			("model",value<string>(&modelType)->default_value("point"),
+			 "Select the model to use")
+			("random-model-type",
+			 "Specify the type of the model to use for generating random data")
 			("input-file",value<string>(&filename),"specify an input file")
-			("random-data","Instead of loading a file, generate random data and try and fit that")
-			("grid","perform a grid search");
+			("random-data",
+			 "Instead of loading a file, generate random data and try and fit that")
+			("show-only","Show the data only, don't try and fit. Implies --gui");
 
 		try {
 			store(command_line_parser(argc,argv).options(optDesc).run(),variablesMap);
@@ -231,7 +235,13 @@ int main(int argc,char** argv) {
 	Nuclei nuclei = data.first;
 	Vals expVals = data.second;
 
-	//Open the log file
+	//Open the log file and params.log file
+	flog.open("log.log");
+	if(!flog.is_open()) {
+		cerr << "Could not open log.log for writing" << endl;
+		return 1;
+	}
+
 	fout.open("params.log");
 	if(!fout.is_open()) {
 		cerr << "Could not open params.log for writing" << endl;
