@@ -16,11 +16,11 @@
 #define NDIM 3
 #define NCOMP 1
 #define EPSREL 1e-5
-#define EPSABS 1e-5
+#define EPSABS 1000
 #define VERBOSE 0
 #define LAST 4
 #define MINEVAL 2000
-#define MAXEVAL 5000000
+#define MAXEVAL 500000
 
 #define KEY 0
 
@@ -167,21 +167,23 @@ int Integrand(const int *ndim, const double xx[],
     IntegralDetails* intDet = (IntegralDetails*)userdata;
 	const GaussModel* this_ = intDet->model;
 
-	//Apply the transformation from the unit cube [0,1]^2. x,y,z is
-	//the dummy variable in molecular coordinates
-	double x = xx[0]*(intDet->xmax - intDet->xmin) + intDet->xmin;
-	double y = xx[1]*(intDet->ymax - intDet->ymin) + intDet->ymin;
-	double z = xx[2]*(intDet->zmax - intDet->zmin) + intDet->zmin;
+	//Apply the transformation from the unit cube [0,1]^2. xp,yp,zp is
+	//the dummy variable in molecular coordinates. The free variable
+	//is intDet->xyz
+	double xp = xx[0]*(intDet->xmax - intDet->xmin) + intDet->xmin;
+	double yp = xx[1]*(intDet->ymax - intDet->ymin) + intDet->ymin;
+	double zp = xx[2]*(intDet->zmax - intDet->zmin) + intDet->zmin;
 
-	//The vector from the nucleous to the metal (we would use this as
-	//the input to the point model). As we are convolving, subtract
-	//the dummy variable
-	double gx = (this_->metal.x - intDet->x) - x;
-	double gy = (this_->metal.y - intDet->y) - y;
-	double gz = (this_->metal.z - intDet->z) - z;
+	//Now we evaluate the point model at xp
+
+	//Let gx be the vector from the metal to xp
+	double gx = xp - this_->metal.x;
+	double gy = yp - this_->metal.y;
+	double gz = zp - this_->metal.z;
 
 	const double* mat = this_->mat;
 
+	//Rotate gx
 	double gxr = mat[0]*gx + mat[1]*gy + mat[2]*gz;
 	double gyr = mat[3]*gx + mat[4]*gy + mat[5]*gz;
 	double gzr = mat[6]*gx + mat[7]*gy + mat[8]*gz;
@@ -200,10 +202,23 @@ int Integrand(const int *ndim, const double xx[],
 
 	double r = sqrt(r2);
 	double r5 = r2*r2*r;
-    
-    double stddev2 = this_->stddev*this_->stddev;
-	double g = exp((-x*x-y*y-z*z)/(2*stddev2)) / sqrt(2*M_PI*stddev2);
-	double f = (this_->ax*(2*gz2 - gx2 - gy2) + this_->rh*(3.0/2.0)*(gx2-gy2))/r5;
+
+	double f = (this_->ax*(2*gz2 - gx2 - gy2) + this_->rh*(3.0/2.0)*(gx2-gy2))/(12*M_PI*r5); assert(isfinite(f));
+
+	//Now evaulate rho at x-xp where x is the free variable
+	double xp_m_x = xp - intDet->x;
+	double yp_m_y = yp - intDet->y;
+	double zp_m_z = zp - intDet->z;
+
+	assert(isfinite(xp_m_x));
+	assert(isfinite(yp_m_y));
+	assert(isfinite(zp_m_z));
+	
+    double a_coef = 1/(this_->stddev*this_->stddev);                             	assert(isfinite(a_coef));
+	double g = exp(-a_coef*(xp_m_x*xp_m_x+
+							yp_m_y*yp_m_y+
+							zp_m_z*zp_m_z)) * pow(abs(a_coef)/M_PI,1.5);                	assert(isfinite(g));
+
 
 
 	double result = g * f;

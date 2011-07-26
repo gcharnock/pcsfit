@@ -168,7 +168,7 @@ void FittingWindow::updateVals(vtkRenderer* renderer,
 		vtkSmartPointer<vtkActor> actor = spheres[i];
 
         double c = vals[i]/(maxAbs*2)+0.5;
-        actor->SetScale(0.1+10*sqrt(abs(vals[i])/maxAbs));
+        actor->SetScale(0.1+sqrt(abs(vals[i])/maxAbs));
         actor->GetProperty()->SetColor(0,c,1-c);
         if(/*wireframe*/ i%2 == 0) {
             actor->GetProperty()->SetRepresentationToWireframe();

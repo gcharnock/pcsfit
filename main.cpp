@@ -137,6 +137,8 @@ public:
 	}
 
 	double minf(const M& thisModel) {
+		cout << thisModel << endl;
+
 		static int paused = 0;
 		if(paused > 2) {
 			//usleep(10000);
@@ -358,7 +360,7 @@ int main(int argc,char** argv) {
 						   (nuclei.ymin+nuclei.ymax)/2,
 						   (nuclei.zmin+nuclei.zmax)/2);*/
 		gm.setEulerAngles(4.26073, 1.18864, -3.54324);
-		gm.stddev = 4;
+		gm.stddev = 0.2;
 
 		std::function<GaussModel(vector<double>)>
 			packGauss = [=](vector<double> v){
