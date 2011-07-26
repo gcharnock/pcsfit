@@ -127,7 +127,6 @@ void FittingWindow::mainLoop() {
 }
 
 void FittingWindow::update() {
-    cout << "FittingWindow::update()" << endl;
     updateVals(mCalcRenderer,mCalcVals,mCalcSpheres);
     updateVals(mCalcRenderer,mExpVals ,mExpSpheres );
 
@@ -166,7 +165,6 @@ void FittingWindow::updateVals(vtkRenderer* renderer,
 							   std::vector<vtkSmartPointer<vtkActor> >& spheres) {
     double maxAbs = abs(abs(mExpVals.max) > abs(mExpVals.min) ? mExpVals.max : mExpVals.min);
 	for(unsigned long i = 0;i<vals.size();i++) {
-		cout << vals[i] << endl;
 		vtkSmartPointer<vtkActor> actor = spheres[i];
 
         double c = vals[i]/(maxAbs*2)+0.5;
