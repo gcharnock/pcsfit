@@ -43,13 +43,13 @@ private:
 	class WorkerThread {
 	public:
 		WorkerThread(long _id,Multithreader* _parent)
-			: id(id),parent(_parent) {
+			: id(_id),parent(_parent) {
 		}
 		void operator()() {
 			while(true) {
 				parent->_barrier.wait();
 				//Do work
-				for(unsigned long i = 0;i<parent->mFuncs->size();i+=parent->numCPU) {
+				for(unsigned long i = id;i<parent->mFuncs->size();i+=parent->numCPU) {
 					parent->mMapTo->at(i) = parent->mFuncs->at(i)();
 				}
 				parent->_barrier.wait();
