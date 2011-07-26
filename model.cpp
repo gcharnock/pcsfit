@@ -19,7 +19,7 @@
 #define EPSABS 1000
 #define VERBOSE 0
 #define LAST 4
-#define MINEVAL 1000
+#define MINEVAL 100000
 #define MAXEVAL 5000000
 
 #define KEY 0
@@ -214,10 +214,10 @@ int Integrand(const int *ndim, const double xx[],
 	assert(isfinite(yp_m_y));
 	assert(isfinite(zp_m_z));
 	
-    double a_coef = 1/(this_->stddev*this_->stddev);                             	assert(isfinite(a_coef));
+    double a_coef = 1/(this_->stddev*this_->stddev);                           	assert(isfinite(a_coef));
 	double g = exp(-a_coef*(xp_m_x*xp_m_x+
 							yp_m_y*yp_m_y+
-							zp_m_z*zp_m_z)) * pow(abs(a_coef)/M_PI,1.5);                	assert(isfinite(g));
+							zp_m_z*zp_m_z)) * pow(abs(a_coef)/M_PI,1.5);       	assert(isfinite(g));
 
 
 
@@ -241,14 +241,14 @@ double GaussModel::eval(double x,double y,double z) const {
     intDet.y = y;
     intDet.z = z;
 
-    intDet.xmax = x + 2000;//x+5*stddev;
-	intDet.xmin = x - 2000;//x-5*stddev;
+    intDet.xmax = x + x+5*stddev;
+	intDet.xmin = x - x-5*stddev;
     
-    intDet.ymax = y + 2000;//y+5*stddev;
-    intDet.ymin = y - 2000;//y-5*stddev;
+    intDet.ymax = y + y+5*stddev;
+    intDet.ymin = y - y-5*stddev;
     
-    intDet.zmax = z + 2000;//z+5*stddev;
-    intDet.zmin = z - 2000;//z-5*stddev;
+    intDet.zmax = z + z+5*stddev;
+    intDet.zmin = z - z-5*stddev;
 
 	int nregions, neval, fail;
 	double integral[1], error[1], prob[1];

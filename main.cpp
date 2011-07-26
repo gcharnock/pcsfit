@@ -212,6 +212,11 @@ void testModel(long seed) {
 	PointModel pm = PointModel::randomModel(seed+10);
 
 	cout << "================================================================================" << endl;
+
+	cout << "Checking the gaussian is normalised" << endl;
+	cout << "TODO" << endl;
+
+	cout << "================================================================================" << endl;
 	cout << "Point Model = " << pm << endl;
 
 	GaussModel gm1;
@@ -252,7 +257,14 @@ void testModel(long seed) {
 		double y = rand(prng);
 		double z = rand(prng);
 
-		cout << "Point selected = ("<< x << "," << y << "," << z << ")" << endl;
+		double dx = pm.metal.x - x;
+		double dy = pm.metal.y - y;
+		double dz = pm.metal.z - z;
+
+		double r = sqrt(dx*dx + dy*dy + dz*dz);
+
+		cout << "Point selected = ("<< x << "," << y << "," << z << ")" 
+			 << "Metal-point distance is " << r << endl;
 
 		cout << "Point Model = " << pm.eval(x,y,z) << endl;
 		cout << "gm1 Model = " << gm1.eval(x,y,z) << endl;
