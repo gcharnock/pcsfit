@@ -3,7 +3,6 @@
 #include <math.h>
 #include <time.h>
 #include <assert.h>
-#include <pthread.h>
 #include <unistd.h>
 #include <gsl/gsl_multimin.h>
 #include <vector>
