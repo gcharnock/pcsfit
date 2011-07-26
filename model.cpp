@@ -19,8 +19,8 @@
 #define EPSABS 1000
 #define VERBOSE 0
 #define LAST 4
-#define MINEVAL 2000
-#define MAXEVAL 500000
+#define MINEVAL 1000
+#define MAXEVAL 5000000
 
 #define KEY 0
 
@@ -241,14 +241,14 @@ double GaussModel::eval(double x,double y,double z) const {
     intDet.y = y;
     intDet.z = z;
 
-    intDet.xmax = x + 200;//x+5*stddev;
-	intDet.xmin = x - 200;//x-5*stddev;
+    intDet.xmax = x + 2000;//x+5*stddev;
+	intDet.xmin = x - 2000;//x-5*stddev;
     
-    intDet.ymax = y + 200;//y+5*stddev;
-    intDet.ymin = y - 200;//y-5*stddev;
+    intDet.ymax = y + 2000;//y+5*stddev;
+    intDet.ymin = y - 2000;//y-5*stddev;
     
-    intDet.zmax = z + 200;//z+5*stddev;
-    intDet.zmin = z - 200;//z-5*stddev;
+    intDet.zmax = z + 2000;//z+5*stddev;
+    intDet.zmin = z - 2000;//z-5*stddev;
 
 	int nregions, neval, fail;
 	double integral[1], error[1], prob[1];

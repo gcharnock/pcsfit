@@ -127,8 +127,8 @@ void FittingWindow::mainLoop() {
 }
 
 void FittingWindow::update() {
-    updateVals(mCalcRenderer,mCalcVals,mCalcSpheres);
-    updateVals(mCalcRenderer,mExpVals ,mExpSpheres );
+    updateVals(mCalcRenderer,mCalcVals,mCalcSpheres,false);
+    updateVals(mCalcRenderer,mExpVals ,mExpSpheres ,true);
 
     //Move the arrow
     mArrowActor->SetOrientation(mAngle_x /2/PI * 360,
@@ -146,12 +146,8 @@ void FittingWindow::updateNuclei(std::vector<vtkSmartPointer<vtkActor> >& actors
     for(unsigned long i = 0; i<mNuclei.size();i++) {
         vtkSmartPointer<vtkActor> sphereActor = vtkActor::New();
         sphereActor->SetMapper(mSphereMapper);
-        if(/*wireframe*/ i%2 == 0) {
-            sphereActor->GetProperty()->SetRepresentationToWireframe();
-        } else {
-            sphereActor->GetProperty()->SetRepresentationToSurface();
-        }
 
+		sphereActor->GetProperty()->SetRepresentationToWireframe();
 
         sphereActor->SetPosition(mNuclei[i].x,mNuclei[i].y,mNuclei[i].z);
         mCalcRenderer->AddActor(sphereActor);
@@ -162,19 +158,20 @@ void FittingWindow::updateNuclei(std::vector<vtkSmartPointer<vtkActor> >& actors
 
 void FittingWindow::updateVals(vtkRenderer* renderer,
 							   const Vals& vals,
-							   std::vector<vtkSmartPointer<vtkActor> >& spheres) {
+							   std::vector<vtkSmartPointer<vtkActor> >& spheres,
+							   bool experimental) {
     double maxAbs = abs(abs(mExpVals.max) > abs(mExpVals.min) ? mExpVals.max : mExpVals.min);
 	for(unsigned long i = 0;i<vals.size();i++) {
 		vtkSmartPointer<vtkActor> actor = spheres[i];
 
         double c = vals[i]/(maxAbs*2)+0.5;
         actor->SetScale(0.1+sqrt(abs(vals[i])/maxAbs));
-        actor->GetProperty()->SetColor(0,c,1-c);
-        if(/*wireframe*/ i%2 == 0) {
-            actor->GetProperty()->SetRepresentationToWireframe();
-        } else {
-            actor->GetProperty()->SetRepresentationToSurface();
-        }
+		if(experimental) {
+			actor->GetProperty()->SetColor(1,1,1);
+		} else {
+			actor->GetProperty()->SetColor(0,c,1-c);
+		}
+		actor->GetProperty()->SetRepresentationToWireframe();
 	}
 }
 

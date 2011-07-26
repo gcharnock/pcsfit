@@ -141,7 +141,7 @@ public:
 
 		static int paused = 0;
 		if(paused > 2) {
-			//usleep(10000);
+			usleep(10000);
 		}
 		paused++;
 
@@ -201,6 +201,73 @@ private:
 };
 
 
+//Perform a sanity check on the models. Given teh same paramiter set
+//the gaussian model should converged to the point model as stddev
+//tends to 0
+void testModel(long seed) {
+	PRNG prng(seed);  //We should actually be recycling prng rather
+					  //than the seed
+	RandomDist rand;
+
+	PointModel pm = PointModel::randomModel(seed+10);
+
+	cout << "================================================================================" << endl;
+	cout << "Point Model = " << pm << endl;
+
+	GaussModel gm1;
+
+	gm1.ax = pm.ax;
+	gm1.rh = pm.rh;
+
+	gm1.metal = pm.metal;
+	gm1.setEulerAngles(pm.angle_x,pm.angle_y,pm.angle_z);
+
+	gm1.stddev = 1;
+
+	GaussModel gm05 = gm1;
+	gm05.stddev = 0.5;
+
+	GaussModel gm01 = gm1;
+	gm01.stddev = 0.1;
+
+	GaussModel gm005 = gm1;
+	gm005.stddev = 0.05;
+
+	GaussModel gm001 = gm1;
+	gm001.stddev = 0.01;
+
+	GaussModel gm0005 = gm1;
+	gm0005.stddev = 0.005;
+
+	GaussModel gm0001 = gm1;
+	gm0001.stddev = 0.001;
+
+	GaussModel gm00005 = gm1;
+	gm00005.stddev = 0.0005;
+
+
+	cout << "================================================================================" << endl;
+	for(unsigned long i = 0;i<10;i++) {
+		double x = rand(prng);
+		double y = rand(prng);
+		double z = rand(prng);
+
+		cout << "Point selected = ("<< x << "," << y << "," << z << ")" << endl;
+
+		cout << "Point Model = " << pm.eval(x,y,z) << endl;
+		cout << "gm1 Model = " << gm1.eval(x,y,z) << endl;
+		cout << "gm05 Model = " << gm05.eval(x,y,z) << endl;
+		cout << "gm01 Model = " << gm01.eval(x,y,z) << endl;
+		cout << "gm005 Model = " << gm005.eval(x,y,z) << endl;
+		cout << "gm001 Model = " << gm001.eval(x,y,z) << endl;
+		cout << "gm0005 Model = " << gm0005.eval(x,y,z) << endl;
+		cout << "gm0001 Model = " << gm0001.eval(x,y,z) << endl;
+		cout << "gm00005 Model = " << gm00005.eval(x,y,z) << endl;
+		cout << "================================================================================" << endl;
+	}
+
+}
+
 
 //When set to true, created threads should exit
 bool threadExit = false;
@@ -217,6 +284,7 @@ int main(int argc,char** argv) {
 		options_description optDesc("Options");
 
 		optDesc.add_options()
+			("test-models","")
 			("help","print this help page and exit")
 			("gui","Visualise the fitting process with VTK")
 			("model",value<string>(&modelType)->default_value("point"),
@@ -241,6 +309,10 @@ int main(int argc,char** argv) {
 		if(variablesMap.count("help")) {
 			cout << "Usage:" << endl;
 			cout << optDesc << endl;
+			return 0;
+		}
+		if(variablesMap.count("test-models") > 0) {
+			testModel(7734);
 			return 0;
 		}
 		if(variablesMap.count("input-file") != 1 && 

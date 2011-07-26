@@ -35,7 +35,8 @@ private:
                       bool wireframe);
 	void updateVals(vtkRenderer* renderer,
 					const Vals& vals,
-					std::vector<vtkSmartPointer<vtkActor> >& spheres);
+					std::vector<vtkSmartPointer<vtkActor> >& spheres,
+					bool experimental);
     void onTimeout();
 
 	//Threading stuff
