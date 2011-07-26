@@ -20,6 +20,7 @@
 #include "vis.hpp"
 #include "minimiser.hpp"
 
+#define logMsg(x) flog << __FILE__ << "(" << __LINE__ << ")" << x << endl;
 
 using namespace std;
 using namespace boost;
@@ -221,20 +222,6 @@ int main(int argc,char** argv) {
 	}
 	notify(variablesMap);
 
-    //Start the thread pool
-    pool = new Multithreader<double>;
-
-	//Load the data
-	pairNucVals data;
-	if(variablesMap.count("random-data") == 0) {
-		data = loadData(filename);
-	} else {
-		data = fakeData(123456,PointModel::randomModel(54321),200);
-    }
-		
-	Nuclei nuclei = data.first;
-	Vals expVals = data.second;
-
 	//Open the log file and params.log file
 	flog.open("log.log");
 	if(!flog.is_open()) {
@@ -242,11 +229,31 @@ int main(int argc,char** argv) {
 		return 1;
 	}
 
+    //Start the thread pool
+    pool = new Multithreader<double>;
+
+	//Load the data
+	pairNucVals data;
+	if(variablesMap.count("random-data") == 0) {
+		logMsg("Opening the data");
+		data = loadData(filename);
+	} else {
+		logMsg("Generating a random point model");
+		PointModel pm = PointModel::randomModel(54321);
+		logMsg("Model is:" << pm);
+		data = fakeData(123456,pm,200);
+    }
+		
+	Nuclei nuclei = data.first;
+	Vals expVals = data.second;
+
+
 	fout.open("params.log");
 	if(!fout.is_open()) {
 		cerr << "Could not open params.log for writing" << endl;
 		return 1;
 	}
+	logMsg("Log file opened");
 
 	//Set up the model
 

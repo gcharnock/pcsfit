@@ -125,8 +125,8 @@ PointModel PointModel::randomModel(long seed) {
 	RandomDist rand;
     
     PointModel m;
-    m.ax = 1-2*rand(prng);
-    m.rh = 1-2*rand(prng);
+    m.ax = (1-2*rand(prng))*10000;
+    m.rh = (1-2*rand(prng))*10000;
 
     m.metal.x = rand(prng);
     m.metal.y = rand(prng);
@@ -298,8 +298,8 @@ GaussModel GaussModel::randomModel(long seed) {
 	RandomDist rand;
     
     GaussModel m;
-    m.ax = 1-2*rand(prng);
-    m.rh = 1-2*rand(prng);
+    m.ax = (1-2*rand(prng))*10000;
+    m.rh = (1-2*rand(prng))*10000;
 
     m.metal.x = rand(prng);
     m.metal.y = rand(prng);
