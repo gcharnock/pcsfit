@@ -129,10 +129,8 @@ public:
 		double total = 0;
 	
 		for(unsigned long i = 0;i<expVals.size();i++) {
-			if(expVals[i] > 1) {
-				double diff = expVals[i] - results[i];
-				total += diff*diff;
-			}
+			double diff = expVals[i] - results[i];
+			total += diff*diff;
 		}
 
 		calcVals = results;
