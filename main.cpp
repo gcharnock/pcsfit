@@ -11,6 +11,7 @@
 #include <sstream>
 #include <cassert>
 #include <functional>
+#include <limits>
 
 #include "foreach.hpp"
 #include "threads.hpp"
@@ -80,8 +81,8 @@ public:
 	NumericalExperiment(const Nuclei& _nuclei,
 						const Vals& _expVals,
 						bool withGUI,
-						boost::function<M(const vector<double>&)> unpack,
-						boost::function<vector<double>(const M&)> pack)
+						std::function<M(const vector<double>&)> unpack,
+						std::function<vector<double>(const M&)> pack)
 		: minimiser(unpack,
 					pack,
 					[=](const M& m){return this->minf(m);},
@@ -104,9 +105,42 @@ public:
 	std::pair<double,M> minimise(const M& input) {
 		return  minimiser.minimise(input);
 	}
+
+	std::pair<double,M> multiMinimise(const M& input,unsigned long seed,std::function<M(unsigned long)> makeRandom) {
+		double best = numeric_limits<double>::infinity();
+		M bestModel;
+		for(unsigned long i = 0;i<1000;i++) {
+			//fout << "------------------------------------------------------------" << endl;
+			M thisModel = makeRandom(seed+i);
+
+
+			auto output = minimiser.minimise(thisModel);
+
+			cout << thisModel << endl;
+			cout << output.second << endl;
+			cout << endl;
+
+
+			double error = output.first;
+			if(error < best) {
+				logMsg("Found a new better model, with error " << error);
+				logMsg("Starting model was " << thisModel);
+				logMsg("Final model was " << output.second);
+				best = error;
+				bestModel = output.second;
+			}
+			//fout << endl;
+			//fout << endl;
+			//fout << endl;
+		}
+		return pair<double,M>(best,bestModel);
+	}
+
 	double minf(const M& thisModel) {
 		static int paused = 0;
-		if(paused > 2) sleep(1);
+		if(paused > 2) {
+			//usleep(10000);
+		}
 		paused++;
 
 		//Prepare the work
@@ -231,14 +265,15 @@ int main(int argc,char** argv) {
 
 	//Load the data
 	pairNucVals data;
+	PointModel randomPointModel;
 	if(variablesMap.count("random-data") == 0) {
 		logMsg("Opening the data");
 		data = loadData(filename);
 	} else {
 		logMsg("Generating a random point model");
-		PointModel pm = PointModel::randomModel(54321);
-		logMsg("Model is:" << pm);
-		data = fakeData(123456,pm,200);
+		randomPointModel = PointModel::randomModel(54321);
+		logMsg("Model is:" << randomPointModel);
+		data = fakeData(123456,randomPointModel,200);
     }
 		
 	Nuclei nuclei = data.first;
@@ -264,14 +299,14 @@ int main(int argc,char** argv) {
 		pm.setEulerAngles(4.26073, 1.18864, -3.54324);
 
 		std::function<PointModel(vector<double>)> 
-			unpackPoint = [](vector<double> v) {
+			unpackPoint = [=](vector<double> v) {
 			PointModel m;
 			m.ax      = v[0];
 			m.rh      = v[1];
 			
-			m.metal.x = 4.165;
-			m.metal.y = 18.875;
-			m.metal.z = 17.180;
+			m.metal.x = randomPointModel.metal.x;
+			m.metal.y = randomPointModel.metal.y;
+			m.metal.z = randomPointModel.metal.z;
 												  
 			m.setEulerAngles(v[2],v[3],v[4]);
 			
@@ -281,14 +316,34 @@ int main(int argc,char** argv) {
 		std::function<vector<double>(PointModel)>
 			packPoint = [](const PointModel& m){
 			vector<double> vec;
-			vec.push_back(m.ax     );
-			vec.push_back(m.rh     );
+			vec.push_back(m.ax);
+			vec.push_back(m.rh);
 			
+			/*vec.push_back(m.metal.x);
+			vec.push_back(m.metal.y);
+			vec.push_back(m.metal.z);*/
+
 			vec.push_back(m.angle_x);
 			vec.push_back(m.angle_y);
 			vec.push_back(m.angle_z);
 			
 			return vec;
+		};
+
+		std::function<PointModel(unsigned long) > randomPoint = [=](unsigned long seed) {
+			PRNG prng(seed);
+			RandomDist rand;
+
+			PointModel m;
+			m.ax = randomPointModel.ax; //(1-2*rand(prng));
+			m.rh = randomPointModel.rh;//(1-2*rand(prng));
+
+			m.metal.x = randomPointModel.metal.x;
+			m.metal.y = randomPointModel.metal.y;
+			m.metal.z = randomPointModel.metal.z;
+			
+			m.setEulerAngles(randomPointModel.angle_x,randomPointModel.angle_y,randomPointModel.angle_z);
+			return m;
 		};
 
 		NumericalExperiment<PointModel>
