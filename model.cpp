@@ -226,14 +226,14 @@ double GaussModel::eval(double x,double y,double z) const {
     intDet.y = y;
     intDet.z = z;
 
-    intDet.xmax = x+5*stddev;
-    intDet.xmin = x-5*stddev;
+    intDet.xmax = x + 200;//x+5*stddev;
+	intDet.xmin = x - 200;//x-5*stddev;
     
-    intDet.ymax = y+5*stddev;
-    intDet.ymin = y-5*stddev;
+    intDet.ymax = y + 200;//y+5*stddev;
+    intDet.ymin = y - 200;//y-5*stddev;
     
-    intDet.zmax = z+5*stddev;
-    intDet.zmin = z-5*stddev;
+    intDet.zmax = z + 200;//z+5*stddev;
+    intDet.zmin = z - 200;//z-5*stddev;
 
 	int nregions, neval, fail;
 	double integral[1], error[1], prob[1];

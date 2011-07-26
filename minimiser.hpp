@@ -40,7 +40,7 @@ public:
 		}
 
 		gsl_multimin_fminimizer_set (gslmin, &minfunc, vec, step_size);
-		for(unsigned long i = 0; i<1000;i++) {
+		for(unsigned long i = 0; i<2000;i++) {
 			gsl_multimin_fminimizer_iterate (gslmin);
 		}
 

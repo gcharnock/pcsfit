@@ -304,11 +304,11 @@ int main(int argc,char** argv) {
 			m.ax      = v[0];
 			m.rh      = v[1];
 			
-			m.metal.x = randomPointModel.metal.x;
-			m.metal.y = randomPointModel.metal.y;
-			m.metal.z = randomPointModel.metal.z;
-												  
-			m.setEulerAngles(v[2],v[3],v[4]);
+			m.metal.x = v[2];//4.165; //randomPointModel.metal.x;
+			m.metal.y = v[3];//18.875; //randomPointModel.metal.y;
+			m.metal.z = v[4];//17.180; //randomPointModel.metal.z;
+						
+			m.setEulerAngles(v[5],v[6],v[7]);
 			
 			return m;
 		};
@@ -319,9 +319,9 @@ int main(int argc,char** argv) {
 			vec.push_back(m.ax);
 			vec.push_back(m.rh);
 			
-			/*vec.push_back(m.metal.x);
+			vec.push_back(m.metal.x);
 			vec.push_back(m.metal.y);
-			vec.push_back(m.metal.z);*/
+			vec.push_back(m.metal.z);
 
 			vec.push_back(m.angle_x);
 			vec.push_back(m.angle_y);
@@ -358,21 +358,21 @@ int main(int argc,char** argv) {
 						   (nuclei.ymin+nuclei.ymax)/2,
 						   (nuclei.zmin+nuclei.zmax)/2);*/
 		gm.setEulerAngles(4.26073, 1.18864, -3.54324);
-		gm.stddev = 1;
+		gm.stddev = 4;
 
 		std::function<GaussModel(vector<double>)>
-			packGauss = [](vector<double> v){
+			packGauss = [=](vector<double> v){
 			GaussModel m;
 			m.ax      = v[0];
 			m.rh      = v[1];
 			
-			m.metal.x = 4.165;
-			m.metal.y = 18.875;
-			m.metal.z = 17.180;
+			m.metal.x = v[2];//randomPointModel.metal.x;
+			m.metal.y = v[3];//randomPointModel.metal.y;
+			m.metal.z = v[4];//randomPointModel.metal.z;
 												  
-			m.setEulerAngles(v[2],v[3],v[4]);
+			m.setEulerAngles(v[5],v[6],v[7]);
 												  
-			m.stddev = v[5];
+			m.stddev = v[8];
 			return m;
 		};
 
@@ -381,6 +381,10 @@ int main(int argc,char** argv) {
 			std::vector<double> vec;
 			vec.push_back(m.ax     );
 			vec.push_back(m.rh     );
+
+			vec.push_back(m.metal.x);
+			vec.push_back(m.metal.y);
+			vec.push_back(m.metal.z);
 													
 			vec.push_back(m.angle_x);
 			vec.push_back(m.angle_y);
