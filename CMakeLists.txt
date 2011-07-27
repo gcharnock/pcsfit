@@ -26,7 +26,15 @@ set(LIBS
   -lboost_program_options_link
   -lpthread)
 
-include_directories(../Cuba-2.1 /usr/include/vtk-5.4/ ../../src/boost_1_46_1)
+
+if(IS_DIRECTORY /usr/include/vtk-5.4)
+  set(vtkDir /usr/include/vtk-5.4/)
+else()
+  set(vtkDir /usr/include/vtk-5.2/)
+endif()
+
+
+include_directories(../Cuba-2.1 ${vtkDir}  ../../src/boost_1_46_1)
 
 
 set(CMAKE_CXX_FLAGS         "-Wno-deprecated -Wall -fno-strict-aliasing")
