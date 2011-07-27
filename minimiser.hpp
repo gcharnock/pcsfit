@@ -11,10 +11,10 @@ template<typename T>
 class Minimiser {
 public:
 	typedef std::vector<double> PList;
-	Minimiser(std::function<T(const PList&)> unpack,
-			  std::function<PList(const T&)> pack,  
-			  std::function<double(T)> min_funcion,		  
-			  std::function<void(const T&)> logger)		  
+	Minimiser(boost::function<T(const PList&)> unpack,
+			  boost::function<PList(const T&)> pack,  
+			  boost::function<double(const T&)> min_funcion,		  
+			  boost::function<void(const T&)> logger)		  
 		: mUnpack(unpack),mPack(pack),mFMin(min_funcion),mLogger(logger) {
 	}
 

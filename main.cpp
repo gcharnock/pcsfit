@@ -10,7 +10,7 @@
 #include <boost/program_options.hpp>
 #include <sstream>
 #include <cassert>
-#include <functional>
+#include <boost/function.hpp>
 #include <limits>
 
 #include "foreach.hpp"
@@ -78,35 +78,11 @@ ofstream flog;
 template<typename M> //M stands for Model
 class NumericalExperiment {
 public:
-	NumericalExperiment(const Nuclei& _nuclei,
-						const Vals& _expVals,
-						bool withGUI,
-						std::function<M(const vector<double>&)> unpack,
-						std::function<vector<double>(const M&)> pack)
-		: minimiser(unpack,
-					pack,
-					[=](const M& m){return this->minf(m);},
-					[=](const M& m){this->onIterate(m);}),
-		  nuclei(_nuclei),
-		  expVals(_expVals) {
-
-
-		calcVals.resize(expVals.size());
-
-		//Start the visualisation thread
-		if(withGUI) {
-			visualThread.start();
-			visualThread.fw->setNuclei(nuclei);
-			visualThread.fw->setExpVals(expVals);
-			boost::thread boostVisualThread(boost::ref(visualThread));
-		}
-	}
-
 	std::pair<double,M> minimise(const M& input) {
 		return  minimiser.minimise(input);
 	}
 
-	std::pair<double,M> multiMinimise(const M& input,unsigned long seed,std::function<M(unsigned long)> makeRandom) {
+	std::pair<double,M> multiMinimise(const M& input,unsigned long seed,boost::function<M(unsigned long)> makeRandom) {
 		double best = numeric_limits<double>::infinity();
 		M bestModel;
 		for(unsigned long i = 0;i<1000;i++) {
@@ -114,7 +90,7 @@ public:
 			M thisModel = makeRandom(seed+i);
 
 
-			auto output = minimiser.minimise(thisModel);
+			M output = minimiser.minimise(thisModel);
 
 			cout << thisModel << endl;
 			cout << output.second << endl;
@@ -198,6 +174,30 @@ public:
 	VisualThread visualThread;
 private:
 	NumericalExperiment(const NumericalExperiment&) {};
+
+public:
+	NumericalExperiment(const Nuclei& _nuclei,
+						const Vals& _expVals,
+						bool withGUI,
+						boost::function<M(const vector<double>&)> unpack,
+						boost::function<vector<double>(const M&)> pack)
+		: minimiser(unpack,pack,
+					boost::bind(&NumericalExperiment::minf,this     ,_1),
+					boost::bind(&NumericalExperiment::onIterate,this,_1)),
+		  nuclei(_nuclei),
+		  expVals(_expVals) {
+
+
+		calcVals.resize(expVals.size());
+
+		//Start the visualisation thread
+		if(withGUI) {
+			visualThread.start();
+			visualThread.fw->setNuclei(nuclei);
+			visualThread.fw->setExpVals(expVals);
+			boost::thread boostVisualThread(boost::ref(visualThread));
+		}
+	}
 };
 
 
@@ -283,6 +283,8 @@ void testModel(long seed) {
 
 //When set to true, created threads should exit
 bool threadExit = false;
+
+
 
 
 
@@ -384,56 +386,10 @@ int main(int argc,char** argv) {
 						   (nuclei.zmin+nuclei.zmax)/2);*/
 		pm.setEulerAngles(4.26073, 1.18864, -3.54324);
 
-		std::function<PointModel(vector<double>)> 
-			unpackPoint = [=](vector<double> v) {
-			PointModel m;
-			m.ax      = v[0];
-			m.rh      = v[1];
-			
-			m.metal.x = v[2];//4.165; //randomPointModel.metal.x;
-			m.metal.y = v[3];//18.875; //randomPointModel.metal.y;
-			m.metal.z = v[4];//17.180; //randomPointModel.metal.z;
-						
-			m.setEulerAngles(v[5],v[6],v[7]);
-			
-			return m;
-		};
-
-		std::function<vector<double>(PointModel)>
-			packPoint = [](const PointModel& m){
-			vector<double> vec;
-			vec.push_back(m.ax);
-			vec.push_back(m.rh);
-			
-			vec.push_back(m.metal.x);
-			vec.push_back(m.metal.y);
-			vec.push_back(m.metal.z);
-
-			vec.push_back(m.angle_x);
-			vec.push_back(m.angle_y);
-			vec.push_back(m.angle_z);
-			
-			return vec;
-		};
-
-		std::function<PointModel(unsigned long) > randomPoint = [=](unsigned long seed) {
-			PRNG prng(seed);
-			RandomDist rand;
-
-			PointModel m;
-			m.ax = randomPointModel.ax; //(1-2*rand(prng));
-			m.rh = randomPointModel.rh;//(1-2*rand(prng));
-
-			m.metal.x = randomPointModel.metal.x;
-			m.metal.y = randomPointModel.metal.y;
-			m.metal.z = randomPointModel.metal.z;
-			
-			m.setEulerAngles(randomPointModel.angle_x,randomPointModel.angle_y,randomPointModel.angle_z);
-			return m;
-		};
 
 		NumericalExperiment<PointModel>
-			p_exp(nuclei,expVals,variablesMap.count("gui") > 0,unpackPoint,packPoint);
+			p_exp(nuclei,expVals,variablesMap.count("gui") > 0,
+				  &PointModel::unpack,&PointModel::pack);
 
 		p_exp.minimise(pm);
 	} else if(variablesMap["model"].as<string>() == "gauss") {
@@ -446,42 +402,9 @@ int main(int argc,char** argv) {
 		gm.setEulerAngles(5.87352,1.05834,-6.57634);
 		gm.stddev = 0.1;
 
-		std::function<GaussModel(vector<double>)>
-			packGauss = [=](vector<double> v){
-			GaussModel m;
-			m.ax      = v[0];
-			m.rh      = v[1];
-			
-			m.metal.x = v[2];//randomPointModel.metal.x;
-			m.metal.y = v[3];//randomPointModel.metal.y;
-			m.metal.z = v[4];//randomPointModel.metal.z;
-												  
-			m.setEulerAngles(v[5],v[6],v[7]);
-												  
-			m.stddev = v[8];
-			return m;
-		};
-
-		std::function<vector<double>(const GaussModel&)>
-			unpackGauss = [](const GaussModel& m){
-			std::vector<double> vec;
-			vec.push_back(m.ax     );
-			vec.push_back(m.rh     );
-
-			vec.push_back(m.metal.x);
-			vec.push_back(m.metal.y);
-			vec.push_back(m.metal.z);
-													
-			vec.push_back(m.angle_x);
-			vec.push_back(m.angle_y);
-			vec.push_back(m.angle_z);
-													
-			vec.push_back(m.stddev);
-			return vec;
-		};
-
 		NumericalExperiment<GaussModel>
-			g_exp(nuclei,expVals,variablesMap.count("gui") > 0,packGauss,unpackGauss);
+			g_exp(nuclei,expVals,variablesMap.count("gui") > 0,
+				  &GaussModel::unpack,&GaussModel::pack);
 
 		g_exp.minimise(gm);
 	} else {
