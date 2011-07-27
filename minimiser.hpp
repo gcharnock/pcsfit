@@ -36,7 +36,7 @@ public:
 		gsl_vector* step_size = gsl_vector_alloc(plist.size());
 		
 		for(unsigned long i = 0;i<plist.size();i++) {
-			gsl_vector_set(step_size,i,plist[i] == 0 ? 1 : plist[i]*0.1);
+			gsl_vector_set(step_size,i,plist[i] == 0 ? 1 : plist[i]*0.5);
 		}
 
 		gsl_multimin_fminimizer_set (gslmin, &minfunc, vec, step_size);
