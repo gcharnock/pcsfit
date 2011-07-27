@@ -40,7 +40,7 @@ include_directories(../Cuba-2.1 ${vtkDir}  ../../src/boost_1_46_1)
 set(CMAKE_CXX_FLAGS         "-Wno-deprecated -Wall -fno-strict-aliasing")
 set(CMAKE_CXX_FLAGS_DEBUG   "-g -ggdb")
 set(cmake_cxx_flags_release "-O3 -ffast-math")
-#set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} -static)
+set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS})
 
 
 set(sources  model.cpp  data.cpp  vis.cpp)
