@@ -437,14 +437,14 @@ int main(int argc,char** argv) {
 
 		p_exp.minimise(pm);
 	} else if(variablesMap["model"].as<string>() == "gauss") {
-		GaussModel gm;
-		gm.ax = -5889.0;
-		gm.rh = -5491.0;
-		gm.metal = Vector3(4.165,18.875,17.180);/*(nuclei.xmin+nuclei.xmax)/2,
+		GaussModel gm; //The best point fit
+		gm.ax = -20504.4;   
+		gm.rh = -17337.4;
+		gm.metal = Vector3(6.46403,16.436,14.2135);/*(nuclei.xmin+nuclei.xmax)/2,
 						   (nuclei.ymin+nuclei.ymax)/2,
 						   (nuclei.zmin+nuclei.zmax)/2);*/
-		gm.setEulerAngles(4.26073, 1.18864, -3.54324);
-		gm.stddev = 0.2;
+		gm.setEulerAngles(5.87352,1.05834,-6.57634);
+		gm.stddev = 0.1;
 
 		std::function<GaussModel(vector<double>)>
 			packGauss = [=](vector<double> v){
