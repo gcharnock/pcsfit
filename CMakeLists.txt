@@ -5,7 +5,7 @@ project(pcsfit)
 #set(CMAKE_VERBOSE_MAKEFILE TRUE)
 
 #Debug build, can use with gdb
-set(CMAKE_BUILD_TYPE Debug)
+#set(CMAKE_BUILD_TYPE Debug)
 
 #Compile a release build
 set(CMAKE_BUILD_TYPE Release)
@@ -23,7 +23,7 @@ set(LIBS
   cuba
   -L.
   -lboost_thread_link
-  -lboost_program_options
+  -lboost_program_options_link
   -lpthread)
 
 include_directories(../Cuba-2.1 /usr/include/vtk-5.4/ ../../src/boost_1_46_1)
@@ -32,6 +32,7 @@ include_directories(../Cuba-2.1 /usr/include/vtk-5.4/ ../../src/boost_1_46_1)
 set(CMAKE_CXX_FLAGS         "-std=c++0x -Wno-deprecated -Wall")
 set(CMAKE_CXX_FLAGS_DEBUG   "-g -ggdb")
 set(cmake_cxx_flags_release "-O3 -ffast-math")
+#set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} -static)
 
 
 set(sources  model.cpp  data.cpp  vis.cpp)
