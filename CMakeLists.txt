@@ -8,7 +8,7 @@ project(pcsfit)
 set(CMAKE_BUILD_TYPE Debug)
 
 #Compile a release build
-#set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Release)
 
 
 set(VTKLIBS
