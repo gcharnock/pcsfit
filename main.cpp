@@ -377,14 +377,20 @@ int main(int argc,char** argv) {
 
 	//Set up the model
 
+	double inital_ax = -3000;//-20504.4;
+	double inital_rh = -1000;//-17337.4;
+
+	Vector3 inital_metal = Vector3(4.165,18.875,17.180);
+	double inital_angle_x = 6.46403;
+	double inital_angle_y = 16.436;
+	double inital_angle_z = 14.2135;
+
 	if(modelType == "point") {
 		PointModel pm;
-		pm.ax = -5889.0;  
-		pm.rh =  -5491.0;
-		pm.metal = Vector3(4.165,18.875,17.180);/*Vector3((nuclei.xmin+nuclei.xmax)/2,
-						   (nuclei.ymin+nuclei.ymax)/2,
-						   (nuclei.zmin+nuclei.zmax)/2);*/
-		pm.setEulerAngles(4.26073, 1.18864, -3.54324);
+		pm.ax = inital_ax;  
+		pm.rh = inital_rh;
+		pm.metal = inital_metal;
+		pm.setEulerAngles(inital_angle_x, inital_angle_y, inital_angle_z);
 
 
 		NumericalExperiment<PointModel>
@@ -394,12 +400,10 @@ int main(int argc,char** argv) {
 		p_exp.minimise(pm);
 	} else if(variablesMap["model"].as<string>() == "gauss") {
 		GaussModel gm; //The best point fit
-		gm.ax = -20504.4;   
-		gm.rh = -17337.4;
-		gm.metal = Vector3(6.46403,16.436,14.2135);/*(nuclei.xmin+nuclei.xmax)/2,
-						   (nuclei.ymin+nuclei.ymax)/2,
-						   (nuclei.zmin+nuclei.zmax)/2);*/
-		gm.setEulerAngles(5.87352,1.05834,-6.57634);
+		gm.ax = inital_ax;   
+		gm.rh = inital_rh;
+		gm.metal = inital_metal;
+		gm.setEulerAngles(inital_angle_x, inital_angle_y, inital_angle_z);
 		gm.stddev = 0.1;
 
 		NumericalExperiment<GaussModel>
