@@ -104,18 +104,18 @@ public:
 	std::pair<double,M> minimise() {
         std::pair<double,M> p;
 
-        for(unsigned long i = 0;i<2000;i++) {
+        for(unsigned long i = 0;i<1;i++) {
             p = minimiser->iterate();
             M m = p.second;
             if(visualThread.fw) {
                 visualThread.fw->setCalcVals(calcVals,m.metal,m.angle_x,m.angle_y,m.angle_z);
             }
+            cout << p.first << "\t" << m << endl;
         }
         return p;
     }
 
 	double minf(const M& thisModel) {
-		cout << thisModel << endl;
 
 		static int paused = 0;
 		if(paused > 2) {
@@ -149,8 +149,7 @@ public:
 		calcVals = results;
 
 		//Record the results
-		fout << total << "\t\t" <<  thisModel << endl;
-
+		fout << total << "\t\t" << thisModel << endl;
 		return total;
 	}
 
@@ -277,7 +276,7 @@ int main(int argc,char** argv) {
 			("gui","Visualise the fitting process with VTK")
 			("model",value<string>(&modelType)->default_value("point"),
 			 "Select the model to use")
-            ("method",value<string>(&method)->default_value("gradient"),"")
+            ("method",value<string>(&method)->default_value("bfgs"),"")
 			("random-model-type",
 			 "Specify the type of the model to use for generating random data")
 			("input-file",value<string>(&filename),"specify an input file")
@@ -369,7 +368,7 @@ int main(int argc,char** argv) {
 
 
 		NumericalExperiment<PointModel>
-			p_exp(nuclei,expVals,pm,variablesMap.count("gui") > 0,variablesMap.count("gradient") > 0);
+			p_exp(nuclei,expVals,pm,variablesMap.count("gui") > 0,variablesMap["method"].as<string>()=="bfgs");
 
 		p_exp.minimise();
 	} else if(variablesMap["model"].as<string>() == "gauss") {
@@ -381,7 +380,7 @@ int main(int argc,char** argv) {
 		gm.stddev = 0.1;
 
 		NumericalExperiment<GaussModel>
-			g_exp(nuclei,expVals,gm,variablesMap.count("gui") > 0,variablesMap.count("gradient") > 0);
+			g_exp(nuclei,expVals,gm,variablesMap.count("gui") > 0,variablesMap["method"].as<string>()=="bfgs");
 
 		g_exp.minimise();
 	} else {

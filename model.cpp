@@ -79,16 +79,16 @@ double PointModel::eval(double x,double y,double z) const {
 
 std::vector<double> PointModel::getSmallSteps() {
 	std::vector<double> vec;
-    vec.push_back(30);
-    vec.push_back(30);
-                           
-    vec.push_back(0.1);
     vec.push_back(0.1);
     vec.push_back(0.1);
                            
-    vec.push_back(0.1);
-    vec.push_back(0.1);
-    vec.push_back(0.1);
+    vec.push_back(0.01);
+    vec.push_back(0.01);
+    vec.push_back(0.01);
+                           
+    vec.push_back(0.01);
+    vec.push_back(0.01);
+    vec.push_back(0.01);
     return vec;
 }
 

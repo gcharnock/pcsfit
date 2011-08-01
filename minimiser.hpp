@@ -20,8 +20,12 @@ public:
 		//Unpack the starting model
 		pList = T::pack(startingModel);
 		nParams = pList.size();
+
         startingModelVec = gsl_vector_alloc(nParams);
+        pList2GSLVec(pList,startingModelVec);
+
         step_size = gsl_vector_alloc(nParams);
+        pList2GSLVec(small_step_sizes,step_size);        
     }
     virtual ~MinimiserBase() {
         gsl_vector_free(step_size);
@@ -139,29 +143,31 @@ private:
 	}
 	void df(const gsl_vector *v, gsl_vector *df) {
         gsl_vector* vprime = gsl_vector_alloc(v->size);
-
+        cout << "grad =";
         for(unsigned long i = 0;i < v->size;i++) {
             double df_by_di = 0;
             double h = this->step_size->data[i];
 
             gsl_vector_memcpy(vprime,v);
 
-            vprime->data[i] = vprime->data[i] - 2*h;
+            vprime->data[i] -= 2*h;
             df_by_di += f(vprime);
 
-            vprime->data[i] = vprime->data[i] + 1*h;
+            vprime->data[i] += 1*h;
             df_by_di -= 8*f(vprime);
 
-            vprime->data[i] = vprime->data[i] + 2*h;
+            vprime->data[i] += 2*h;
             df_by_di += 8*f(vprime);
 
-            vprime->data[i] = vprime->data[i] + 1*h;
+            vprime->data[i] += 1*h;
             df_by_di -= f(vprime);
 
-            df_by_di/=12*h;
+            cout << " " << df_by_di;
+
+            df_by_di/=(12*h);
             df->data[i] = df_by_di;
         }
-
+        cout << endl;
         gsl_vector_free(vprime);
 	}
 
