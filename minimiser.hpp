@@ -117,8 +117,9 @@ public:
 		minfunc.params = (void*)this;
 
 		//Initalise the minimiser
-		gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2,this->nParams);
-        gsl_multimin_fdfminimizer_set(gslmin,&minfunc,this->startingModelVec,0.01,0.1);
+		//gsl_multimin_fdfminimizer_vector_bfgs2
+		gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_conjugate_fr,this->nParams);
+        gsl_multimin_fdfminimizer_set(gslmin,&minfunc,this->startingModelVec,1,0.1);
 	}
 
     virtual ~GradientMinimiser() {
@@ -144,27 +145,39 @@ private:
 	void df(const gsl_vector *v, gsl_vector *df) {
         gsl_vector* vprime = gsl_vector_alloc(v->size);
         cout << "grad =";
-        for(unsigned long i = 0;i < v->size;i++) {
+
+        for(unsigned long i = 2;i < v->size;i++) {
             double df_by_di = 0;
             double h = this->step_size->data[i];
 
             gsl_vector_memcpy(vprime,v);
 
-            vprime->data[i] -= 2*h;
+            vprime->data[i] = v->data[i] - 2*h;
             df_by_di += f(vprime);
 
-            vprime->data[i] += 1*h;
+            vprime->data[i] = v->data[i] - 1*h;
             df_by_di -= 8*f(vprime);
 
-            vprime->data[i] += 2*h;
+            vprime->data[i] = v->data[i] + 1*h;
             df_by_di += 8*f(vprime);
 
-            vprime->data[i] += 1*h;
+            vprime->data[i] = v->data[i] + 2*h;
             df_by_di -= f(vprime);
 
             cout << " " << df_by_di;
 
             df_by_di/=(12*h);
+            df->data[i] = df_by_di;
+            /*
+			vprime->data[i] = v->data[i]+h;
+            df_by_di += f(vprime);
+
+            vprime->data[i] = v->data[i]-h;
+            df_by_di -= f(vprime);
+
+            df_by_di/=(2*h);
+            cout << " " << df_by_di;
+			*/
             df->data[i] = df_by_di;
         }
         cout << endl;

@@ -77,10 +77,37 @@ double PointModel::eval(double x,double y,double z) const {
 	return (   ax*(2*gz2 - gx2 - gy2) + rh*(3.0/2.0)*(gx2-gy2)  )/r5/M_PI/12;
 }
 
+void PointModel::grad(double x,double y,double z,double* ax_grad,double* rh_grad) const {
+	double gx = x - metal.x;
+	double gy = y - metal.y;
+	double gz = z - metal.z;
+
+	double gxr = mat[0]*gx + mat[1]*gy + mat[2]*gz;
+	double gyr = mat[3]*gx + mat[4]*gy + mat[5]*gz;
+	double gzr = mat[6]*gx + mat[7]*gy + mat[8]*gz;
+
+	double gx2 = gxr*gxr;
+	double gy2 = gyr*gyr;
+	double gz2 = gzr*gzr;
+
+	double r2 = gx2 + gy2 + gz2;
+	double r5 = r2*r2*sqrt(r2);
+
+	//Prevent division by zero errors
+	if(r2 == 0) {
+		*ax_grad = 0;
+		*rh_grad = 0;
+	} else {
+		*ax_grad = (   ax*(2*gz2 - gx2 - gy2)   )/r5/M_PI/12;
+		*rh_grad = (   rh*(3.0/2.0)*(gx2-gy2)  )/r5/M_PI/12;
+	}
+	//Do the rest via central differencing
+}
+
 std::vector<double> PointModel::getSmallSteps() {
 	std::vector<double> vec;
-    vec.push_back(0.1);
-    vec.push_back(0.1);
+    vec.push_back(0.01);
+    vec.push_back(0.01);
                            
     vec.push_back(0.01);
     vec.push_back(0.01);
@@ -356,4 +383,8 @@ std::vector<double> GaussModel::getSmallSteps() {
 
     vec.push_back(0.01);
     return vec;
+}
+
+void GaussModel::grad(double x,double y,double z,double* ax_grad,double* rh_grad) const {
+	
 }

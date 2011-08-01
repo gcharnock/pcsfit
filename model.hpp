@@ -100,6 +100,7 @@ public:
     ~PointModel();
 
     double eval(double x, double y, double z) const;
+	void   grad(double x,double y,double z,double* ax_grad,double* rh_grad) const;
 
     static std::vector<double> getSmallSteps();
 	static std::vector<double> pack(const PointModel& m);
@@ -118,6 +119,8 @@ public:
 
 	//This method is thread safe due to being const
 	double eval(double x,double y,double z) const;
+	void   grad(double x,double y,double z,double* ax_grad,double* rh_grad) const;
+
 	double stddev;
 
     static std::vector<double> getSmallSteps();

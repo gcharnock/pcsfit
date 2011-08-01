@@ -104,7 +104,7 @@ public:
 	std::pair<double,M> minimise() {
         std::pair<double,M> p;
 
-        for(unsigned long i = 0;i<1;i++) {
+        for(unsigned long i = 0;true;i++) {
             p = minimiser->iterate();
             M m = p.second;
             if(visualThread.fw) {
@@ -115,14 +115,69 @@ public:
         return p;
     }
 
-	double minf(const M& thisModel) {
+	double withGrad(const M& thisModel,bool useGrad,vector<double>& g) {
+		//Prepare the work
+		std::vector<boost::function<double()> > work;
 
-		static int paused = 0;
-		if(paused > 2) {
-			//usleep(10000);
+		std::vector<double> ax_grads; ax_grads.resize(nuclei.size());
+		std::vector<double> rh_grads; rh_grads.resize(nuclei.size());
+
+		for(unsigned long i = 0;i<nuclei.size();i++) {
+			work.push_back(boost::bind(&M::grad,
+									   &thisModel,nuclei[i].x,nuclei[i].y,nuclei[i].z,
+									   &ax_grads[i],&rh_grads[i]));
 		}
-		paused++;
+		Vals results;
+		results.resize(work.size());
 
+		//Execute in parallel
+		pool->map(work,results);
+
+		//Now reduce the results
+		double total = 0;
+		double ax_grad = 0;
+		double rh_grad = 0;
+	
+		for(unsigned long i = 0;i<expVals.size();i++) {
+			double diff = results[i] - expVals[i];
+			total += diff*diff;
+
+			ax_grad += 2*ax_grads[i]*diff;
+			rh_grad += 2*rh_grads[i]*diff;
+		}
+		g[0] = ax_grad;
+		g[1] = rh_grad;
+
+		std::vector<double> packed = M::pack(thisModel);
+		std::vector<double> hVec = M::getSmallSteps();;
+
+		calcVals = results;
+        for(unsigned long i = 2;i < packed.size();i++) {
+			std::vector<double> vprime = packed;
+			
+            double df_by_di = 0;
+            double h = hVec[i];
+
+
+			vprime[i] = packed[i]+h;
+            df_by_di += minf(M::unpack(vprime));
+
+            vprime[i] = packed[i]-h;
+            df_by_di -= minf(M::unpack(vprime));
+
+            df_by_di/=(2*h);
+
+            g[i] = df_by_di;
+        }
+
+
+
+		//Record the results
+		fout << total << "\t\t" << thisModel << endl;
+		return total;
+	}
+
+	double minf(const M& thisModel) {
 		//Prepare the work
 		std::vector<boost::function<double()> > work;
 
@@ -261,6 +316,11 @@ bool threadExit = false;
 
 
 int main(int argc,char** argv) {
+	cout.width(20);
+	cout.fill(' ');
+	cout.precision(10);
+	cout << fixed << showpos;
+
 	//Parse the command line and decide what to do
 	using namespace boost::program_options;
 	variables_map variablesMap;
@@ -351,8 +411,8 @@ int main(int argc,char** argv) {
 
 	//Set up the model
 
-	double inital_ax = -3000;//-20504.4;
-	double inital_rh = -1000;//-17337.4;
+	double inital_ax = -20504.4;
+	double inital_rh = -17337.4;
 
 	Vector3 inital_metal = Vector3(4.165,18.875,17.180);
 	double inital_angle_x = 6.46403;
