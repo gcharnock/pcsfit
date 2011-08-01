@@ -105,10 +105,11 @@ template<typename T>
 class GradientMinimiser : public MinimiserBase<T> {
 public:
 	typedef std::vector<double> PList;
-	GradientMinimiser(boost::function<double(const T&)> min_funcion,		  
-                      const PList& small_step_sizes,
-                      T startingModel)		  
-		: MinimiserBase<T>(min_funcion,small_step_sizes,startingModel) {
+	typedef boost::function<double(const T&)> ObjectiveFunction;
+	typedef boost::function<double(const T&,bool,PList&)> GradientFunction;
+	GradientMinimiser(ObjectiveFunction min_funcion, GradientFunction withGrad,
+					  const PList& small_step_sizes, T startingModel)		  
+		: MinimiserBase<T>(min_funcion,small_step_sizes,startingModel),mWithGrad(withGrad) {
         //Setup the function to be minimised
 		minfunc.f = &GradientMinimiser::f_static;
 		minfunc.df = &GradientMinimiser::df_static;
@@ -143,7 +144,7 @@ private:
 		return result;
 	}
 	void df(const gsl_vector *v, gsl_vector *df) {
-        gsl_vector* vprime = gsl_vector_alloc(v->size);
+        /*gsl_vector* vprime = gsl_vector_alloc(v->size);
         cout << "grad =";
 
         for(unsigned long i = 2;i < v->size;i++) {
@@ -178,10 +179,15 @@ private:
             df_by_di/=(2*h);
             cout << " " << df_by_di;
 			*/
-            df->data[i] = df_by_di;
-        }
-        cout << endl;
-        gsl_vector_free(vprime);
+		//            df->data[i] = df_by_di;
+		//}
+        //cout << endl;
+        //gsl_vector_free(vprime);
+
+		std::vector<double> g; g.resize(this->nParams);
+		T params = T::unpack(this->gSLVec2pList(v));
+		mWithGrad(params,true,g);
+		this->pList2GSLVec(g,df);
 	}
 
 
@@ -196,6 +202,7 @@ private:
         ((GradientMinimiser*)_this)->df(v, df);
 	}
 
+	GradientFunction mWithGrad;
     gsl_multimin_fdfminimizer* gslmin;
     gsl_multimin_function_fdf minfunc;
 };

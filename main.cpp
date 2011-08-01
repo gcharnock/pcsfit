@@ -85,7 +85,9 @@ public:
         std::vector<double> small_steps = M::getSmallSteps();
 
         if(withGradient) {
-            minimiser = new GradientMinimiser<M>(boost::bind(&NumericalExperiment::minf,this,_1),small_steps,starting_model);
+            minimiser = new GradientMinimiser<M>(boost::bind(&NumericalExperiment::minf,this,_1),
+												 boost::bind(&NumericalExperiment::withGrad,this,_1,_2,_3),
+												 small_steps,starting_model);
         } else {
             minimiser = new SimplexMinimiser<M>(boost::bind(&NumericalExperiment::minf,this,_1),small_steps,starting_model);
         }
@@ -147,12 +149,13 @@ public:
 		}
 		g[0] = ax_grad;
 		g[1] = rh_grad;
+		cout << "grad = " << ax_grad << " " << rh_grad << endl;
 
 		std::vector<double> packed = M::pack(thisModel);
 		std::vector<double> hVec = M::getSmallSteps();;
 
 		calcVals = results;
-        for(unsigned long i = 2;i < packed.size();i++) {
+        for(unsigned long i = 0;i < packed.size();i++) {
 			std::vector<double> vprime = packed;
 			
             double df_by_di = 0;
@@ -169,7 +172,7 @@ public:
 
             g[i] = df_by_di;
         }
-
+		cout << "Ngrad = " << g[0] << " " << g[1] << endl;
 
 
 		//Record the results
