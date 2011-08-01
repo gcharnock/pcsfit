@@ -77,6 +77,20 @@ double PointModel::eval(double x,double y,double z) const {
 	return (   ax*(2*gz2 - gx2 - gy2) + rh*(3.0/2.0)*(gx2-gy2)  )/r5/M_PI/12;
 }
 
+std::vector<double> PointModel::getSmallSteps() {
+	std::vector<double> vec;
+    vec.push_back(30);
+    vec.push_back(30);
+                           
+    vec.push_back(0.1);
+    vec.push_back(0.1);
+    vec.push_back(0.1);
+                           
+    vec.push_back(0.1);
+    vec.push_back(0.1);
+    vec.push_back(0.1);
+    return vec;
+}
 
 std::vector<double> PointModel::pack(const PointModel& m) {
 	std::vector<double> vec;
@@ -327,3 +341,19 @@ GaussModel GaussModel::randomModel(long seed) {
     return m;
 }
 
+std::vector<double> GaussModel::getSmallSteps() {
+	std::vector<double> vec;
+    vec.push_back(30);
+    vec.push_back(30);
+                           
+    vec.push_back(0.1);
+    vec.push_back(0.1);
+    vec.push_back(0.1);
+                           
+    vec.push_back(0.1);
+    vec.push_back(0.1);
+    vec.push_back(0.1);
+
+    vec.push_back(0.01);
+    return vec;
+}

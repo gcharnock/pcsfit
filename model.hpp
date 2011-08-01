@@ -101,6 +101,7 @@ public:
 
     double eval(double x, double y, double z) const;
 
+    static std::vector<double> getSmallSteps();
 	static std::vector<double> pack(const PointModel& m);
 	static PointModel unpack(const std::vector<double>& v);
 	static PointModel randomModel(long seed);
@@ -117,9 +118,9 @@ public:
 
 	//This method is thread safe due to being const
 	double eval(double x,double y,double z) const;
-
 	double stddev;
 
+    static std::vector<double> getSmallSteps();
 	static std::vector<double> pack(const GaussModel& m);
 	static GaussModel unpack(const std::vector<double>& v);
 	static GaussModel randomModel(long seed);

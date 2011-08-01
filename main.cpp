@@ -73,51 +73,53 @@ ofstream flog;
  *********************************************************************************/
 
 //
-
-
 template<typename M> //M stands for Model
 class NumericalExperiment {
 public:
-	std::pair<double,M> minimise(const M& input) {
-		return  minimiser.minimise(input);
-	}
+	NumericalExperiment(const Nuclei& _nuclei,
+						const Vals& _expVals,
+                        const M& starting_model,
+						bool withGUI,bool withGradient)
+		:  nuclei(_nuclei), expVals(_expVals) {
 
-	std::pair<double,M> multiMinimise(const M& input,unsigned long seed,boost::function<M(unsigned long)> makeRandom) {
-		double best = numeric_limits<double>::infinity();
-		M bestModel;
-		for(unsigned long i = 0;i<1000;i++) {
-			//fout << "------------------------------------------------------------" << endl;
-			M thisModel = makeRandom(seed+i);
+        std::vector<double> small_steps = M::getSmallSteps();
 
+        if(withGradient) {
+            minimiser = new GradientMinimiser<M>(boost::bind(&NumericalExperiment::minf,this,_1),small_steps,starting_model);
+        } else {
+            minimiser = new SimplexMinimiser<M>(boost::bind(&NumericalExperiment::minf,this,_1),small_steps,starting_model);
+        }
 
-			M output = minimiser.minimise(thisModel);
+		calcVals.resize(expVals.size());
 
-			cout << thisModel << endl;
-			cout << output.second << endl;
-			cout << endl;
-
-
-			double error = output.first;
-			if(error < best) {
-				logMsg("Found a new better model, with error " << error);
-				logMsg("Starting model was " << thisModel);
-				logMsg("Final model was " << output.second);
-				best = error;
-				bestModel = output.second;
-			}
-			//fout << endl;
-			//fout << endl;
-			//fout << endl;
+		//Start the visualisation thread
+		if(withGUI) {
+			visualThread.start();
+			visualThread.fw->setNuclei(nuclei);
+			visualThread.fw->setExpVals(expVals);
+			boost::thread boostVisualThread(boost::ref(visualThread));
 		}
-		return pair<double,M>(best,bestModel);
 	}
+
+	std::pair<double,M> minimise() {
+        std::pair<double,M> p;
+
+        for(unsigned long i = 0;i<2000;i++) {
+            p = minimiser->iterate();
+            M m = p.second;
+            if(visualThread.fw) {
+                visualThread.fw->setCalcVals(calcVals,m.metal,m.angle_x,m.angle_y,m.angle_z);
+            }
+        }
+        return p;
+    }
 
 	double minf(const M& thisModel) {
 		cout << thisModel << endl;
 
 		static int paused = 0;
 		if(paused > 2) {
-			usleep(10000);
+			//usleep(10000);
 		}
 		paused++;
 
@@ -151,14 +153,9 @@ public:
 
 		return total;
 	}
-	void onIterate(const M& m) {
-		if(visualThread.fw) {
-			visualThread.fw->setCalcVals(calcVals,m.metal,m.angle_x,m.angle_y,m.angle_z);
-		}
-	}
 
     //Initalise the minimizer
-	Minimiser<M> minimiser;
+	MinimiserBase<M>* minimiser;
 
 	//Nuclear Positions
 	Nuclei nuclei;
@@ -174,30 +171,6 @@ public:
 	VisualThread visualThread;
 private:
 	NumericalExperiment(const NumericalExperiment&) {};
-
-public:
-	NumericalExperiment(const Nuclei& _nuclei,
-						const Vals& _expVals,
-						bool withGUI,
-						boost::function<M(const vector<double>&)> unpack,
-						boost::function<vector<double>(const M&)> pack)
-		: minimiser(unpack,pack,
-					boost::bind(&NumericalExperiment::minf,this     ,_1),
-					boost::bind(&NumericalExperiment::onIterate,this,_1)),
-		  nuclei(_nuclei),
-		  expVals(_expVals) {
-
-
-		calcVals.resize(expVals.size());
-
-		//Start the visualisation thread
-		if(withGUI) {
-			visualThread.start();
-			visualThread.fw->setNuclei(nuclei);
-			visualThread.fw->setExpVals(expVals);
-			boost::thread boostVisualThread(boost::ref(visualThread));
-		}
-	}
 };
 
 
@@ -293,6 +266,7 @@ int main(int argc,char** argv) {
 	using namespace boost::program_options;
 	variables_map variablesMap;
 	string modelType;
+    string method;
 	string filename;
 	try {
 		options_description optDesc("Options");
@@ -303,6 +277,7 @@ int main(int argc,char** argv) {
 			("gui","Visualise the fitting process with VTK")
 			("model",value<string>(&modelType)->default_value("point"),
 			 "Select the model to use")
+            ("method",value<string>(&method)->default_value("gradient"),"")
 			("random-model-type",
 			 "Specify the type of the model to use for generating random data")
 			("input-file",value<string>(&filename),"specify an input file")
@@ -394,10 +369,9 @@ int main(int argc,char** argv) {
 
 
 		NumericalExperiment<PointModel>
-			p_exp(nuclei,expVals,variablesMap.count("gui") > 0,
-				  &PointModel::unpack,&PointModel::pack);
+			p_exp(nuclei,expVals,pm,variablesMap.count("gui") > 0,variablesMap.count("gradient") > 0);
 
-		p_exp.minimise(pm);
+		p_exp.minimise();
 	} else if(variablesMap["model"].as<string>() == "gauss") {
 		GaussModel gm; //The best point fit
 		gm.ax = inital_ax;   
@@ -407,10 +381,9 @@ int main(int argc,char** argv) {
 		gm.stddev = 0.1;
 
 		NumericalExperiment<GaussModel>
-			g_exp(nuclei,expVals,variablesMap.count("gui") > 0,
-				  &GaussModel::unpack,&GaussModel::pack);
+			g_exp(nuclei,expVals,gm,variablesMap.count("gui") > 0,variablesMap.count("gradient") > 0);
 
-		g_exp.minimise(gm);
+		g_exp.minimise();
 	} else {
 		cerr << "Unknown model typw" << endl;
 		return 1;
