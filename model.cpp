@@ -98,9 +98,10 @@ double PointModel::grad(double x,double y,double z,double* ax_grad,double* rh_gr
 		*ax_grad = 0;
 		*rh_grad = 0;
 	} else {
-		*ax_grad = (   ax*(2*gz2 - gx2 - gy2)   )/r5/M_PI/12;
-		*rh_grad = (   rh*(3.0/2.0)*(gx2-gy2)  )/r5/M_PI/12;
+		*ax_grad = (   (2*gz2 - gx2 - gy2)   )/r5/M_PI/12;
+		*rh_grad = (   (3.0/2.0)*(gx2-gy2)  )/r5/M_PI/12;
 	}
+
 	//Do the rest via central differencing
 	return 0;
 }
