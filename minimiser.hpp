@@ -118,8 +118,7 @@ public:
 		minfunc.params = (void*)this;
 
 		//Initalise the minimiser
-		//gsl_multimin_fdfminimizer_vector_bfgs2
-		gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_conjugate_fr,this->nParams);
+		gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2,this->nParams);
         gsl_multimin_fdfminimizer_set(gslmin,&minfunc,this->startingModelVec,1,0.1);
 	}
 

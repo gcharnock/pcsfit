@@ -155,7 +155,7 @@ public:
 		std::vector<double> hVec = M::getSmallSteps();;
 
 		calcVals = results;
-        for(unsigned long i = 0;i < packed.size();i++) {
+        for(unsigned long i = 2;i < packed.size();i++) {
 			std::vector<double> vprime = packed;
 			
             double df_by_di = 0;

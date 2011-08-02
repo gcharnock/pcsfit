@@ -103,21 +103,21 @@ double PointModel::grad(double x,double y,double z,double* ax_grad,double* rh_gr
 	}
 
 	//Do the rest via central differencing
-	return 0;
+	return (ax*(2*gz2 - gx2 - gy2) + rh*(3.0/2.0)*(gx2-gy2)  )/r5/M_PI/12;;
 }
 
 std::vector<double> PointModel::getSmallSteps() {
 	std::vector<double> vec;
-    vec.push_back(0.01);
-    vec.push_back(0.01);
-                           
-    vec.push_back(0.01);
-    vec.push_back(0.01);
-    vec.push_back(0.01);
-                           
-    vec.push_back(0.01);
-    vec.push_back(0.01);
-    vec.push_back(0.01);
+    vec.push_back(0.000001);
+    vec.push_back(0.000001);
+                          
+    vec.push_back(0.000001);
+    vec.push_back(0.000001);
+    vec.push_back(0.000001);
+                          
+    vec.push_back(0.000001);
+    vec.push_back(0.000001);
+    vec.push_back(0.000001);
     return vec;
 }
 
