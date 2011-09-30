@@ -16,6 +16,7 @@
 #include "foreach.hpp"
 #include "threads.hpp"
 #include "model.hpp"
+#include "model2.hpp"
 #include "data.hpp"
 #include "vis.hpp"
 #include "minimiser.hpp"
@@ -240,6 +241,19 @@ void testModel(long seed) {
 	RandomDist rand;
 
 	PointModel pm = PointModel::randomModel(seed+10);
+    double pm2[8];
+
+    pm2[PARAM_X]     = pm.metal.x;
+    pm2[PARAM_Y]     = pm.metal.y;
+    pm2[PARAM_Z]     = pm.metal.z;
+           
+    pm2[PARAM_CHI1]  = rand(prng);
+    pm2[PARAM_CHI2]  = rand(prng);
+    pm2[PARAM_CHIXY] = rand(prng);
+    pm2[PARAM_CHIXZ] = rand(prng);
+    pm2[PARAM_CHIYZ] = rand(prng);
+
+
 
 	cout << "================================================================================" << endl;
 
@@ -308,7 +322,29 @@ void testModel(long seed) {
 		cout << "================================================================================" << endl;
 	}
 
+    cout << "Point Model 2 = "; for(unsigned long i=0;i<8;i++){cout << pm2[i] << " ";} cout << endl;
+
+    cout << "================================================================================" << endl;
+
+    for(unsigned long i = 0;i<10;i++) {
+		double x = rand(prng);
+		double y = rand(prng);
+		double z = rand(prng);
+
+        cout << "Point selected = (" << x << ", " << y << ", " << z << ")" << endl;
+        double result;
+        double gradient[8];
+        eval_point(pm2,&result,gradient);
+
+        cout << "Result = " << endl;
+        for(unsigned long i=0;i<8;i++) {
+            cout << "grad of " << name_param(POINT_PARAM(i)) << " = " << gradient[i] << endl;
+        }
+        cout << "================================================================================" << endl;
+    }
 }
+
+
 
 
 //When set to true, created threads should exit
