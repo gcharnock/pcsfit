@@ -327,18 +327,45 @@ void testModel(long seed) {
     cout << "================================================================================" << endl;
 
     for(unsigned long i = 0;i<10;i++) {
-		double x = rand(prng);
-		double y = rand(prng);
-		double z = rand(prng);
+		pm2[PARAM_X]     = rand(prng);
+		pm2[PARAM_Y]     = rand(prng);
+		pm2[PARAM_Z]     = rand(prng);
+           
+		pm2[PARAM_CHI1]  = rand(prng);
+		pm2[PARAM_CHI2]  = rand(prng);
+		pm2[PARAM_CHIXY] = rand(prng);
+		pm2[PARAM_CHIXZ] = rand(prng);
+		pm2[PARAM_CHIYZ] = rand(prng);
 
-        cout << "Point selected = (" << x << ", " << y << ", " << z << ")" << endl;
         double result;
         double gradient[8];
+		double fake_gradient[8]; //These results will be ignored
+		double numerical_gradient[8];
+
         eval_point(pm2,&result,gradient);
+
+		for(unsigned long i = 0;i<8;i++) {
+			double h     = abs(pm2[i]*0.000001);
+			double result_plus,result_minus;
+
+			double original = pm2[i];
+
+			pm2[i] = original + h;
+			eval_point(pm2,&result_plus ,fake_gradient);
+			pm2[i] = original - h;
+			eval_point(pm2,&result_minus,fake_gradient);
+
+			pm2[i] = original;
+
+			numerical_gradient[i] = (result_plus-result_minus)/(2*h);
+		}
+
 
         cout << "Result = " << endl;
         for(unsigned long i=0;i<8;i++) {
-            cout << "grad of " << name_param(POINT_PARAM(i)) << " = " << gradient[i] << endl;
+			cout << name_param(POINT_PARAM(i)) << " = " << pm2[i] <<
+				" grad = " << gradient[i]
+				 << " ceneral Differenceing gradient of " << numerical_gradient[i] << endl;
         }
         cout << "================================================================================" << endl;
     }

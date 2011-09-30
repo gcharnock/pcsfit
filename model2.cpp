@@ -56,23 +56,24 @@ void eval_point(const double pm[8],double* value, double gradient[8]) {
     double r2 = x2+y2+z2;
     double r = sqrt(r2);
     double r5 = r2*r2*r;
-    double r7 = r5*r2;
 
     double inv12PiR5 = 1/(12*M_PI*r5);
 
-    *value = inv12PiR5 *((r2-3*x2)*chi_1 + (z2-y2)*chi_2 + 6*(xy*chi_xy + xz*chi_xz + yz*chi_yz));
-    gradient[PARAM_CHI1]  = (-2*x2+y2+z2)*inv12PiR5;
-    gradient[PARAM_CHI2]  = (z2-y2)*inv12PiR5;
-    gradient[PARAM_CHIXY] = xy*inv12PiR5;
-    gradient[PARAM_CHIXZ] = xz*inv12PiR5;
-    gradient[PARAM_CHIYZ] = yz*inv12PiR5;
+    double A = (r2-3*x2)*chi_1 + (z2-y2)*chi_2 + 6*(xy*chi_xy + xz*chi_xz + yz*chi_yz);
+    *value = inv12PiR5 * A;
 
-    double A = (-2*x2+y2+z2)*chi_1 +(z2-y2)*chi_2 + 6*(xy*chi_xy + xz*chi_xz + yz*chi_yz);
-    double fiveAOver12Pi7 = 5*A/(12*M_PI*r7);
+    gradient[PARAM_CHI1]  = inv12PiR5*(r2-3*x2);
+    gradient[PARAM_CHI2]  = inv12PiR5*(z2-y2);
+    gradient[PARAM_CHIXY] = 6*inv12PiR5*xy;
+    gradient[PARAM_CHIXZ] = 6*inv12PiR5*xz;
+    gradient[PARAM_CHIYZ] = 6*inv12PiR5*yz;
 
-    gradient[PARAM_X] = x*fiveAOver12Pi7 + (-4*x*chi_1          + 6*(y*chi_xy + z*chi_xz))*inv12PiR5;
-    gradient[PARAM_Y] = y*fiveAOver12Pi7 + (2*y*(chi_1 - chi_2) + 6*(x*chi_xy + z*chi_yz))*inv12PiR5;
-    gradient[PARAM_Z] = z*fiveAOver12Pi7 + (2*z*(chi_1 + chi_2) + 6*(x*chi_xz + y*chi_yz))*inv12PiR5;
+
+    double fiveAOverSixPi6 = 5*A/(6*M_PI*r5*r);
+
+    gradient[PARAM_X] = -x*fiveAOverSixPi6 + (-4*x*chi_1          + 6*(y*chi_xy + z*chi_xz))*inv12PiR5;
+    gradient[PARAM_Y] = -y*fiveAOverSixPi6 + (2*y*(chi_1 - chi_2) + 6*(x*chi_xy + z*chi_yz))*inv12PiR5;
+    gradient[PARAM_Z] = -z*fiveAOverSixPi6 + (2*z*(chi_1 + chi_2) + 6*(x*chi_xz + y*chi_yz))*inv12PiR5;
 }
 
 
