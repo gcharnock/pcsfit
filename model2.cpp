@@ -69,11 +69,11 @@ void eval_point(const double pm[8],double* value, double gradient[8]) {
     gradient[PARAM_CHIYZ] = 6*inv12PiR5*yz;
 
 
-    double fiveAOverSixPi6 = 5*A/(6*M_PI*r5*r);
+    double fiveAOver12Pi7 = 5*A/(12*M_PI*r5*r2);
 
-    gradient[PARAM_X] = -x*fiveAOverSixPi6 + (-4*x*chi_1          + 6*(y*chi_xy + z*chi_xz))*inv12PiR5;
-    gradient[PARAM_Y] = -y*fiveAOverSixPi6 + (2*y*(chi_1 - chi_2) + 6*(x*chi_xy + z*chi_yz))*inv12PiR5;
-    gradient[PARAM_Z] = -z*fiveAOverSixPi6 + (2*z*(chi_1 + chi_2) + 6*(x*chi_xz + y*chi_yz))*inv12PiR5;
+    gradient[PARAM_X] = -x*fiveAOver12Pi7 + (-4*x*chi_1          + 6*(y*chi_xy + z*chi_xz))*inv12PiR5;
+    gradient[PARAM_Y] = -y*fiveAOver12Pi7 + (2*y*(chi_1 - chi_2) + 6*(x*chi_xy + z*chi_yz))*inv12PiR5;
+    gradient[PARAM_Z] = -z*fiveAOver12Pi7 + (2*z*(chi_1 + chi_2) + 6*(x*chi_xz + y*chi_yz))*inv12PiR5;
 }
 
 

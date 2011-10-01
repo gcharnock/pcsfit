@@ -16,4 +16,6 @@ enum POINT_PARAM {
 void eval_point(const double pm[8],double* value, double gradient[8]);
 std::string name_param(POINT_PARAM param);
 
-
+struct Model {
+    
+};
