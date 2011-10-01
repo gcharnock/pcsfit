@@ -1,6 +1,9 @@
 
 #include <string>
 
+typedef void (*ModelF) (const double*,double*,double*);
+
+
 enum POINT_PARAM {
     PARAM_X,    
     PARAM_Y,    

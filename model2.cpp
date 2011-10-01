@@ -3,19 +3,12 @@
 #include "cuba.h"
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_01.hpp>
+#include <cstring>
 #include <cmath>
 #include <cassert>
 
 using namespace std;
 
-#define NDIM 3
-#define NCOMP 1
-#define EPSREL 1e-5
-#define EPSABS 1000
-#define VERBOSE 0
-#define LAST 4
-#define MINEVAL 100000
-#define MAXEVAL 5000000
 
 std::string name_param(POINT_PARAM param) {
     switch(param) {
@@ -32,6 +25,26 @@ std::string name_param(POINT_PARAM param) {
     assert(false);
 }
 
+void numerial_derivative(double* model,ModelF modelf,unsigned long nparams,double * gradient) {
+    assert(nparams < 20);
+    double fake_gradient[20];
+
+    for(unsigned long i = 0;i<8;i++) {
+		double h     = abs(model[i]*0.000001);
+		double result_plus,result_minus;
+
+		double original = model[i];
+
+		model[i] = original + h;
+		modelf(model,&result_plus ,fake_gradient);
+		model[i] = original - h;
+		modelf(model,&result_minus,fake_gradient);
+
+		model[i] = original;
+
+		gradient[i] = (result_plus-result_minus)/(2*h);
+	}
+}
 
 
 void eval_point(const double pm[8],double* value, double gradient[8]) {
@@ -79,8 +92,8 @@ void eval_point(const double pm[8],double* value, double gradient[8]) {
 
 struct Userdata {
     //For sending cuhre.
-    const double pm[8];
-    double stddev;
+    double* pm; //Should be of length 8
+    double  stddev;
 
     //The position of 
     
@@ -101,7 +114,7 @@ struct Userdata {
 int Integrand2(const int *ndim, const double xx[],
 			  const int *ncomp, double ff[], void *voiduserdata) {
     Userdata* userdata = (Userdata*) voiduserdata;
-    const double* pm = userdata->pm;
+    double* pm = userdata->pm;
     double stddev = userdata->stddev;
 
 	//Apply the transformation from the unit cube [0,1]^2. xp,yp,zp is
@@ -111,20 +124,30 @@ int Integrand2(const int *ndim, const double xx[],
 	double yp = xx[1]*(userdata->ymax - userdata->ymin) + userdata->ymin;
 	double zp = xx[2]*(userdata->zmax - userdata->zmin) + userdata->zmin;
 
+    //Save the old values of x,y and z
+    double pm_x = pm[PARAM_X];
+    double pm_y = pm[PARAM_Y];
+    double pm_z = pm[PARAM_Z];
+
 	//Now evaulate rho at x-xp where x is the free variable
-	double xp_m_x = xp - pm[PARAM_X];
-	double yp_m_y = yp - pm[PARAM_Y];
-	double zp_m_z = zp - pm[PARAM_Z];
+    pm[PARAM_X] = pm_x - xp;
+    pm[PARAM_Y] = pm_y - yp;
+    pm[PARAM_Z] = pm_z - zp;
 
     //Evauate the model
     double f;
     double gradient[8];
     eval_point(pm,&f,gradient);
 
+    //Put the old values back
+    pm[PARAM_X] = pm_x;
+    pm[PARAM_Y] = pm_y;
+    pm[PARAM_Z] = pm_z;
+
     //We don't need the gradient of the gaussian function with respect
     //to the spaceial pramiters
     double a_coef = 1/(stddev*stddev);                                    assert(isfinite(a_coef));
-    double theExp = exp(-a_coef*(xp_m_x*xp_m_x + yp_m_y*yp_m_y + zp_m_z*zp_m_z));
+    double theExp = exp(-a_coef*(xp*xp + yp*yp + zp*zp));
     double g =  pow(abs(a_coef)/M_PI,1.5)*theExp;  assert(isfinite(g));
 
     double dg = pow(M_PI,-1.5)*(1.5*pow(stddev,0.5)+2*pow(stddev,-1.5))*theExp;
@@ -145,3 +168,44 @@ int Integrand2(const int *ndim, const double xx[],
     return 0;
 }
 
+void eval_gaussian(double* model,double* value, double gradient[9]) {
+    const static int NDIM = 3;
+    const static int NCOMP = 9;
+    const static double EPSREL = 1e-5;
+    const static double EPSABS = 1000;
+    const static int VERBOSE = 0;
+    const static int LAST = 4;
+    const static int MINEVAL = 100000;
+    const static int MAXEVAL = 5000000;
+
+    const static int KEY = 0;
+
+    Userdata userdata;
+    userdata.pm = model;
+    userdata.stddev = model[8];
+
+    userdata.xmax = 5*userdata.stddev;
+	userdata.xmin = 5*userdata.stddev;
+    
+    userdata.ymax = 5*userdata.stddev;
+    userdata.ymin = 5*userdata.stddev;
+    
+    userdata.zmax = 5*userdata.stddev;
+    userdata.zmin = 5*userdata.stddev;
+
+	int nregions, neval, fail;
+	double integral[10], error[10], prob[10];
+
+
+	Cuhre(NDIM, NCOMP, Integrand2, (void*)&userdata,
+		  EPSREL, EPSABS, VERBOSE | LAST,
+		  MINEVAL, MAXEVAL, KEY,
+		  &nregions, &neval, &fail, integral, error, prob);
+
+    for(unsigned long i = 0; i < 10;i++) {
+        assert(isfinite(integral[i]));
+    }
+
+    *value = integral[0];
+    memcpy(gradient,integral+1,8*sizeof(double));
+}
