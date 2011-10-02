@@ -21,8 +21,11 @@ std::string name_param(POINT_PARAM param) {
     case PARAM_CHIXY: return "chi_xy";
     case PARAM_CHIXZ: return "chi_xz";
     case PARAM_CHIYZ: return "chi_yz";
+
+    case PARAM_STDDEV: return "stddev";
     }
     assert(false);
+    return "";
 }
 
 void numerial_derivative(double* model,ModelF modelf,unsigned long nparams,double * gradient) {
@@ -170,7 +173,7 @@ int Integrand2(const int *ndim, const double xx[],
 
 void eval_gaussian(double* model,double* value, double gradient[9]) {
     const static int NDIM = 3;
-    const static int NCOMP = 9;
+    const static int NCOMP = 10;
     const static double EPSREL = 1e-5;
     const static double EPSABS = 1000;
     const static int VERBOSE = 0;
@@ -182,19 +185,19 @@ void eval_gaussian(double* model,double* value, double gradient[9]) {
 
     Userdata userdata;
     userdata.pm = model;
-    userdata.stddev = model[8];
+    userdata.stddev = model[PARAM_STDDEV];
 
-    userdata.xmax = 5*userdata.stddev;
-	userdata.xmin = 5*userdata.stddev;
+    userdata.xmax =  5*userdata.stddev;
+	userdata.xmin = -5*userdata.stddev;
     
-    userdata.ymax = 5*userdata.stddev;
-    userdata.ymin = 5*userdata.stddev;
+    userdata.ymax =  5*userdata.stddev;
+    userdata.ymin = -5*userdata.stddev;
     
-    userdata.zmax = 5*userdata.stddev;
-    userdata.zmin = 5*userdata.stddev;
+    userdata.zmax =  5*userdata.stddev;
+    userdata.zmin = -5*userdata.stddev;
 
 	int nregions, neval, fail;
-	double integral[10], error[10], prob[10];
+	double integral[9], error[9], prob[9];
 
 
 	Cuhre(NDIM, NCOMP, Integrand2, (void*)&userdata,

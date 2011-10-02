@@ -296,7 +296,7 @@ void testModel(long seed) {
 
 
 	cout << "================================================================================" << endl;
-	for(unsigned long i = 0;i<10;i++) {
+	for(unsigned long i = 0;i<0;i++) {
 		double x = rand(prng);
 		double y = rand(prng);
 		double z = rand(prng);
@@ -367,6 +367,56 @@ void testModel(long seed) {
 				" grad = " << gradient[i]
 				 << " ceneral Differenceing gradient of " << numerical_gradient[i] << endl;
         }
+        cout << "================================================================================" << endl;
+    }
+
+    for(unsigned long i = 0;i<1;i++) {
+        double gm2[9];
+		gm2[PARAM_X]      = rand(prng);
+		gm2[PARAM_Y]      = rand(prng);
+		gm2[PARAM_Z]      = rand(prng);
+           
+		gm2[PARAM_CHI1]   = rand(prng);
+		gm2[PARAM_CHI2]   = rand(prng);
+		gm2[PARAM_CHIXY]  = rand(prng);
+		gm2[PARAM_CHIXZ]  = rand(prng);
+		gm2[PARAM_CHIYZ]  = rand(prng);
+        
+        gm2[PARAM_STDDEV] = abs(rand(prng));
+        
+        double result;
+        double gradient[9];
+        double numerical_gradient[9];
+        double fake_gradient[9];
+
+        eval_gaussian(gm2,&result,gradient);
+
+		for(unsigned long i = 0;i<9;i++) {
+			double h     = abs(gm2[i]*0.0001);
+			double result_plus,result_minus;
+
+			double original = gm2[i];
+
+			gm2[i] = original + h;
+			eval_point(gm2,&result_plus ,fake_gradient);
+			gm2[i] = original - h;
+			eval_point(gm2,&result_minus,fake_gradient);
+
+			gm2[i] = original;
+
+			numerical_gradient[i] = (result_plus-result_minus)/(2*h);
+		}
+
+        cout << "Result = " << result << endl;
+        for(unsigned long i=0;i<8;i++) {
+			cout << name_param(POINT_PARAM(i)) << " = " << gm2[i] <<
+				" grad = " << gradient[i]
+				 << " ceneral Differenceing gradient of " << numerical_gradient[i] << endl;
+        }
+        cout << "stddev = " << gm2[8] <<
+            " grad = " << gradient[8]
+             << " ceneral Differenceing gradient of " << numerical_gradient[8] << endl;
+
         cout << "================================================================================" << endl;
     }
 }
