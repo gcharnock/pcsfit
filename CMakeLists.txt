@@ -5,10 +5,10 @@ project(pcsfit)
 #set(CMAKE_VERBOSE_MAKEFILE TRUE)
 
 #Debug build, can use with gdb
-#set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Debug)
 
 #Compile a release build
-set(CMAKE_BUILD_TYPE Release)
+#set(CMAKE_BUILD_TYPE Release)
 
 
 set(VTKLIBS
@@ -43,7 +43,7 @@ set(cmake_cxx_flags_release "-O3 -ffast-math")
 set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS})
 
 
-set(sources  model.cpp model2.cpp  data.cpp  vis.cpp)
+set(sources  model.cpp model2.cpp  data.cpp  vis.cpp tests.cpp)
 
 
 add_executable(pcsfit main.cpp  ${sources})

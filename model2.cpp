@@ -50,7 +50,7 @@ void numerial_derivative(double* model,ModelF modelf,unsigned long nparams,doubl
 }
 
 
-void eval_point(const double pm[8],double* value, double gradient[8]) {
+void eval_point(double pm[8],double* value, double gradient[8]) {
     double x = pm[PARAM_X];
     double y = pm[PARAM_Y];
     double z = pm[PARAM_Z];
@@ -120,7 +120,7 @@ int Integrand2(const int *ndim, const double xx[],
     double* pm = userdata->pm;
     double stddev = userdata->stddev;
 
-	//Apply the transformation from the unit cube [0,1]^2. xp,yp,zp is
+	//Apply the transformation from the unit cube [0,1]^3. xp,yp,zp is
 	//the dummy variable in molecular coordinates. The free variable
 	//is intDet->xyz
 	double xp = xx[0]*(userdata->xmax - userdata->xmin) + userdata->xmin;
@@ -147,15 +147,19 @@ int Integrand2(const int *ndim, const double xx[],
     pm[PARAM_Y] = pm_y;
     pm[PARAM_Z] = pm_z;
 
+
     //We don't need the gradient of the gaussian function with respect
     //to the spaceial pramiters
     double a_coef = 1/(stddev*stddev);                                    assert(isfinite(a_coef));
+    double normalizer = pow(a_coef/M_PI,1.5);
     double theExp = exp(-a_coef*(xp*xp + yp*yp + zp*zp));
-    double g =  pow(abs(a_coef)/M_PI,1.5)*theExp;  assert(isfinite(g));
+    double rho =  normalizer*theExp;  assert(isfinite(rho));
 
-    double dg = pow(M_PI,-1.5)*(1.5*pow(stddev,0.5)+2*pow(stddev,-1.5))*theExp;
+    //cout << xp << ", " << yp << ", " << zp << " " << rho << endl;
 
-	double result = g * f;
+    double drho = pow(M_PI,-1.5)*(1.5*pow(stddev,0.5)+2*pow(stddev,-1.5))*theExp;
+
+	double result = rho;
 	//Scale the result
     double result_scaling = (userdata->xmax - userdata->xmin) *
 		(userdata->ymax - userdata->ymin) *
@@ -163,8 +167,8 @@ int Integrand2(const int *ndim, const double xx[],
     
     //Pass the results and gradient
     ff[0] = result * result_scaling;
-    for(unsigned long i=1;i<9;i++){ff[i] = gradient[i-1] * result_scaling;}
-	ff[9] = dg * result_scaling;
+    for(unsigned long i=1;i<9;i++){ff[i] = rho * gradient[i-1] * result_scaling;}
+	ff[9] = drho * f * result_scaling;
             
     for(unsigned long i=0;i<10;i++){assert(isfinite(ff[i]));};
 
@@ -174,14 +178,14 @@ int Integrand2(const int *ndim, const double xx[],
 void eval_gaussian(double* model,double* value, double gradient[9]) {
     const static int NDIM = 3;
     const static int NCOMP = 10;
-    const static double EPSREL = 1e-5;
-    const static double EPSABS = 1000;
+    const static double EPSREL = 1e-3;
+    const static double EPSABS = 0;
     const static int VERBOSE = 0;
     const static int LAST = 4;
-    const static int MINEVAL = 100000;
+    const static int MINEVAL = 1;
     const static int MAXEVAL = 5000000;
 
-    const static int KEY = 0;
+    const static int KEY = 11;
 
     Userdata userdata;
     userdata.pm = model;
@@ -197,7 +201,7 @@ void eval_gaussian(double* model,double* value, double gradient[9]) {
     userdata.zmin = -5*userdata.stddev;
 
 	int nregions, neval, fail;
-	double integral[9], error[9], prob[9];
+	double integral[10], error[10], prob[10];
 
 
 	Cuhre(NDIM, NCOMP, Integrand2, (void*)&userdata,
@@ -208,7 +212,10 @@ void eval_gaussian(double* model,double* value, double gradient[9]) {
     for(unsigned long i = 0; i < 10;i++) {
         assert(isfinite(integral[i]));
     }
+    if(fail != 0)  {
+        cerr << "Warning, an integral failed to converge" << endl;
+    }
 
     *value = integral[0];
-    memcpy(gradient,integral+1,8*sizeof(double));
+    memcpy(gradient,integral+1,9*sizeof(double));
 }

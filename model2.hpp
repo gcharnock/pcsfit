@@ -1,7 +1,7 @@
 
 #include <string>
 
-typedef void (*ModelF) (const double*,double*,double*);
+typedef void (*ModelF) (double*,double*,double*);
 
 
 enum POINT_PARAM {
@@ -18,7 +18,7 @@ enum POINT_PARAM {
     PARAM_STDDEV
 };
 
-void eval_point(const double pm[8],double* value, double gradient[8]);
+void eval_point(double pm[8],double* value, double gradient[8]);
 std::string name_param(POINT_PARAM param);
 
 struct Model {
