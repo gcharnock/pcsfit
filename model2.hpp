@@ -21,10 +21,13 @@ enum POINT_PARAM {
     PARAM_STDDEV
 };
 
-void eval_point(Vector3 evalAt, double pm[8],double* value, double gradient[8]);
 std::string name_param(POINT_PARAM param);
 
+void eval_point(Vector3 evalAt, double pm[8],double* value, double gradient[8]);
+void eval_point_ND(Vector3 evalAt,double pm[8],double* value);
 
 void eval_gaussian(Vector3 evalAt,double* model,double* value, double gradient[9]);
+void eval_gaussian_ND(Vector3 evalAt,double* model,double* value);
+
 
 void numerical_derivative(Vector3 evalAt,double* model,ModelF modelf,unsigned long nparams,double * gradient);

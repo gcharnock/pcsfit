@@ -128,7 +128,7 @@ void eval_point(Vector3 evalAt,double pm[8],double* value, double gradient[8]) {
     double z = evalAt.z - pm[PARAM_Z];
 
 	if(x == 0 && y == 0 && z == 0) {
-		value = 0;
+		*value = 0;
 		for(unsigned long i = 0;i < 8; i++){gradient[i] = 0;}
 		return;
 	}
@@ -172,6 +172,42 @@ void eval_point(Vector3 evalAt,double pm[8],double* value, double gradient[8]) {
 	
 	for(unsigned long i = 0;i<8;i++) {assert(isfinite(gradient[i]));}
 }
+
+void eval_point_ND(Vector3 evalAt,double pm[8],double* value) {
+    double x = evalAt.x - pm[PARAM_X];
+    double y = evalAt.y - pm[PARAM_Y];
+    double z = evalAt.z - pm[PARAM_Z];
+
+	if(x == 0 && y == 0 && z == 0) {
+		*value = 0;
+		return;
+	}
+
+    double chi_1 =  pm[PARAM_CHI1]; 
+    double chi_2 =  pm[PARAM_CHI2];
+    double chi_xy = pm[PARAM_CHIXY];
+    double chi_xz = pm[PARAM_CHIXZ];
+    double chi_yz = pm[PARAM_CHIYZ];
+
+    double x2 = x*x;
+    double y2 = y*y;
+    double z2 = z*z;
+
+    double xy = x*y;
+    double xz = x*z;
+    double yz = y*z;
+
+    double r2 = x2+y2+z2;
+    double r = sqrt(r2);
+    double r5 = r2*r2*r;
+
+    double inv12PiR5 = 1/(12*M_PI*r5);
+    double A = (r2-3*x2)*chi_1 + (z2-y2)*chi_2 + 6*(xy*chi_xy + xz*chi_xz + yz*chi_yz);
+    *value = inv12PiR5 * A;
+	
+	assert(isfinite(*value));
+}
+
 
 
 struct Userdata : public IntegralBounds {
