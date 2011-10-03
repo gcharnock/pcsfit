@@ -151,24 +151,15 @@ int Integrand2(const int *ndim, const double xx[],
     //We don't need the gradient of the gaussian function with respect
     //to the spaceial pramiters
     double a_coef = 1/(stddev*stddev);                                    assert(isfinite(a_coef));
-    double normalizer = pow(a_coef/M_PI,1.5);
     double theExp = exp(-a_coef*(xp*xp + yp*yp + zp*zp));
-    double rho =  normalizer*theExp;  assert(isfinite(rho));
-
-    //cout << xp << ", " << yp << ", " << zp << " " << rho << endl;
+    double rho =  theExp;  assert(isfinite(rho));
 
     double drho = pow(M_PI,-1.5)*(1.5*pow(stddev,0.5)+2*pow(stddev,-1.5))*theExp;
 
-	double result = rho;
-	//Scale the result
-    double result_scaling = (userdata->xmax - userdata->xmin) *
-		(userdata->ymax - userdata->ymin) *
-		(userdata->zmax - userdata->zmin);
-    
     //Pass the results and gradient
-    ff[0] = result * result_scaling;
-    for(unsigned long i=1;i<9;i++){ff[i] = rho * gradient[i-1] * result_scaling;}
-	ff[9] = drho * f * result_scaling;
+    ff[0] = rho;
+    for(unsigned long i=1;i<9;i++){ff[i] = rho * gradient[i-1];}
+	ff[9] = drho * f;
             
     for(unsigned long i=0;i<10;i++){assert(isfinite(ff[i]));};
 
@@ -208,6 +199,15 @@ void eval_gaussian(double* model,double* value, double gradient[9]) {
 		  EPSREL, EPSABS, VERBOSE | LAST,
 		  MINEVAL, MAXEVAL, KEY,
 		  &nregions, &neval, &fail, integral, error, prob);
+
+	//Scale the result
+    double a_coef = 1/(userdata.stddev*userdata.stddev);         assert(isfinite(a_coef));
+    double normalizer = pow(a_coef/M_PI,1.5);
+
+    double result_scaling = (userdata.xmax - userdata.xmin) *
+		(userdata.ymax - userdata.ymin) *
+		(userdata.zmax - userdata.zmin) * normalizer;
+    for(unsigned long i = 0; i < 10; i++){integral[i]*=result_scaling;}
 
     for(unsigned long i = 0; i < 10;i++) {
         assert(isfinite(integral[i]));

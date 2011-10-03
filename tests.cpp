@@ -170,7 +170,7 @@ void testModel(long seed) {
 
         eval_gaussian(gm2,&result,gradient);
 
-        numerical_derivative(eval_gaussian,gm2,9,numerical_gradient,fake_gradient);
+        //numerical_derivative(eval_gaussian,gm2,9,numerical_gradient,fake_gradient);
 
         cout << "Result = " << result << endl;
         for(unsigned long i=0;i<8;i++) {
