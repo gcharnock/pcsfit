@@ -4,8 +4,8 @@
 
 #define MAX_PARAMS 10
 
-typedef void (*ModelF) (Vector3 evalAt, double*,double*,double*);
-
+typedef void (*ModelF)    (Vector3 evalAt, double* model,double* value,double* gradient);
+typedef void (*ModelF_ND) (Vector3 evalAt, double* model,double* value);
 
 enum POINT_PARAM {
     PARAM_X,    

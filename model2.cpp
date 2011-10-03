@@ -10,6 +10,13 @@
 
 using namespace std;
 
+typedef int (CuhreIntegrand*) (const int *ndim,   //Number of dimensions
+							   const double xx[], //The dummy variable
+							   const int *ncomp,  //The size of the output vector
+							   double ff[],       //The output vector
+							   void*)             //An arbitary paramiter
+
+
 
 std::string name_param(POINT_PARAM param) {
     switch(param) {
