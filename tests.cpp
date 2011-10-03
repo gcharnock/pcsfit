@@ -7,24 +7,6 @@
 
 using namespace std;
 
-void numerical_derivative(ModelF modelf,double* model, unsigned long size, double* fake_gradient,double* gradient) {
-    for(unsigned long i = 0;i<size;i++) {
-        double h     = abs(model[i]*0.000001);
-        double result_plus,result_minus;
-
-        double original = model[i];
-
-        model[i] = original + h;
-        modelf(model,&result_plus ,fake_gradient);
-        model[i] = original - h;
-        modelf(model,&result_minus,fake_gradient);
-
-        model[i] = original;
-
-        gradient[i] = (result_plus-result_minus)/(2*h);
-    }
-}
-
 
 //Perform a sanity check on the models. Given teh same paramiter set
 //the gaussian model should converged to the point model as stddev
@@ -133,12 +115,13 @@ void testModel(long seed) {
 
         double result;
         double gradient[8];
-		double fake_gradient[8]; //These results will be ignored
 		double numerical_gradient[8];
 
-        eval_point(pm2,&result,gradient);
+		Vector3 evalAt(rand(prng),rand(prng),rand(prng));
 
-        numerical_derivative(eval_point,pm2,8,numerical_gradient,fake_gradient);
+        eval_point(evalAt,pm2,&result,gradient);
+
+        numerical_derivative(evalAt,pm2,eval_point,8,numerical_gradient);
 
         cout << "Result = " << endl;
         for(unsigned long i=0;i<8;i++) {
@@ -161,16 +144,17 @@ void testModel(long seed) {
 		gm2[PARAM_CHIXZ]  = rand(prng);
 		gm2[PARAM_CHIYZ]  = rand(prng);
         
-        gm2[PARAM_STDDEV] = 1;//abs(rand(prng));
+        gm2[PARAM_STDDEV] = abs(rand(prng));
+
+		Vector3 evalAt(rand(prng),rand(prng),rand(prng));
         
         double result;
         double gradient[9];
         double numerical_gradient[9];
-        double fake_gradient[9];
 
-        eval_gaussian(gm2,&result,gradient);
+        eval_gaussian(evalAt,gm2,&result,gradient);
 
-        //numerical_derivative(eval_gaussian,gm2,9,numerical_gradient,fake_gradient);
+        numerical_derivative(evalAt,gm2,eval_gaussian,9,numerical_gradient);
 
         cout << "Result = " << result << endl;
         for(unsigned long i=0;i<8;i++) {

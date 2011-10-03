@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cmath>
 #include <cassert>
+#include "panic.hpp"
 
 using namespace std;
 
@@ -24,13 +25,13 @@ std::string name_param(POINT_PARAM param) {
 
     case PARAM_STDDEV: return "stddev";
     }
-    assert(false);
+    PANIC();
     return "";
 }
 
-void numerial_derivative(double* model,ModelF modelf,unsigned long nparams,double * gradient) {
-    assert(nparams < 20);
-    double fake_gradient[20];
+void numerical_derivative(Vector3 evalAt,double* model,ModelF modelf,unsigned long nparams,double * gradient) {
+    assert(nparams < MAX_PARAMS);
+    double fake_gradient[MAX_PARAMS];
 
     for(unsigned long i = 0;i<8;i++) {
 		double h     = abs(model[i]*0.000001);
@@ -39,9 +40,9 @@ void numerial_derivative(double* model,ModelF modelf,unsigned long nparams,doubl
 		double original = model[i];
 
 		model[i] = original + h;
-		modelf(model,&result_plus ,fake_gradient);
+		modelf(evalAt,model,&result_plus ,fake_gradient);
 		model[i] = original - h;
-		modelf(model,&result_minus,fake_gradient);
+		modelf(evalAt,model,&result_minus,fake_gradient);
 
 		model[i] = original;
 
@@ -50,10 +51,16 @@ void numerial_derivative(double* model,ModelF modelf,unsigned long nparams,doubl
 }
 
 
-void eval_point(double pm[8],double* value, double gradient[8]) {
-    double x = pm[PARAM_X];
-    double y = pm[PARAM_Y];
-    double z = pm[PARAM_Z];
+void eval_point(Vector3 evalAt,double pm[8],double* value, double gradient[8]) {
+    double x = evalAt.x - pm[PARAM_X];
+    double y = evalAt.y - pm[PARAM_Y];
+    double z = evalAt.z - pm[PARAM_Z];
+
+	if(x == 0 && y == 0 && z == 0) {
+		value = 0;
+		for(unsigned long i = 0;i < 8; i++){gradient[i] = 0;}
+		return;
+	}
 
     double chi_1 =  pm[PARAM_CHI1]; 
     double chi_2 =  pm[PARAM_CHI2];
@@ -87,9 +94,12 @@ void eval_point(double pm[8],double* value, double gradient[8]) {
 
     double fiveAOver12Pi7 = 5*A/(12*M_PI*r5*r2);
 
-    gradient[PARAM_X] = -x*fiveAOver12Pi7 + (-4*x*chi_1          + 6*(y*chi_xy + z*chi_xz))*inv12PiR5;
-    gradient[PARAM_Y] = -y*fiveAOver12Pi7 + (2*y*(chi_1 - chi_2) + 6*(x*chi_xy + z*chi_yz))*inv12PiR5;
-    gradient[PARAM_Z] = -z*fiveAOver12Pi7 + (2*z*(chi_1 + chi_2) + 6*(x*chi_xz + y*chi_yz))*inv12PiR5;
+	//I'm not sure yet what the meaning of the sign error. Added a - to the total expression to fix it.
+    gradient[PARAM_X] = -(-x*fiveAOver12Pi7 + (-4*x*chi_1          + 6*(y*chi_xy + z*chi_xz))*inv12PiR5);
+    gradient[PARAM_Y] = -(-y*fiveAOver12Pi7 + (2*y*(chi_1 - chi_2) + 6*(x*chi_xy + z*chi_yz))*inv12PiR5);
+	gradient[PARAM_Z] = -(-z*fiveAOver12Pi7 + (2*z*(chi_1 + chi_2) + 6*(x*chi_xz + y*chi_yz))*inv12PiR5);
+	
+	for(unsigned long i = 0;i<8;i++) {assert(isfinite(gradient[i]));}
 }
 
 
@@ -97,6 +107,7 @@ struct Userdata {
     //For sending cuhre.
     double* pm; //Should be of length 8
     double  stddev;
+	Vector3 evalAt;
 
     //The position of 
     
@@ -127,26 +138,16 @@ int Integrand2(const int *ndim, const double xx[],
 	double yp = xx[1]*(userdata->ymax - userdata->ymin) + userdata->ymin;
 	double zp = xx[2]*(userdata->zmax - userdata->zmin) + userdata->zmin;
 
-    //Save the old values of x,y and z
-    double pm_x = pm[PARAM_X];
-    double pm_y = pm[PARAM_Y];
-    double pm_z = pm[PARAM_Z];
 
-	//Now evaulate rho at x-xp where x is the free variable
-    pm[PARAM_X] = pm_x - xp;
-    pm[PARAM_Y] = pm_y - yp;
-    pm[PARAM_Z] = pm_z - zp;
+	if(pm[PARAM_X] == 0.0 && pm[PARAM_Y] == 0.0 && pm[PARAM_Z] == 0.0) {
+		for(unsigned long i = 0; i < 10; i++){ff[i] = 0.0;}
+		return 0;
+	}
 
     //Evauate the model
     double f;
     double gradient[8];
-    eval_point(pm,&f,gradient);
-
-    //Put the old values back
-    pm[PARAM_X] = pm_x;
-    pm[PARAM_Y] = pm_y;
-    pm[PARAM_Z] = pm_z;
-
+    eval_point(userdata->evalAt,pm,&f,gradient);
 
     //We don't need the gradient of the gaussian function with respect
     //to the spaceial pramiters
@@ -157,19 +158,19 @@ int Integrand2(const int *ndim, const double xx[],
     double drho = pow(M_PI,-1.5)*(1.5*pow(stddev,0.5)+2*pow(stddev,-1.5))*theExp;
 
     //Pass the results and gradient
-    ff[0] = rho;
+    ff[0] = rho * f;
     for(unsigned long i=1;i<9;i++){ff[i] = rho * gradient[i-1];}
 	ff[9] = drho * f;
-            
-    for(unsigned long i=0;i<10;i++){assert(isfinite(ff[i]));};
+
+    for(unsigned long i=0;i<10;i++){assert(isfinite(ff[i]));}
 
     return 0;
 }
 
-void eval_gaussian(double* model,double* value, double gradient[9]) {
+void eval_gaussian(Vector3 evalAt,double* model,double* value, double gradient[9]) {
     const static int NDIM = 3;
     const static int NCOMP = 10;
-    const static double EPSREL = 1e-3;
+    const static double EPSREL = 1e-2;
     const static double EPSABS = 0;
     const static int VERBOSE = 0;
     const static int LAST = 4;
@@ -181,6 +182,7 @@ void eval_gaussian(double* model,double* value, double gradient[9]) {
     Userdata userdata;
     userdata.pm = model;
     userdata.stddev = model[PARAM_STDDEV];
+	userdata.evalAt = evalAt;
 
     userdata.xmax =  5*userdata.stddev;
 	userdata.xmin = -5*userdata.stddev;

@@ -1,7 +1,10 @@
 
 #include <string>
+#include "data.hpp"
 
-typedef void (*ModelF) (double*,double*,double*);
+#define MAX_PARAMS 10
+
+typedef void (*ModelF) (Vector3 evalAt, double*,double*,double*);
 
 
 enum POINT_PARAM {
@@ -18,12 +21,10 @@ enum POINT_PARAM {
     PARAM_STDDEV
 };
 
-void eval_point(double pm[8],double* value, double gradient[8]);
+void eval_point(Vector3 evalAt, double pm[8],double* value, double gradient[8]);
 std::string name_param(POINT_PARAM param);
 
-struct Model {
-    
-};
 
-void eval_gaussian(double* model,double* value, double gradient[9]);
+void eval_gaussian(Vector3 evalAt,double* model,double* value, double gradient[9]);
 
+void numerical_derivative(Vector3 evalAt,double* model,ModelF modelf,unsigned long nparams,double * gradient);
