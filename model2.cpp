@@ -10,12 +10,76 @@
 
 using namespace std;
 
-typedef int (CuhreIntegrand*) (const int *ndim,   //Number of dimensions
-							   const double xx[], //The dummy variable
-							   const int *ncomp,  //The size of the output vector
-							   double ff[],       //The output vector
-							   void*)             //An arbitary paramiter
+struct IntegralBounds;
 
+typedef int (*IntegrandF) (const double xx[],double ff[], IntegralBounds *bounds);
+
+struct IntegralBounds {
+    double xmax;
+    double xmin;
+               
+    double ymax;
+    double ymin;
+               
+    double zmax;
+    double zmin;
+
+	IntegrandF integrand;
+};
+
+int cuhreIntegrand(const int *ndim, const double xx[],
+					const int *ncomp, double ff[], void *voidbounds) {
+    IntegralBounds* bounds = (IntegralBounds*) voidbounds;
+    double xxprime[3];
+
+	//Apply the transformation from the unit cube [0,1]^3. xp,yp,zp is
+	//the dummy variable in molecular coordinates. The free variable
+	//is intDet->xyz
+	xxprime[0]=xx[0]*(bounds->xmax - bounds->xmin) + bounds->xmin;
+	xxprime[1]=xx[1]*(bounds->ymax - bounds->ymin) + bounds->ymin;
+	xxprime[2]=xx[2]*(bounds->zmax - bounds->zmin) + bounds->zmin;
+
+	bounds->integrand(xxprime,ff,bounds);
+
+    for(unsigned long i=0;i<10;i++){assert(isfinite(ff[i]));}
+
+    return 0;
+}
+
+void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,double* integral) {
+    const static int NDIM = 3;
+    const static int NCOMP = 10;
+    const static double EPSREL = 1e-2;
+    const static double EPSABS = 0;
+    const static int VERBOSE = 0;
+    const static int LAST = 4;
+    const static int MINEVAL = 1;
+    const static int MAXEVAL = 5000000;
+
+    const static int KEY = 11;
+
+	int nregions, neval, fail;
+	double error[10], prob[10];
+
+	bounds->integrand=f;
+
+	Cuhre(NDIM, NCOMP, cuhreIntegrand, (void*)bounds,
+		  EPSREL, EPSABS, VERBOSE | LAST,
+		  MINEVAL, MAXEVAL, KEY,
+		  &nregions, &neval, &fail, integral, error, prob);
+
+    double result_scaling = (bounds->xmax - bounds->xmin) *
+		(bounds->ymax - bounds->ymin) *
+		(bounds->zmax - bounds->zmin);
+    for(unsigned long i = 0; i < 10; i++){integral[i]*=result_scaling;}
+
+    for(unsigned long i = 0; i < 10;i++) {
+        assert(isfinite(integral[i]));
+    }
+    if(fail != 0)  {
+        cerr << "Warning, an integral failed to converge" << endl;
+    }
+}
 
 
 std::string name_param(POINT_PARAM param) {
@@ -110,41 +174,22 @@ void eval_point(Vector3 evalAt,double pm[8],double* value, double gradient[8]) {
 }
 
 
-struct Userdata {
+struct Userdata : public IntegralBounds {
     //For sending cuhre.
     double* pm; //Should be of length 8
     double  stddev;
 	Vector3 evalAt;
-
-    //The position of 
-    
-    double xmax;
-    double xmin;
-               
-    double ymax;
-    double ymin;
-               
-    double zmax;
-    double zmin;
 };
 
 //Since we need to pass this function to a C api it can't actually be
 //a member function. We'll pass the this pointer explicitly to fake a
 //member
 
-int Integrand2(const int *ndim, const double xx[],
-			  const int *ncomp, double ff[], void *voiduserdata) {
-    Userdata* userdata = (Userdata*) voiduserdata;
+int Integrand2(const double xx[],double ff[], IntegralBounds* bounds) {
+    Userdata* userdata = static_cast<Userdata*>(bounds);
+
     double* pm = userdata->pm;
     double stddev = userdata->stddev;
-
-	//Apply the transformation from the unit cube [0,1]^3. xp,yp,zp is
-	//the dummy variable in molecular coordinates. The free variable
-	//is intDet->xyz
-	double xp = xx[0]*(userdata->xmax - userdata->xmin) + userdata->xmin;
-	double yp = xx[1]*(userdata->ymax - userdata->ymin) + userdata->ymin;
-	double zp = xx[2]*(userdata->zmax - userdata->zmin) + userdata->zmin;
-
 
 	if(pm[PARAM_X] == 0.0 && pm[PARAM_Y] == 0.0 && pm[PARAM_Z] == 0.0) {
 		for(unsigned long i = 0; i < 10; i++){ff[i] = 0.0;}
@@ -159,7 +204,7 @@ int Integrand2(const int *ndim, const double xx[],
     //We don't need the gradient of the gaussian function with respect
     //to the spaceial pramiters
     double a_coef = 1/(stddev*stddev);                                    assert(isfinite(a_coef));
-    double theExp = exp(-a_coef*(xp*xp + yp*yp + zp*zp));
+    double theExp = exp(-a_coef*(xx[0]*xx[0] + xx[1]*xx[1] + xx[2]*xx[2]));
     double rho =  theExp;  assert(isfinite(rho));
 
     double drho = pow(M_PI,-1.5)*(1.5*pow(stddev,0.5)+2*pow(stddev,-1.5))*theExp;
@@ -169,23 +214,10 @@ int Integrand2(const int *ndim, const double xx[],
     for(unsigned long i=1;i<9;i++){ff[i] = rho * gradient[i-1];}
 	ff[9] = drho * f;
 
-    for(unsigned long i=0;i<10;i++){assert(isfinite(ff[i]));}
-
     return 0;
 }
 
 void eval_gaussian(Vector3 evalAt,double* model,double* value, double gradient[9]) {
-    const static int NDIM = 3;
-    const static int NCOMP = 10;
-    const static double EPSREL = 1e-2;
-    const static double EPSABS = 0;
-    const static int VERBOSE = 0;
-    const static int LAST = 4;
-    const static int MINEVAL = 1;
-    const static int MAXEVAL = 5000000;
-
-    const static int KEY = 11;
-
     Userdata userdata;
     userdata.pm = model;
     userdata.stddev = model[PARAM_STDDEV];
@@ -200,30 +232,16 @@ void eval_gaussian(Vector3 evalAt,double* model,double* value, double gradient[9
     userdata.zmax =  5*userdata.stddev;
     userdata.zmin = -5*userdata.stddev;
 
-	int nregions, neval, fail;
-	double integral[10], error[10], prob[10];
+	double integral[10];
 
-
-	Cuhre(NDIM, NCOMP, Integrand2, (void*)&userdata,
-		  EPSREL, EPSABS, VERBOSE | LAST,
-		  MINEVAL, MAXEVAL, KEY,
-		  &nregions, &neval, &fail, integral, error, prob);
+	cuhreIntegrate(Integrand2,static_cast<IntegralBounds*>(&userdata),integral);
 
 	//Scale the result
     double a_coef = 1/(userdata.stddev*userdata.stddev);         assert(isfinite(a_coef));
     double normalizer = pow(a_coef/M_PI,1.5);
 
-    double result_scaling = (userdata.xmax - userdata.xmin) *
-		(userdata.ymax - userdata.ymin) *
-		(userdata.zmax - userdata.zmin) * normalizer;
-    for(unsigned long i = 0; i < 10; i++){integral[i]*=result_scaling;}
+    for(unsigned long i = 0; i < 10; i++){integral[i]*=normalizer;}
 
-    for(unsigned long i = 0; i < 10;i++) {
-        assert(isfinite(integral[i]));
-    }
-    if(fail != 0)  {
-        cerr << "Warning, an integral failed to converge" << endl;
-    }
 
     *value = integral[0];
     memcpy(gradient,integral+1,9*sizeof(double));
