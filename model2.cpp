@@ -6,7 +6,6 @@
 #include <cstring>
 #include <cmath>
 #include <cassert>
-#include "panic.hpp"
 
 using namespace std;
 
@@ -96,7 +95,7 @@ std::string name_param(POINT_PARAM param) {
 
     case PARAM_STDDEV: return "stddev";
     }
-    PANIC();
+    assert(false);
     return "";
 }
 
@@ -156,56 +155,27 @@ void eval_point(Vector3 evalAt,double pm[8],double* value, double gradient[8]) {
     double A = (r2-3*x2)*chi_1 + (z2-y2)*chi_2 + 6*(xy*chi_xy + xz*chi_xz + yz*chi_yz);
     *value = inv12PiR5 * A;
 
-    gradient[PARAM_CHI1]  = inv12PiR5*(r2-3*x2);
-    gradient[PARAM_CHI2]  = inv12PiR5*(z2-y2);
-    gradient[PARAM_CHIXY] = 6*inv12PiR5*xy;
-    gradient[PARAM_CHIXZ] = 6*inv12PiR5*xz;
-    gradient[PARAM_CHIYZ] = 6*inv12PiR5*yz;
+    if(gradient) {
+        gradient[PARAM_CHI1]  = inv12PiR5*(r2-3*x2);
+        gradient[PARAM_CHI2]  = inv12PiR5*(z2-y2);
+        gradient[PARAM_CHIXY] = 6*inv12PiR5*xy;
+        gradient[PARAM_CHIXZ] = 6*inv12PiR5*xz;
+        gradient[PARAM_CHIYZ] = 6*inv12PiR5*yz;
 
 
-    double fiveAOver12Pi7 = 5*A/(12*M_PI*r5*r2);
+        double fiveAOver12Pi7 = 5*A/(12*M_PI*r5*r2);
 
-	//I'm not sure yet what the meaning of the sign error. Added a - to the total expression to fix it.
-    gradient[PARAM_X] = -(-x*fiveAOver12Pi7 + (-4*x*chi_1          + 6*(y*chi_xy + z*chi_xz))*inv12PiR5);
-    gradient[PARAM_Y] = -(-y*fiveAOver12Pi7 + (2*y*(chi_1 - chi_2) + 6*(x*chi_xy + z*chi_yz))*inv12PiR5);
-	gradient[PARAM_Z] = -(-z*fiveAOver12Pi7 + (2*z*(chi_1 + chi_2) + 6*(x*chi_xz + y*chi_yz))*inv12PiR5);
+        //I'm not sure yet what the meaning of the sign error. Added a - to the total expression to fix it.
+        gradient[PARAM_X] = -(-x*fiveAOver12Pi7 + (-4*x*chi_1          + 6*(y*chi_xy + z*chi_xz))*inv12PiR5);
+        gradient[PARAM_Y] = -(-y*fiveAOver12Pi7 + (2*y*(chi_1 - chi_2) + 6*(x*chi_xy + z*chi_yz))*inv12PiR5);
+        gradient[PARAM_Z] = -(-z*fiveAOver12Pi7 + (2*z*(chi_1 + chi_2) + 6*(x*chi_xz + y*chi_yz))*inv12PiR5);
 	
-	for(unsigned long i = 0;i<8;i++) {assert(isfinite(gradient[i]));}
+        for(unsigned long i = 0;i<8;i++) {assert(isfinite(gradient[i]));}
+    }
 }
 
 void eval_point_ND(Vector3 evalAt,double pm[8],double* value) {
-    double x = evalAt.x - pm[PARAM_X];
-    double y = evalAt.y - pm[PARAM_Y];
-    double z = evalAt.z - pm[PARAM_Z];
-
-	if(x == 0 && y == 0 && z == 0) {
-		*value = 0;
-		return;
-	}
-
-    double chi_1 =  pm[PARAM_CHI1]; 
-    double chi_2 =  pm[PARAM_CHI2];
-    double chi_xy = pm[PARAM_CHIXY];
-    double chi_xz = pm[PARAM_CHIXZ];
-    double chi_yz = pm[PARAM_CHIYZ];
-
-    double x2 = x*x;
-    double y2 = y*y;
-    double z2 = z*z;
-
-    double xy = x*y;
-    double xz = x*z;
-    double yz = y*z;
-
-    double r2 = x2+y2+z2;
-    double r = sqrt(r2);
-    double r5 = r2*r2*r;
-
-    double inv12PiR5 = 1/(12*M_PI*r5);
-    double A = (r2-3*x2)*chi_1 + (z2-y2)*chi_2 + 6*(xy*chi_xy + xz*chi_xz + yz*chi_yz);
-    *value = inv12PiR5 * A;
-	
-	assert(isfinite(*value));
+    eval_point(evalAt,pm,value,NULL);
 }
 
 
@@ -281,4 +251,15 @@ void eval_gaussian(Vector3 evalAt,double* model,double* value, double gradient[9
 
     *value = integral[0];
     memcpy(gradient,integral+1,9*sizeof(double));
+}
+
+void random_data(PRNG prng,double* model,ModelF_ND modelf,unsigned long natoms,Nuclei* nuclei,Vals* vals) {
+	RandomDist rand;
+    
+    nuclei->resize(natoms);
+    vals->resize(natoms);
+
+    for(unsigned long i = 0; i < natoms;i++) {
+        modelf(nuclei->at(i),model,&(vals->at(i)));
+    }
 }

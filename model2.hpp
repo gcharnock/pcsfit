@@ -1,4 +1,7 @@
 
+#ifndef MODEL2_HPP
+#define MODEL2_HPP
+
 #include <string>
 #include "data.hpp"
 
@@ -6,6 +9,7 @@
 
 typedef void (*ModelF)    (Vector3 evalAt, double* model,double* value,double* gradient);
 typedef void (*ModelF_ND) (Vector3 evalAt, double* model,double* value);
+
 
 enum POINT_PARAM {
     PARAM_X,    
@@ -29,5 +33,9 @@ void eval_point_ND(Vector3 evalAt,double pm[8],double* value);
 void eval_gaussian(Vector3 evalAt,double* model,double* value, double gradient[9]);
 void eval_gaussian_ND(Vector3 evalAt,double* model,double* value);
 
+void random_data(PRNG prng,double* model,ModelF_ND modelf,unsigned long natoms,Nuclei* nuclei,Vals* vals);
 
 void numerical_derivative(Vector3 evalAt,double* model,ModelF modelf,unsigned long nparams,double * gradient);
+
+#endif
+

@@ -2,6 +2,7 @@
 #include "tests.hpp"
 #include "model.hpp"
 #include "model2.hpp"
+#include "fit.hpp"
 
 #include <iostream>
 
@@ -102,7 +103,7 @@ void testModel(long seed) {
 
     cout << "================================================================================" << endl;
 
-    for(unsigned long i = 0;i<10;i++) {
+    for(unsigned long i = 0;i<0;i++) {
 		pm2[PARAM_X]     = rand(prng);
 		pm2[PARAM_Y]     = rand(prng);
 		pm2[PARAM_Z]     = rand(prng);
@@ -132,7 +133,7 @@ void testModel(long seed) {
         cout << "================================================================================" << endl;
     }
 
-    for(unsigned long i = 0;i<1;i++) {
+    for(unsigned long i = 0;i<0;i++) {
         double gm2[9];
 		gm2[PARAM_X]      = rand(prng);
 		gm2[PARAM_Y]      = rand(prng);
@@ -168,6 +169,37 @@ void testModel(long seed) {
 
         cout << "================================================================================" << endl;
     }
+
+    Multithreader<fdf_t> pool;
+    cout << "Evautating the error function for a perfect match (should be zero)" << endl;
+    for(unsigned long i = 0;i<10;i++) {
+        double pm2[8];
+        for(unsigned long j=0;j<8;j++) {
+            pm2[j] = rand(prng);
+        }
+        Nuclei nuclei;
+        Vals vals;
+        random_data(prng,pm2,eval_point_ND,40,&nuclei,&vals);
+        
+        ErrorContext context;
+        context.nuclei = &nuclei;
+        context.expvals= &vals;
+        context.model  = pm2;
+        context.modelf = eval_point;
+        context.size   = 8;
+        context.pool = &pool;
+
+        double error;
+        double gradient[8];
+
+        eval_error(&context,&error,gradient);
+
+        cout << "run " << i << ", error = " << error << " (should be zero)" << endl;
+        for(unsigned long j = 0;j < 8;j++) {cout << gradient[j] << " ";}
+        cout << endl;
+    }
+    cout << "================================================================================" << endl;
+
 }
 
 

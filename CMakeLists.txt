@@ -34,7 +34,7 @@ else()
 endif()
 
 
-include_directories(../Cuba-2.1 ${vtkDir}  ../../src/boost_1_46_1)
+include_directories(../Cuba-2.1 ${vtkDir}  $ENV{HOME}/src/boost_1_46_1)
 
 
 set(CMAKE_CXX_FLAGS         "-Wno-deprecated -Wall -fno-strict-aliasing")
@@ -43,7 +43,7 @@ set(cmake_cxx_flags_release "-O3 -ffast-math")
 set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS})
 
 
-set(sources panic.cpp  model.cpp model2.cpp  data.cpp  vis.cpp tests.cpp)
+set(sources  model.cpp model2.cpp fit.cpp  data.cpp  vis.cpp tests.cpp)
 
 
 add_executable(pcsfit main.cpp  ${sources})
