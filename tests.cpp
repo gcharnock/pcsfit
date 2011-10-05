@@ -198,8 +198,53 @@ void testModel(long seed) {
         for(unsigned long j = 0;j < 8;j++) {cout << gradient[j] << " ";}
         cout << endl;
     }
+
     cout << "================================================================================" << endl;
 
+    cout << "Evaulating the analytic and numerical derivatives of the error functional" << endl;
+    for(unsigned long i = 0<10;i++) {
+        
+    }
+
+
+    cout << "================================================================================" << endl;
+    for(unsigned long i = 1;i<10;i++) {
+        double pm2[8];
+        double model_to_fit[8];
+        double model_to_fit2[8];
+        double model_final[8];
+
+        for(unsigned long j=0;j<8;j++) {
+            pm2[j]          = rand(prng);
+            model_to_fit2[j] = model_to_fit[j] = rand(prng)*100;
+            model_final[j]  = 0;
+        }
+
+        Nuclei nuclei;
+        Vals vals;
+
+        cout << "Generating a random molecule with " << 10*i << " spins" << endl;
+        random_data(prng,pm2,eval_point_ND,5*i,&nuclei,&vals);
+        
+        ErrorContext context;
+        context.nuclei  = &nuclei;
+        context.expvals = &vals;
+        context.model   = model_to_fit;
+        context.modelf  = eval_point;
+        context.size    = 8;
+        context.pool    = &pool;
+
+
+        double errorFinal = 0;
+
+        do_fit_with_grad(&context,model_final,&errorFinal);
+        for(unsigned long j = 0;j < 8; j++) {
+            cout << name_param(POINT_PARAM(j)) << ": real = " << pm2[j] << " start = " << model_to_fit2[j]
+                 << " final = " << model_final[j] << endl;
+        }
+        cout << "The final error was: " << errorFinal << endl;
+        cout << "================================================================================" << endl;
+    }
 }
 
 

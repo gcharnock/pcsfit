@@ -19,5 +19,8 @@ struct ErrorContext {
     Multithreader<fdf_t>* pool;
 };
 
+void do_fit_with_grad(ErrorContext* context,double* optModel);
+void do_fit_with_grad(ErrorContext* context,double* optModel,double* finalError);
+
 void eval_error(ErrorContext* context,double* value, double gradient[]);
 

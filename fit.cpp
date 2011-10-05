@@ -7,7 +7,7 @@
 
 using namespace std;
 
-
+#define MAX_ITTER 40
 
 fdf_t worker(ErrorContext* context,unsigned long jobN) {
     assert(jobN < context->nuclei->size());
@@ -25,21 +25,9 @@ fdf_t worker(ErrorContext* context,unsigned long jobN) {
     return fdf_t(value,gradient);
 }
 
-void eval_error_fdf(const gsl_vector* v, void* voidContext,double *f, gsl_vector *df) {
-    //ErrorContext* context = (ErrorContext*)voidContext;
-}
 
-
-double eval_error_f  (const gsl_vector* v, void* voidContext) {
-    assert(false); //Hopefully we don't need this
-    return 1.0;
-}
-
-void   eval_error_df (const gsl_vector* v, void* voidContext, gsl_vector *df) {
-    assert(false); //Hopefully we don't need this
-    return;
-}
-
+//Evaulates the error functional. Effectivly does everything one
+//iteration of the minimiser needs to do except
 void eval_error(ErrorContext* context,double* value, double gradient[]) {
     //Prepare the work
     vector<boost::function<pair<double,vector<double> >()> > work;
@@ -58,32 +46,81 @@ void eval_error(ErrorContext* context,double* value, double gradient[]) {
         gradient[i] = 0;
     }
     for(unsigned long i = 0; i<context->nuclei->size();i++) {
-        (*value)+=(results[i].first - context->expvals->at(i));
+        double modelMinusexpVal = results[i].first - context->expvals->at(i);
+        (*value)+=modelMinusexpVal*modelMinusexpVal; //Squared error
         for(unsigned long j = 0; j < context->size; j++) {
             //The gradient of the error is twice the gradient of the
-            //model times the error
-            gradient[j] += 2 * results[i].second[j] * (*value);
+            //model - the expeimental value
+            gradient[j] += 2 * results[i].second[j] * modelMinusexpVal;
         }
     }
+    cout.setf(ios::floatfield,ios::scientific);
+    cout << *value << endl;
 }
-/*
-void do_fit() {
-    gsl_vector* gslModelVec = gsl_vector_alloc(size);
-    memcpy(gsl_vector_ptr(gslModelVec,0), model ,size*sizeof(double));
+
+//Translates to and from GSL language
+void eval_error_fdf(const gsl_vector* v, void* voidContext,double *f, gsl_vector *df) {
+    double fake_gradient[MAX_PARAMS];
+
+    ErrorContext* context = (ErrorContext*)(voidContext);
+    memcpy(context->model,gsl_vector_const_ptr(v,0),context->size*sizeof(double));
+
+    //Test df for nullness and if it's null have the fdf function
+    //write to throwaway memory.
+    eval_error(context,f, df==NULL ? fake_gradient : gsl_vector_ptr(df,0) );
+}
+
+
+double eval_error_f  (const gsl_vector* v, void* voidContext) {
+    double value;
+    eval_error_fdf(v,voidContext,&value,NULL);
+    return value;
+}
+
+void   eval_error_df (const gsl_vector* v, void* voidContext, gsl_vector *df) {
+    double value;
+    eval_error_fdf(v,voidContext,&value,df);
+    return;
+}
+
+
+void do_fit_with_grad(ErrorContext* context,double* optModel,double* finalError) {
+    assert(context != NULL);
+    assert(optModel != NULL);
+
+    gsl_vector* gslModelVec = gsl_vector_alloc(context->size);
+    memcpy(gsl_vector_ptr(gslModelVec,0), context->model ,context->size*sizeof(double));
 
     //Setup the function to be minimised
     gsl_multimin_function_fdf minfunc;
-    minfunc.f   = &eval_error_f;
-    minfunc.df  = &eval_error_df;
-    minfunc.fdf = &eval_error_fdf;
-    minfunc.n   = size;
-    minfunc.params = (void*)&context;
+    minfunc.f      = &eval_error_f;
+    minfunc.df     = &eval_error_df;
+    minfunc.fdf    = &eval_error_fdf;
+    minfunc.n      = context->size;
+    minfunc.params = (void*)context;
     
     //Setup the minimiser
-    gsl_multimin_fminimizer* gslmin;
-    gslmin = gsl_multimin_fminimizer_alloc(gsl_multimin_fminimizer_nmsimplex2,size);
+    gsl_multimin_fdfminimizer* gslmin;
+    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2,context->size);
+    
+    gsl_multimin_fdfminimizer_set(gslmin,&minfunc,gslModelVec,1,0.1);
+
+    
+    for(unsigned long i = 0; i < MAX_ITTER; i++) {
+        if(gsl_multimin_fdfminimizer_iterate(gslmin) == GSL_ENOPROG) {
+            break;
+        }
+        if(gsl_multimin_test_gradient(gsl_multimin_fdfminimizer_gradient(gslmin), 1e-20) == GSL_SUCCESS) {
+            break;
+        }
+    }
+
+    gsl_vector* gslOptVector = gsl_multimin_fdfminimizer_x(gslmin);
+    (*finalError) = gsl_multimin_fdfminimizer_minimum(gslmin);
+
+    memcpy(optModel, gsl_vector_ptr(gslOptVector,0), context->size*sizeof(double));
 
     //Clean up
-    gsl_multimin_fminimizer_free(gslmin);
+    gsl_multimin_fdfminimizer_free(gslmin);
 }
-*/
+
