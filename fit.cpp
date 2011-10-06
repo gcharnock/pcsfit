@@ -58,6 +58,27 @@ void eval_error(ErrorContext* context,double* value, double* gradient) {
     cout << *value << endl;
 }
 
+void numerical_error_derivative(ErrorContext* context,double* value, double* gradient) {
+    double* fake_gradient = (double*)alloca(context->model->size * sizeof(double));
+    for(unsigned long i = 0;i<context->model->size;i++) {
+		double h     = abs(context->params[i]*0.000001);
+		double result_plus,result_minus;
+
+		double original = context->params[i];
+
+		context->params[i] = original + h;
+		eval_error(context,&result_plus,fake_gradient);
+		context->params[i] = original - h;
+		eval_error(context,&result_minus,fake_gradient);
+
+		context->params[i] = original;
+
+		gradient[i] = (result_plus-result_minus)/(2*h);
+	}
+}
+
+
+
 //Translates to and from GSL language
 void eval_error_fdf(const gsl_vector* v, void* voidContext,double *f, gsl_vector *df) {
     double fake_gradient[MAX_PARAMS];

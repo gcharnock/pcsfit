@@ -22,3 +22,6 @@ void do_fit_with_grad(ErrorContext* context,double* optModel,double* finalError)
 
 void eval_error(ErrorContext* context,double* value, double* gradient);
 
+void numerical_error_derivative(ErrorContext* context,double* value, double* gradient);
+
+

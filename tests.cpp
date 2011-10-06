@@ -64,16 +64,9 @@ void check_error_derivate(PRNG prng,const Model* model,Multithreader<fdf_t>* poo
 
         eval_error(&context,&result,gradient);
 
-        /*
-          This section may be affected by a wierd compiler bug where
-          the first argument of numerical_derivative ends up pointing
-          to zero.
-         */
+        numerical_error_derivative(&context,&result,numerical_gradient);
 
-        HasNDerivative curried_eval_error = boost::bind(eval_error,&context,_1,_2);
-        numerical_derivative(&curried_eval_error,params,model->size,numerical_gradient);
-
-        cout << "Result = " << endl;
+        cout << "Result = " << result << endl;
         for(unsigned long i=0;i<model->size;i++) {
 			cout << name_param(POINT_PARAM(i)) << " = " << params[i] <<
 				" grad = " << gradient[i]

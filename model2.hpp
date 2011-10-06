@@ -49,7 +49,7 @@ void eval_gaussian_ND(Vector3 evalAt,double* model,double* value);
 void random_data(PRNG prng,const Model& model,double* params,unsigned long natoms,Dataset* dataset);
 
 //void numerical_derivative(Vector3 evalAt,const Model& model,unsigned long nparams,double * gradient);
-void numerical_derivative(HasNDerivative* f,double* params,unsigned long nparams,double* gradient);
+void numerical_derivative(HasNDerivative f,double* params,unsigned long nparams,double* gradient);
 
 #endif
 
