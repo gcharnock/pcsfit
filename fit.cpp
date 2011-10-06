@@ -10,15 +10,15 @@ using namespace std;
 #define MAX_ITTER 40
 
 fdf_t worker(ErrorContext* context,unsigned long jobN) {
-    assert(jobN < context->nuclei->size());
+    assert(jobN < context->dataset->nuclei.size());
 
     double value;
     vector<double> gradient;
     double gradient_array[MAX_PARAMS];
 
-    context->modelf(context->nuclei->at(jobN), context->model, &value, gradient_array);
+    context->model->modelf(context->dataset->nuclei[jobN], context->params, &value, gradient_array);
     
-    for(unsigned long i = 0;i < context->size;i++){
+    for(unsigned long i = 0;i < context->model->size;i++){
         gradient.push_back(gradient_array[i]);
     }
 
@@ -28,12 +28,12 @@ fdf_t worker(ErrorContext* context,unsigned long jobN) {
 
 //Evaulates the error functional. Effectivly does everything one
 //iteration of the minimiser needs to do except
-void eval_error(ErrorContext* context,double* value, double gradient[]) {
+void eval_error(ErrorContext* context,double* value, double* gradient) {
     //Prepare the work
     vector<boost::function<pair<double,vector<double> >()> > work;
     vector<fdf_t> results;
 
-    for(unsigned long i = 0;i<context->nuclei->size();i++) {
+    for(unsigned long i = 0;i<context->dataset->nuclei.size();i++) {
         work.push_back(boost::bind(&worker,context,i));
     }
 
@@ -42,13 +42,13 @@ void eval_error(ErrorContext* context,double* value, double gradient[]) {
 
     //Reduce the results
     *value = 0;
-    for(unsigned long i = 0; i<context->size; i++) {
+    for(unsigned long i = 0; i<context->model->size; i++) {
         gradient[i] = 0;
     }
-    for(unsigned long i = 0; i<context->nuclei->size();i++) {
-        double modelMinusexpVal = results[i].first - context->expvals->at(i);
+    for(unsigned long i = 0; i<context->dataset->nuclei.size();i++) {
+        double modelMinusexpVal = results[i].first - context->dataset->vals[i];
         (*value)+=modelMinusexpVal*modelMinusexpVal; //Squared error
-        for(unsigned long j = 0; j < context->size; j++) {
+        for(unsigned long j = 0; j < context->model->size; j++) {
             //The gradient of the error is twice the gradient of the
             //model - the expeimental value
             gradient[j] += 2 * results[i].second[j] * modelMinusexpVal;
@@ -63,7 +63,7 @@ void eval_error_fdf(const gsl_vector* v, void* voidContext,double *f, gsl_vector
     double fake_gradient[MAX_PARAMS];
 
     ErrorContext* context = (ErrorContext*)(voidContext);
-    memcpy(context->model,gsl_vector_const_ptr(v,0),context->size*sizeof(double));
+    memcpy(context->params,gsl_vector_const_ptr(v,0),context->model->size*sizeof(double));
 
     //Test df for nullness and if it's null have the fdf function
     //write to throwaway memory.
@@ -88,20 +88,22 @@ void do_fit_with_grad(ErrorContext* context,double* optModel,double* finalError)
     assert(context != NULL);
     assert(optModel != NULL);
 
-    gsl_vector* gslModelVec = gsl_vector_alloc(context->size);
-    memcpy(gsl_vector_ptr(gslModelVec,0), context->model ,context->size*sizeof(double));
+    unsigned long size = context->model->size;
+
+    gsl_vector* gslModelVec = gsl_vector_alloc(size);
+    memcpy(gsl_vector_ptr(gslModelVec,0), context->params ,size*sizeof(double));
 
     //Setup the function to be minimised
     gsl_multimin_function_fdf minfunc;
     minfunc.f      = &eval_error_f;
     minfunc.df     = &eval_error_df;
     minfunc.fdf    = &eval_error_fdf;
-    minfunc.n      = context->size;
+    minfunc.n      = size;
     minfunc.params = (void*)context;
     
     //Setup the minimiser
     gsl_multimin_fdfminimizer* gslmin;
-    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2,context->size);
+    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2,size);
     
     gsl_multimin_fdfminimizer_set(gslmin,&minfunc,gslModelVec,1,0.1);
 
@@ -118,7 +120,7 @@ void do_fit_with_grad(ErrorContext* context,double* optModel,double* finalError)
     gsl_vector* gslOptVector = gsl_multimin_fdfminimizer_x(gslmin);
     (*finalError) = gsl_multimin_fdfminimizer_minimum(gslmin);
 
-    memcpy(optModel, gsl_vector_ptr(gslOptVector,0), context->size*sizeof(double));
+    memcpy(optModel, gsl_vector_ptr(gslOptVector,0), size*sizeof(double));
 
     //Clean up
     gsl_multimin_fdfminimizer_free(gslmin);

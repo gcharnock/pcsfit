@@ -41,9 +41,15 @@ struct Vals : std::vector<double> {
     double min;
 };
 
+struct Dataset {
+    Nuclei nuclei;
+    Vals vals;
+};
+
 typedef std::pair<Nuclei,Vals> pairNucVals;
 
 pairNucVals loadData(const std::string& filename);
+
 
 
 //Generates fake data by placing spins randomly in the [0,50]^3 cube

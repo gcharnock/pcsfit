@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cmath>
 #include <cassert>
+#include <alloca.h>
 
 using namespace std;
 
@@ -99,22 +100,20 @@ std::string name_param(POINT_PARAM param) {
     return "";
 }
 
-void numerical_derivative(Vector3 evalAt,double* model,ModelF modelf,unsigned long nparams,double * gradient) {
-    assert(nparams < MAX_PARAMS);
-    double fake_gradient[MAX_PARAMS];
-
-    for(unsigned long i = 0;i<8;i++) {
-		double h     = abs(model[i]*0.000001);
+//void numerical_derivative(Vector3 evalAt,double* model,ModelF modelf,unsigned long nparams,double * gradient) {
+void numerical_derivative(HasNDerivative f,double* params,unsigned long nparams,double* gradient) {
+    for(unsigned long i = 0;i<nparams;i++) {
+		double h     = abs(params[i]*0.000001);
 		double result_plus,result_minus;
 
-		double original = model[i];
+		double original = params[i];
 
-		model[i] = original + h;
-		modelf(evalAt,model,&result_plus ,fake_gradient);
-		model[i] = original - h;
-		modelf(evalAt,model,&result_minus,fake_gradient);
+		params[i] = original + h;
+		f(params,&result_plus);
+		params[i] = original - h;
+		f(params,&result_minus);
 
-		model[i] = original;
+		params[i] = original;
 
 		gradient[i] = (result_plus-result_minus)/(2*h);
 	}
@@ -195,7 +194,7 @@ int Integrand2(const double xx[],double ff[], IntegralBounds* bounds) {
     Userdata* userdata = static_cast<Userdata*>(bounds);
 
     double* pm = userdata->pm;
-    double stddev = userdata->stddev;
+    double stddev = abs(userdata->stddev);
 
 	if(pm[PARAM_X] == 0.0 && pm[PARAM_Y] == 0.0 && pm[PARAM_Z] == 0.0) {
 		for(unsigned long i = 0; i < 10; i++){ff[i] = 0.0;}
@@ -219,6 +218,8 @@ int Integrand2(const double xx[],double ff[], IntegralBounds* bounds) {
     ff[0] = rho * f;
     for(unsigned long i=1;i<9;i++){ff[i] = rho * gradient[i-1];}
 	ff[9] = drho * f;
+
+    for(unsigned long i=0;i<10;i++){assert(isfinite(ff[i]));}
 
     return 0;
 }
@@ -253,13 +254,22 @@ void eval_gaussian(Vector3 evalAt,double* model,double* value, double gradient[9
     memcpy(gradient,integral+1,9*sizeof(double));
 }
 
-void random_data(PRNG prng,double* model,ModelF_ND modelf,unsigned long natoms,Nuclei* nuclei,Vals* vals) {
+void eval_gaussian_ND(Vector3 evalAt,double* model,double* value) {
+    //TODO a version that doesn't though away the gradient
+    double gradient[9];
+    eval_gaussian(evalAt,model,value,gradient);
+}
+
+void random_data(PRNG prng,const Model& model,double* params,unsigned long natoms,Dataset* dataset) {
 	RandomDist rand;
     
-    nuclei->resize(natoms);
-    vals->resize(natoms);
+    dataset->nuclei.resize(natoms);
+    dataset->vals.resize(natoms);
 
     for(unsigned long i = 0; i < natoms;i++) {
-        modelf(nuclei->at(i),model,&(vals->at(i)));
+        model.modelf_ND(dataset->nuclei.at(i),params,&(dataset->vals[i]));
     }
 }
+
+const Model point_model    = {eval_point   ,eval_point_ND   ,8};
+const Model gaussian_model = {eval_gaussian,eval_gaussian_ND,9};

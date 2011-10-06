@@ -259,7 +259,7 @@ int main(int argc,char** argv) {
 		options_description optDesc("Options");
 
 		optDesc.add_options()
-			("test-models","")
+			("run-tests","")
 			("help","print this help page and exit")
 			("gui","Visualise the fitting process with VTK")
 			("model",value<string>(&modelType)->default_value("point"),
@@ -287,7 +287,7 @@ int main(int argc,char** argv) {
 			cout << optDesc << endl;
 			return 0;
 		}
-		if(variablesMap.count("test-models") > 0) {
+		if(variablesMap.count("run-tests") > 0) {
 			testModel(7734);
 			return 0;
 		}

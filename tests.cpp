@@ -4,10 +4,84 @@
 #include "model2.hpp"
 #include "fit.hpp"
 
+#include <boost/bind.hpp>
 #include <iostream>
 
 using namespace std;
 
+RandomDist dist;
+
+void check_derivative (PRNG prng,const Model* model) {
+
+    //Chekcs the analytic and numerical derivates are equil
+    for(unsigned long i = 0;i<10;i++) {
+        double result;
+        double* params             = (double*)alloca(model->size);
+        double* gradient           = (double*)alloca(model->size);
+		double* numerical_gradient = (double*)alloca(model->size);
+
+        for(unsigned long j = 0; j< model->size; j++) {
+            params[j] = dist(prng);
+        }
+
+		Vector3 evalAt(dist(prng),dist(prng),dist(prng));
+
+        model->modelf(evalAt,params,&result,gradient);
+
+        numerical_derivative(boost::bind(model->modelf_ND,evalAt,_1,_2),params,model->size,numerical_gradient);
+
+        cout << "Result = " << endl;
+        for(unsigned long i=0;i<model->size;i++) {
+			cout << name_param(POINT_PARAM(i)) << " = " << params[i] <<
+				" grad = " << gradient[i]
+				 << " ceneral Differenceing gradient of " << numerical_gradient[i] << endl;
+        }
+        cout << "================================================================================" << endl;
+    }
+}
+
+void check_error_derivate(PRNG prng,const Model* model,Multithreader<fdf_t>* pool) {
+    //Chekcs the analytic and numerical derivates are equil
+    for(unsigned long i = 0;i<10;i++) {
+        double result;
+        double* params             = (double*)alloca(model->size);
+        double* gradient           = (double*)alloca(model->size);
+		double* numerical_gradient = (double*)alloca(model->size);;
+
+        for(unsigned long j = 0; j< model->size; j++) {
+            params[j] = dist(prng);
+        }
+
+        Dataset dataset;
+
+        random_data(prng,point_model,params,5*i,&dataset);
+
+        ErrorContext context;
+        context.dataset = &dataset;
+        context.model   = model;
+        context.params  = params;
+        context.pool    = pool;
+
+        eval_error(&context,&result,gradient);
+
+        /*
+          This section may be affected by a wierd compiler bug where
+          the first argument of numerical_derivative ends up pointing
+          to zero.
+         */
+
+        HasNDerivative curried_eval_error = boost::bind(eval_error,&context,_1,_2);
+        numerical_derivative(&curried_eval_error,params,model->size,numerical_gradient);
+
+        cout << "Result = " << endl;
+        for(unsigned long i=0;i<model->size;i++) {
+			cout << name_param(POINT_PARAM(i)) << " = " << params[i] <<
+				" grad = " << gradient[i]
+				 << " ceneral Differenceing gradient of " << numerical_gradient[i] << endl;
+        }
+        cout << "================================================================================" << endl;
+    }
+}
 
 //Perform a sanity check on the models. Given teh same paramiter set
 //the gaussian model should converged to the point model as stddev
@@ -15,7 +89,6 @@ using namespace std;
 void testModel(long seed) {
 	PRNG prng(seed);  //We should actually be recycling prng rather
 					  //than the seed
-	RandomDist rand;
 
 	PointModel pm = PointModel::randomModel(seed+10);
     double pm2[8];
@@ -24,11 +97,11 @@ void testModel(long seed) {
     pm2[PARAM_Y]     = pm.metal.y;
     pm2[PARAM_Z]     = pm.metal.z;
            
-    pm2[PARAM_CHI1]  = rand(prng);
-    pm2[PARAM_CHI2]  = rand(prng);
-    pm2[PARAM_CHIXY] = rand(prng);
-    pm2[PARAM_CHIXZ] = rand(prng);
-    pm2[PARAM_CHIYZ] = rand(prng);
+    pm2[PARAM_CHI1]  = dist(prng);
+    pm2[PARAM_CHI2]  = dist(prng);
+    pm2[PARAM_CHIXY] = dist(prng);
+    pm2[PARAM_CHIXZ] = dist(prng);
+    pm2[PARAM_CHIYZ] = dist(prng);
 
 
 
@@ -74,9 +147,9 @@ void testModel(long seed) {
 
 	cout << "================================================================================" << endl;
 	for(unsigned long i = 0;i<0;i++) {
-		double x = rand(prng);
-		double y = rand(prng);
-		double z = rand(prng);
+		double x = dist(prng);
+		double y = dist(prng);
+		double z = dist(prng);
 
 		double dx = pm.metal.x - x;
 		double dy = pm.metal.y - y;
@@ -103,90 +176,20 @@ void testModel(long seed) {
 
     cout << "================================================================================" << endl;
 
-    for(unsigned long i = 0;i<0;i++) {
-		pm2[PARAM_X]     = rand(prng);
-		pm2[PARAM_Y]     = rand(prng);
-		pm2[PARAM_Z]     = rand(prng);
-           
-		pm2[PARAM_CHI1]  = rand(prng);
-		pm2[PARAM_CHI2]  = rand(prng);
-		pm2[PARAM_CHIXY] = rand(prng);
-		pm2[PARAM_CHIXZ] = rand(prng);
-		pm2[PARAM_CHIYZ] = rand(prng);
-
-        double result;
-        double gradient[8];
-		double numerical_gradient[8];
-
-		Vector3 evalAt(rand(prng),rand(prng),rand(prng));
-
-        eval_point(evalAt,pm2,&result,gradient);
-
-        numerical_derivative(evalAt,pm2,eval_point,8,numerical_gradient);
-
-        cout << "Result = " << endl;
-        for(unsigned long i=0;i<8;i++) {
-			cout << name_param(POINT_PARAM(i)) << " = " << pm2[i] <<
-				" grad = " << gradient[i]
-				 << " ceneral Differenceing gradient of " << numerical_gradient[i] << endl;
-        }
-        cout << "================================================================================" << endl;
-    }
-
-    for(unsigned long i = 0;i<0;i++) {
-        double gm2[9];
-		gm2[PARAM_X]      = rand(prng);
-		gm2[PARAM_Y]      = rand(prng);
-		gm2[PARAM_Z]      = rand(prng);
-           
-		gm2[PARAM_CHI1]   = rand(prng);
-		gm2[PARAM_CHI2]   = rand(prng);
-		gm2[PARAM_CHIXY]  = rand(prng);
-		gm2[PARAM_CHIXZ]  = rand(prng);
-		gm2[PARAM_CHIYZ]  = rand(prng);
-        
-        gm2[PARAM_STDDEV] = abs(rand(prng));
-
-		Vector3 evalAt(rand(prng),rand(prng),rand(prng));
-        
-        double result;
-        double gradient[9];
-        double numerical_gradient[9];
-
-        eval_gaussian(evalAt,gm2,&result,gradient);
-
-        numerical_derivative(evalAt,gm2,eval_gaussian,9,numerical_gradient);
-
-        cout << "Result = " << result << endl;
-        for(unsigned long i=0;i<8;i++) {
-			cout << name_param(POINT_PARAM(i)) << " = " << gm2[i] <<
-				" grad = " << gradient[i]
-				 << " ceneral Differenceing gradient of " << numerical_gradient[i] << endl;
-        }
-        cout << "stddev = " << gm2[8] <<
-            " grad = " << gradient[8]
-             << " ceneral Differenceing gradient of " << numerical_gradient[8] << endl;
-
-        cout << "================================================================================" << endl;
-    }
-
     Multithreader<fdf_t> pool;
     cout << "Evautating the error function for a perfect match (should be zero)" << endl;
     for(unsigned long i = 0;i<10;i++) {
-        double pm2[8];
+        double* pm2 = (double*)alloca(8*sizeof(double));
         for(unsigned long j=0;j<8;j++) {
-            pm2[j] = rand(prng);
+            pm2[j] = dist(prng);
         }
-        Nuclei nuclei;
-        Vals vals;
-        random_data(prng,pm2,eval_point_ND,40,&nuclei,&vals);
+        Dataset dataset;
+        random_data(prng,point_model,pm2,40,&dataset);
         
         ErrorContext context;
-        context.nuclei = &nuclei;
-        context.expvals= &vals;
-        context.model  = pm2;
-        context.modelf = eval_point;
-        context.size   = 8;
+        context.dataset = &dataset;
+        context.params  = pm2;
+        context.model   = &point_model;
         context.pool = &pool;
 
         double error;
@@ -201,39 +204,36 @@ void testModel(long seed) {
 
     cout << "================================================================================" << endl;
 
-    cout << "Evaulating the analytic and numerical derivatives of the error functional" << endl;
-    for(unsigned long i = 0<10;i++) {
-        
-    }
+    check_derivative (prng,&point_model);
+    check_derivative (prng,&gaussian_model);
 
+    cout << "Evaulating the analytic and numerical derivatives of the error functional" << endl;
+    check_error_derivate(prng,&point_model,&pool);
+    check_error_derivate(prng,&gaussian_model,&pool);
 
     cout << "================================================================================" << endl;
-    for(unsigned long i = 1;i<10;i++) {
+    for(unsigned long i = 1;i<0;i++) {
         double pm2[8];
         double model_to_fit[8];
         double model_to_fit2[8];
         double model_final[8];
 
         for(unsigned long j=0;j<8;j++) {
-            pm2[j]          = rand(prng);
-            model_to_fit2[j] = model_to_fit[j] = rand(prng)*100;
+            pm2[j]          = dist(prng);
+            model_to_fit2[j] = model_to_fit[j] = dist(prng)*100;
             model_final[j]  = 0;
         }
 
-        Nuclei nuclei;
-        Vals vals;
+        Dataset dataset;
 
-        cout << "Generating a random molecule with " << 10*i << " spins" << endl;
-        random_data(prng,pm2,eval_point_ND,5*i,&nuclei,&vals);
+        cout << "Generating a distom molecule with " << 10*i << " spins" << endl;
+        random_data(prng,point_model,pm2,5*i,&dataset);
         
         ErrorContext context;
-        context.nuclei  = &nuclei;
-        context.expvals = &vals;
-        context.model   = model_to_fit;
-        context.modelf  = eval_point;
-        context.size    = 8;
+        context.dataset = &dataset;
+        context.params  = model_to_fit;
+        context.model   = &point_model;
         context.pool    = &pool;
-
 
         double errorFinal = 0;
 

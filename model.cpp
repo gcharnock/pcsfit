@@ -390,3 +390,5 @@ std::vector<double> GaussModel::getSmallSteps() {
 double GaussModel::grad(double x,double y,double z,double* ax_grad,double* rh_grad) const {
 	return 0;
 }
+
+
