@@ -49,7 +49,7 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,double* integral) {
     const static int NDIM = 3;
     const static int NCOMP = 10;
-    const static double EPSREL = 1e-2;
+    const static double EPSREL = 1e-6;
     const static double EPSABS = 0;
     const static int VERBOSE = 0;
     const static int LAST = 4;
@@ -100,27 +100,29 @@ std::string name_param(POINT_PARAM param) {
     return "";
 }
 
-//void numerical_derivative(Vector3 evalAt,double* model,ModelF modelf,unsigned long nparams,double * gradient) {
-void numerical_derivative(HasNDerivative f,double* params,unsigned long nparams,double* gradient) {
-    for(unsigned long i = 0;i<nparams;i++) {
-		double h     = abs(params[i]*0.000001);
+void numerical_derivative(Vector3 evalAt,const Model* model,const double* params,double* gradient) {
+	double* params_mutable = (double*)alloca(model->size*sizeof(double));
+	memcpy(params_mutable,params,model->size*sizeof(double));
+
+    for(unsigned long i = 0;i<model->size;i++) {
+		double h     = abs(params[i]*0.0001);
 		double result_plus,result_minus;
 
-		double original = params[i];
 
-		params[i] = original + h;
-		f(params,&result_plus);
-		params[i] = original - h;
-		f(params,&result_minus);
+		params_mutable[i] = params[i] + h;
+		model->modelf_ND(evalAt,params_mutable,&result_plus);
 
-		params[i] = original;
+		params_mutable[i] = params[i] - h;
+		model->modelf_ND(evalAt,params_mutable,&result_minus);
+
+		params_mutable[i] = params[i];
 
 		gradient[i] = (result_plus-result_minus)/(2*h);
 	}
 }
 
 
-void eval_point(Vector3 evalAt,double pm[8],double* value, double gradient[8]) {
+void eval_point(Vector3 evalAt,const double* pm,double* value, double* gradient) {
     double x = evalAt.x - pm[PARAM_X];
     double y = evalAt.y - pm[PARAM_Y];
     double z = evalAt.z - pm[PARAM_Z];
@@ -154,7 +156,7 @@ void eval_point(Vector3 evalAt,double pm[8],double* value, double gradient[8]) {
     double A = (r2-3*x2)*chi_1 + (z2-y2)*chi_2 + 6*(xy*chi_xy + xz*chi_xz + yz*chi_yz);
     *value = inv12PiR5 * A;
 
-    if(gradient) {
+    if(gradient != NULL) {
         gradient[PARAM_CHI1]  = inv12PiR5*(r2-3*x2);
         gradient[PARAM_CHI2]  = inv12PiR5*(z2-y2);
         gradient[PARAM_CHIXY] = 6*inv12PiR5*xy;
@@ -173,7 +175,7 @@ void eval_point(Vector3 evalAt,double pm[8],double* value, double gradient[8]) {
     }
 }
 
-void eval_point_ND(Vector3 evalAt,double pm[8],double* value) {
+void eval_point_ND(Vector3 evalAt,const double* pm,double* value) {
     eval_point(evalAt,pm,value,NULL);
 }
 
@@ -181,7 +183,7 @@ void eval_point_ND(Vector3 evalAt,double pm[8],double* value) {
 
 struct Userdata : public IntegralBounds {
     //For sending cuhre.
-    double* pm; //Should be of length 8
+    const double* pm; //Should be of length 8
     double  stddev;
 	Vector3 evalAt;
 };
@@ -193,13 +195,18 @@ struct Userdata : public IntegralBounds {
 int Integrand2(const double xx[],double ff[], IntegralBounds* bounds) {
     Userdata* userdata = static_cast<Userdata*>(bounds);
 
-    double* pm = userdata->pm;
+    const double* pm = userdata->pm;
     double stddev = abs(userdata->stddev);
 
 	if(pm[PARAM_X] == 0.0 && pm[PARAM_Y] == 0.0 && pm[PARAM_Z] == 0.0) {
 		for(unsigned long i = 0; i < 10; i++){ff[i] = 0.0;}
 		return 0;
 	}
+
+    double x = xx[0];
+    double y = xx[1];
+    double z = xx[2];
+	double r2 = x*x + y*y + z*z;
 
     //Evauate the model
     double f;
@@ -209,10 +216,10 @@ int Integrand2(const double xx[],double ff[], IntegralBounds* bounds) {
     //We don't need the gradient of the gaussian function with respect
     //to the spaceial pramiters
     double a_coef = 1/(stddev*stddev);                                    assert(isfinite(a_coef));
-    double theExp = exp(-a_coef*(xx[0]*xx[0] + xx[1]*xx[1] + xx[2]*xx[2]));
+    double theExp = exp(-a_coef*r2);
     double rho =  theExp;  assert(isfinite(rho));
 
-    double drho = pow(M_PI,-1.5)*(1.5*pow(stddev,0.5)+2*pow(stddev,-1.5))*theExp;
+    double drho = pow(M_PI,-1.5)*(1.5*pow(stddev,0.5)+2*pow(stddev,-1.5)*r2)*theExp;
 
     //Pass the results and gradient
     ff[0] = rho * f;
@@ -224,20 +231,20 @@ int Integrand2(const double xx[],double ff[], IntegralBounds* bounds) {
     return 0;
 }
 
-void eval_gaussian(Vector3 evalAt,double* model,double* value, double gradient[9]) {
+void eval_gaussian(Vector3 evalAt,const double* model,double* value, double* gradient) {
     Userdata userdata;
     userdata.pm = model;
     userdata.stddev = model[PARAM_STDDEV];
 	userdata.evalAt = evalAt;
 
-    userdata.xmax =  5*userdata.stddev;
-	userdata.xmin = -5*userdata.stddev;
+    userdata.xmax =  6*userdata.stddev;
+	userdata.xmin = -6*userdata.stddev;
     
-    userdata.ymax =  5*userdata.stddev;
-    userdata.ymin = -5*userdata.stddev;
+    userdata.ymax =  6*userdata.stddev;
+    userdata.ymin = -6*userdata.stddev;
     
-    userdata.zmax =  5*userdata.stddev;
-    userdata.zmin = -5*userdata.stddev;
+    userdata.zmax =  6*userdata.stddev;
+    userdata.zmin = -6*userdata.stddev;
 
 	double integral[10];
 
@@ -245,31 +252,32 @@ void eval_gaussian(Vector3 evalAt,double* model,double* value, double gradient[9
 
 	//Scale the result
     double a_coef = 1/(userdata.stddev*userdata.stddev);         assert(isfinite(a_coef));
-    double normalizer = pow(a_coef/M_PI,1.5);
+    double normalizer = pow(a_coef/M_PI,-1.5);
 
-    for(unsigned long i = 0; i < 10; i++){integral[i]*=normalizer;}
+    for(unsigned long i = 0; i < 9; i++){integral[i]*=normalizer;}
 
 
     *value = integral[0];
     memcpy(gradient,integral+1,9*sizeof(double));
 }
 
-void eval_gaussian_ND(Vector3 evalAt,double* model,double* value) {
+void eval_gaussian_ND(Vector3 evalAt,const double* model,double* value) {
     //TODO a version that doesn't though away the gradient
     double gradient[9];
     eval_gaussian(evalAt,model,value,gradient);
 }
 
-void random_data(PRNG prng,const Model& model,double* params,unsigned long natoms,Dataset* dataset) {
+void random_data(PRNG& prng,const Model& model,const double* params,unsigned long natoms,Dataset* dataset) {
 	RandomDist rand;
     
     dataset->nuclei.resize(natoms);
     dataset->vals.resize(natoms);
 
     for(unsigned long i = 0; i < natoms;i++) {
-        model.modelf_ND(dataset->nuclei.at(i),params,&(dataset->vals[i]));
+		dataset->nuclei[i] = Vector3(rand(prng),rand(prng),rand(prng));
+        model.modelf_ND(dataset->nuclei[i],params,&(dataset->vals[i]));
     }
 }
 
-const Model point_model    = {eval_point   ,eval_point_ND   ,8};
-const Model gaussian_model = {eval_gaussian,eval_gaussian_ND,9};
+const Model point_model    = {eval_point   ,eval_point_ND   ,8,"Point Model"};
+const Model gaussian_model = {eval_gaussian,eval_gaussian_ND,9,"Gaussian Model"};
