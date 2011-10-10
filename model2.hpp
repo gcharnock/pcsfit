@@ -21,6 +21,7 @@ struct Model { //Encodes a function with an analytic gradient, and size paramite
 extern const Model point_model;
 extern const Model gaussian_model;
 
+
 enum POINT_PARAM {
     PARAM_X,    
     PARAM_Y,    
@@ -34,6 +35,18 @@ enum POINT_PARAM {
 
     PARAM_STDDEV
 };
+
+enum AR_POINT_PARAM {
+    PARAM_CHI_AX = PARAM_Z+1, 
+    PARAM_CHI_RH, 
+    PARAM_ALPHA,
+    PARAM_BETA,
+    PARAM_GAMMA
+};
+
+
+void axrh_to_cart(const double* axrh_params,double* cart_params);
+void cart_to_axrh(const double* axrh_params,double* cart_params);
 
 std::string name_param(POINT_PARAM param);
 

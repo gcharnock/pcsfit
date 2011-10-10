@@ -14,7 +14,6 @@ using namespace std;
   3) Try other minimiser such as gradient decent and conjugulate gradients
  */
 
-#define MAX_ITTER 80
 
 fdf_t worker(const ErrorContext* context,const double* params,unsigned long jobN) {
     assert(jobN < context->dataset->nuclei.size());
@@ -137,7 +136,7 @@ void do_fit_with_grad(const ErrorContext* context,double* optModel,double* final
     gsl_multimin_fdfminimizer_set(gslmin,&minfunc,gslModelVec,0.01,0.1);
 
     
-    for(unsigned long i = 0; i < MAX_ITTER; i++) {
+	for(unsigned long i = 0;;i++) {
         if(gsl_multimin_fdfminimizer_iterate(gslmin) == GSL_ENOPROG) {
             break;
         }

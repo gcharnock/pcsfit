@@ -49,7 +49,7 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,double* integral) {
     const static int NDIM = 3;
     const static int NCOMP = 10;
-    const static double EPSREL = 1e-3;
+    const static double EPSREL = 1e-9;
     const static double EPSABS = 0;
     const static int VERBOSE = 0;
     const static int LAST = 4;
@@ -240,14 +240,14 @@ void eval_gaussian(Vector3 evalAt,const double* model,double* value, double* gra
     userdata.stddev = model[PARAM_STDDEV];
 	userdata.evalAt = evalAt;
 
-    userdata.xmax =  model[0] + 10;
-	userdata.xmin =  model[0] - 10;
+    userdata.xmax =   5*userdata.stddev;
+	userdata.xmin =  -5*userdata.stddev;
     
-    userdata.ymax =  model[1] + 10;
-    userdata.ymin =  model[1] - 10;
+    userdata.ymax =    5*userdata.stddev;
+    userdata.ymin =  -5*userdata.stddev;
     
-    userdata.zmax =  model[2] + 10;
-    userdata.zmin =  model[2] - 10;
+    userdata.zmax =    5*userdata.stddev;
+    userdata.zmin =   -5*userdata.stddev;;
 
 	double integral[10];
 

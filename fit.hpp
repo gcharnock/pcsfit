@@ -1,4 +1,7 @@
 
+#ifndef FIT_HPP
+#define FIT_HPP
+
 #include "data.hpp"
 #include "model2.hpp"
 #include "threads.hpp"
@@ -27,3 +30,4 @@ void eval_error(const ErrorContext* context,const double* params,double* value, 
 void numerical_error_derivative(const ErrorContext* context,double* value, double* gradient);
 
 
+#endif

@@ -184,114 +184,21 @@ void do_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool) {
 //Perform a sanity check on the models. Given teh same paramiter set
 //the gaussian model should converged to the point model as stddev
 //tends to 0
-void testModel(long seed) {
-	PRNG prng(seed);  //We should actually be recycling prng rather
-					  //than the seed
-
-	PointModel pm = PointModel::randomModel(seed+10);
-    double pm2[8];
-
-    pm2[PARAM_X]     = pm.metal.x;
-    pm2[PARAM_Y]     = pm.metal.y;
-    pm2[PARAM_Z]     = pm.metal.z;
-           
-    pm2[PARAM_CHI1]  = dist(prng);
-    pm2[PARAM_CHI2]  = dist(prng);
-    pm2[PARAM_CHIXY] = dist(prng);
-    pm2[PARAM_CHIXZ] = dist(prng);
-    pm2[PARAM_CHIYZ] = dist(prng);
-
-
-
-	cout << "================================================================================" << endl;
-
-	cout << "Checking the gaussian is normalised" << endl;
-	cout << "TODO" << endl;
-
-	cout << "================================================================================" << endl;
-	cout << "Point Model = " << pm << endl;
-
-	GaussModel gm1;
-
-	gm1.ax = pm.ax;
-	gm1.rh = pm.rh;
-
-	gm1.metal = pm.metal;
-	gm1.setEulerAngles(pm.angle_x,pm.angle_y,pm.angle_z);
-
-	gm1.stddev = 1;
-
-	GaussModel gm05 = gm1;
-	gm05.stddev = 0.5;
-
-	GaussModel gm01 = gm1;
-	gm01.stddev = 0.1;
-
-	GaussModel gm005 = gm1;
-	gm005.stddev = 0.05;
-
-	GaussModel gm001 = gm1;
-	gm001.stddev = 0.01;
-
-	GaussModel gm0005 = gm1;
-	gm0005.stddev = 0.005;
-
-	GaussModel gm0001 = gm1;
-	gm0001.stddev = 0.001;
-
-	GaussModel gm00005 = gm1;
-	gm00005.stddev = 0.0005;
-
-
-	cout << "================================================================================" << endl;
-	for(unsigned long i = 0;i<0;i++) {
-		double x = dist(prng);
-		double y = dist(prng);
-		double z = dist(prng);
-
-		double dx = pm.metal.x - x;
-		double dy = pm.metal.y - y;
-		double dz = pm.metal.z - z;
-
-		double r = sqrt(dx*dx + dy*dy + dz*dz);
-
-		cout << "Point selected = ("<< x << "," << y << "," << z << ")" 
-			 << "Metal-point distance is " << r << endl;
-
-		cout << "Point Model = " << pm.eval(x,y,z) << endl;
-		cout << "gm1 Model = " << gm1.eval(x,y,z) << endl;
-		cout << "gm05 Model = " << gm05.eval(x,y,z) << endl;
-		cout << "gm01 Model = " << gm01.eval(x,y,z) << endl;
-		cout << "gm005 Model = " << gm005.eval(x,y,z) << endl;
-		cout << "gm001 Model = " << gm001.eval(x,y,z) << endl;
-		cout << "gm0005 Model = " << gm0005.eval(x,y,z) << endl;
-		cout << "gm0001 Model = " << gm0001.eval(x,y,z) << endl;
-		cout << "gm00005 Model = " << gm00005.eval(x,y,z) << endl;
-		cout << "================================================================================" << endl;
-	}
-
-    cout << "Point Model 2 = "; for(unsigned long i=0;i<8;i++){cout << pm2[i] << " ";} cout << endl;
-
-    cout << "================================================================================" << endl;
-
-    Multithreader<fdf_t> pool;
-
-    //check_minimum(prng,&point_model,&pool);
-    //check_minimum(prng,&gaussian_model,&pool);
+void testModel(PRNG& prng,Multithreader<fdf_t>* pool) {
+    check_minimum(prng,&point_model   ,pool);
+    check_minimum(prng,&gaussian_model,pool);
     
     cout << "================================================================================" << endl;
 
-    //check_derivative (prng,&point_model);
-    //check_derivative (prng,&gaussian_model);
+    check_derivative (prng,&point_model);
+    check_derivative (prng,&gaussian_model);
 
     //cout << "Evaulating the analytic and numerical derivatives of the error functional" << endl;
-    check_error_derivate(prng,&point_model,&pool);
-    check_error_derivate(prng,&gaussian_model,&pool);
+    check_error_derivate(prng,&point_model   ,pool);
+    check_error_derivate(prng,&gaussian_model,pool);
 
-	//do_convergence(prng,&point_model   ,&pool);
-	//do_convergence(prng,&gaussian_model,&pool);
-
-
+	do_convergence(prng,&point_model   ,pool);
+	do_convergence(prng,&gaussian_model,pool);
 }
 
 

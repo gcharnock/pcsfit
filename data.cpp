@@ -62,11 +62,7 @@ void Vals::updateMinMax() {
 }
 
 
-
-pair<Nuclei,Vals> loadData(const string& filename) {
-
-    Nuclei nuclei;
-    Vals vals;
+void loadData(const std::string& filename,Dataset* dataset) {
 	double x,y,z,v;
 
 	FILE* fp = fopen(filename.c_str(),"r");
@@ -82,21 +78,13 @@ pair<Nuclei,Vals> loadData(const string& filename) {
             printf("Could not parse input");
             exit(1);
         }
-		Vector3 p;
-		p.x = x;
-		p.y = y;
-		p.z = z;
-
-
-        vals.push_back(v);
-        nuclei.push_back(p);
+        dataset->vals.push_back(v);
+        dataset->nuclei.push_back(Vector3(x,y,z));
 	}
 	fclose(fp);
 
-	nuclei.updateMinMax();
-	vals.updateMinMax();
-
-    return pair<Nuclei,Vals>(nuclei,vals);
+	dataset->nuclei.updateMinMax();
+	dataset->vals.updateMinMax();
 }
 
 

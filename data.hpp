@@ -48,35 +48,8 @@ struct Dataset {
 
 typedef std::pair<Nuclei,Vals> pairNucVals;
 
-pairNucVals loadData(const std::string& filename);
+void loadData(const std::string& filename,Dataset* dataset);
 
 
-
-//Generates fake data by placing spins randomly in the [0,50]^3 cube
-//and evaulating a random model. Good for testing how vunerable we are
-//to local minima
-
-template<typename Model>
-pairNucVals fakeData(long seed,const Model& model,unsigned long count) {
-    Nuclei nuclei;
-    Vals vals;
-	PRNG prng(seed);
-	RandomDist rand;
-
-	for(unsigned long i=0;i<count;i++) {
-		Vector3 p;
-		p.x = 50*rand(prng);
-		p.y = 50*rand(prng);
-		p.z = 50*rand(prng);
-
-		nuclei.push_back(p);
-        vals.push_back(model.eval(p.x,p.y,p.z));
-	}
-
-	nuclei.updateMinMax();
-	vals.updateMinMax();
-
-    return std::pair<Nuclei,Vals>(nuclei,vals);
-}
 
 #endif
