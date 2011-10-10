@@ -288,7 +288,7 @@ int main(int argc,char** argv) {
 			return 0;
 		}
 		if(variablesMap.count("run-tests") > 0) {
-			testModel(7734);
+			testModel(1000);
 			return 0;
 		}
 		if(variablesMap.count("input-file") != 1 && 

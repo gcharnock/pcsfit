@@ -18,7 +18,7 @@ struct ErrorContext {
     Multithreader<fdf_t>* pool;
 };
 
-typedef bool (*OnIterate) (unsigned long,gsl_multimin_fdfminimizer*);
+typedef bool (*OnIterate) (const ErrorContext*,unsigned long,gsl_multimin_fdfminimizer*);
 
 void do_fit_with_grad(const ErrorContext* context,double* optModel,double* finalError,OnIterate onIterate);
 

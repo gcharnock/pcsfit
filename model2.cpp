@@ -49,7 +49,7 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,double* integral) {
     const static int NDIM = 3;
     const static int NCOMP = 10;
-    const static double EPSREL = 1e-6;
+    const static double EPSREL = 1e-3;
     const static double EPSABS = 0;
     const static int VERBOSE = 0;
     const static int LAST = 4;
@@ -105,7 +105,7 @@ void numerical_derivative(Vector3 evalAt,const Model* model,const double* params
 	memcpy(params_mutable,params,model->size*sizeof(double));
 
     for(unsigned long i = 0;i<model->size;i++) {
-		double h     = abs(params[i]*0.0001);
+		double h     = abs(params[i]*0.001);
 		double result_plus,result_minus;
 
 
@@ -211,7 +211,10 @@ int Integrand2(const double xx[],double ff[], IntegralBounds* bounds) {
     //Evauate the model
     double f;
     double gradient[8];
-    eval_point(userdata->evalAt,pm,&f,gradient);
+
+    Vector3 x_minus_xprime(userdata->evalAt.x - x,userdata->evalAt.y - y,userdata->evalAt.z - z);
+
+    eval_point(x_minus_xprime,pm,&f,gradient);
 
     //We don't need the gradient of the gaussian function with respect
     //to the spaceial pramiters
@@ -237,22 +240,21 @@ void eval_gaussian(Vector3 evalAt,const double* model,double* value, double* gra
     userdata.stddev = model[PARAM_STDDEV];
 	userdata.evalAt = evalAt;
 
-    userdata.xmax =  6*userdata.stddev;
-	userdata.xmin = -6*userdata.stddev;
+    userdata.xmax =  model[0] + 10;
+	userdata.xmin =  model[0] - 10;
     
-    userdata.ymax =  6*userdata.stddev;
-    userdata.ymin = -6*userdata.stddev;
+    userdata.ymax =  model[1] + 10;
+    userdata.ymin =  model[1] - 10;
     
-    userdata.zmax =  6*userdata.stddev;
-    userdata.zmin = -6*userdata.stddev;
+    userdata.zmax =  model[2] + 10;
+    userdata.zmin =  model[2] - 10;
 
 	double integral[10];
 
 	cuhreIntegrate(Integrand2,static_cast<IntegralBounds*>(&userdata),integral);
 
 	//Scale the result
-    double a_coef = 1/(userdata.stddev*userdata.stddev);         assert(isfinite(a_coef));
-    double normalizer = pow(a_coef/M_PI,-1.5);
+    double normalizer = pow(userdata.stddev/M_PI,1.5);
 
     for(unsigned long i = 0; i < 9; i++){integral[i]*=normalizer;}
 

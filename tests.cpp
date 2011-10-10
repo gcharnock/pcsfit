@@ -11,7 +11,37 @@ using namespace std;
 
 RandomDist dist;
 
-void check_derivative (PRNG prng,const Model* model) {
+void check_minimum(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool) {
+    cout << "Evautating the error function for a perfect match (should be zero)" << endl;
+
+    for(unsigned long i = 0;i<10;i++) {
+        double* params = (double*)alloca(model->size*sizeof(double));
+        for(unsigned long j=0;j<model->size;j++) {
+            params[j] = dist(prng);
+        }
+        Dataset dataset;
+        random_data(prng,*model,params,5,&dataset);
+        
+        ErrorContext context;
+        context.dataset = &dataset;
+        context.params  = params;
+        context.model   = model;
+        context.pool    = pool;
+
+        double  error,n_error;
+        double* gradient = (double*)alloca(model->size*sizeof(double));
+        double* n_gradient = (double*)alloca(model->size*sizeof(double));
+
+        eval_error(&context,params,&error,gradient);
+        numerical_error_derivative(&context,&n_error,n_gradient);
+
+        cout << "run " << i << ", error = " << error << ", n_error = " << n_error << " (should be zero)" << endl;
+        cout << "Analytic: "; for(unsigned long j = 0;j < model->size;j++) {cout << gradient[j] << " ";} cout << endl;
+        cout << "Numeric: "; for(unsigned long j = 0;j < model->size;j++) {cout << n_gradient[j] << " ";}  cout << endl;
+    }
+}
+
+void check_derivative (PRNG& prng,const Model* model) {
     cout << "Checking the analytic and numerical derivaties match on " << model->name << endl;
     
     //Chekcs the analytic and numerical derivates are equil
@@ -87,16 +117,20 @@ void check_error_derivate(PRNG prng,const Model* model,Multithreader<fdf_t>* poo
     }
 }
 
-bool do_convergence_on_iterate(unsigned long i,gsl_multimin_fdfminimizer* minimizer) {
+bool do_convergence_on_iterate(const ErrorContext* context,unsigned long i,gsl_multimin_fdfminimizer* minimizer) {
 	double fx = gsl_multimin_fdfminimizer_minimum(minimizer);
 	gsl_vector* g = gsl_multimin_fdfminimizer_gradient(minimizer);
+    gsl_vector* x = gsl_multimin_fdfminimizer_x(minimizer);
 
 	double norm = 0;
 	for(unsigned long j = 0; j < g->size; j++) {
 		norm += gsl_vector_get(g,j)*gsl_vector_get(g,j);
 	}
 
-	cout << i << "\tf(x) = " << fx << "\t|grad| = " << norm << endl;
+    cout << i << "\t";
+    for(unsigned long j = 0;j< x->size;j++) {cout << gsl_vector_get(x,j) << "\t";}
+	cout << "\tf(x) = " << fx << "\t|grad| = " << norm << endl;
+
 	return true;
 }
 
@@ -110,14 +144,18 @@ void do_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool) {
 
         for(unsigned long j=0;j<size;j++) {
             params_real[j]  = dist(prng);
-            params_start[j] = params_real[j] + 0.1*dist(prng);
+            params_start[j] = params_real[j] + 0.01*dist(prng);
         }
 
         Dataset dataset;
 
         cout << "Generating a distom molecule with " << 10*i << " spins" << endl;
         random_data(prng,point_model,params_real,5*i,&dataset);
-        
+
+        cout << "Real params:" << endl;
+        for(unsigned long j = 0;j<model->size;j++) {cout << params_real[j] << " ";}
+        cout << endl;
+
         ErrorContext context;
         context.dataset = &dataset;
         context.params  = params_start;
@@ -138,10 +176,6 @@ void do_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool) {
 		cout.setf(ios::floatfield,ios::scientific);
 
         cout << "The inital error was " << errorStart << " and the final error was: " << errorFinal << endl;
-		double errorCheck;
-		eval_error(&context,params_opt,&errorCheck,gradient);
-		cout << "Checked final error was " << errorCheck << endl;
-
 
         cout << "================================================================================" << endl;
     }
@@ -241,42 +275,21 @@ void testModel(long seed) {
     cout << "================================================================================" << endl;
 
     Multithreader<fdf_t> pool;
-    cout << "Evautating the error function for a perfect match (should be zero)" << endl;
-    for(unsigned long i = 0;i<10;i++) {
-        double* pm2 = (double*)alloca(8*sizeof(double));
-        for(unsigned long j=0;j<8;j++) {
-            pm2[j] = dist(prng);
-        }
-        Dataset dataset;
-        random_data(prng,point_model,pm2,40,&dataset);
-        
-        ErrorContext context;
-        context.dataset = &dataset;
-        context.params  = pm2;
-        context.model   = &point_model;
-        context.pool = &pool;
 
-        double error;
-        double gradient[8];
-
-        eval_error(&context,pm2,&error,gradient);
-
-        cout << "run " << i << ", error = " << error << " (should be zero)" << endl;
-        for(unsigned long j = 0;j < 8;j++) {cout << gradient[j] << " ";}
-        cout << endl;
-    }
-
+    //check_minimum(prng,&point_model,&pool);
+    //check_minimum(prng,&gaussian_model,&pool);
+    
     cout << "================================================================================" << endl;
 
     //check_derivative (prng,&point_model);
     //check_derivative (prng,&gaussian_model);
 
     //cout << "Evaulating the analytic and numerical derivatives of the error functional" << endl;
-    //check_error_derivate(prng,&point_model,&pool);
-    //check_error_derivate(prng,&gaussian_model,&pool);
+    check_error_derivate(prng,&point_model,&pool);
+    check_error_derivate(prng,&gaussian_model,&pool);
 
-	do_convergence(prng,&point_model   ,&pool);
-	do_convergence(prng,&gaussian_model,&pool);
+	//do_convergence(prng,&point_model   ,&pool);
+	//do_convergence(prng,&gaussian_model,&pool);
 
 
 }

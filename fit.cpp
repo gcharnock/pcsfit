@@ -14,7 +14,7 @@ using namespace std;
   3) Try other minimiser such as gradient decent and conjugulate gradients
  */
 
-#define MAX_ITTER 1000
+#define MAX_ITTER 80
 
 fdf_t worker(const ErrorContext* context,const double* params,unsigned long jobN) {
     assert(jobN < context->dataset->nuclei.size());
@@ -83,6 +83,7 @@ void numerical_error_derivative(const ErrorContext* context,double* value, doubl
 
 		gradient[i] = (result_plus-result_minus)/(2*h);
 	}
+    eval_error(context,context->params,value,fake_gradient);
 }
 
 
@@ -96,21 +97,18 @@ void eval_error_fdf(const gsl_vector* v, void* voidContext,double *f, gsl_vector
     //Test df for nullness and if it's null have the fdf function
     //write to throwaway memory.
     eval_error(context,gsl_vector_const_ptr(v,0),f, df==NULL ? fake_gradient : gsl_vector_ptr(df,0) );
-	cout << "BFGS wants fdf, f = " << *f << endl;
 }
 
 
 double eval_error_f  (const gsl_vector* v, void* voidContext) {
     double value;
     eval_error_fdf(v,voidContext,&value,NULL);
-	cout << "BFGS wants f, f= " << value << endl;
     return value;
 }
 
 void   eval_error_df (const gsl_vector* v, void* voidContext, gsl_vector *df) {
     double value;
     eval_error_fdf(v,voidContext,&value,df);
-	cout << "BFGS wants grad= " << value << endl;
     return;
 }
 
@@ -134,16 +132,16 @@ void do_fit_with_grad(const ErrorContext* context,double* optModel,double* final
     
     //Setup the minimiser
     gsl_multimin_fdfminimizer* gslmin;
-    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2,size);
+    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs,size);
     
-    gsl_multimin_fdfminimizer_set(gslmin,&minfunc,gslModelVec,1,0.1);
+    gsl_multimin_fdfminimizer_set(gslmin,&minfunc,gslModelVec,0.01,0.1);
 
     
     for(unsigned long i = 0; i < MAX_ITTER; i++) {
         if(gsl_multimin_fdfminimizer_iterate(gslmin) == GSL_ENOPROG) {
             break;
         }
-		if(!onIterate(i,gslmin)) {
+		if(!onIterate(context,i,gslmin)) {
 			break;
 		}
     }
