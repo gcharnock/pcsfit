@@ -49,7 +49,7 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,double* integral) {
     const static int NDIM = 3;
     const static int NCOMP = 10;
-    const static double EPSREL = 1e-9;
+    const static double EPSREL = 1e-10;
     const static double EPSABS = 0;
     const static int VERBOSE = 0;
     const static int LAST = 4;
@@ -148,7 +148,16 @@ void eval_point(Vector3 evalAt,const double* pm,double* value, double* gradient)
     double yz = y*z;
 
     double r2 = x2+y2+z2;
+
     double r = sqrt(r2);
+
+    /*    if(r2 < 0.001) {
+        *value = 0;
+        for(unsigned long i=0;i<8;i++){gradient[i] = 0.0;}
+        return;
+        }*/
+
+
     double r5 = r2*r2*r;
 
     double inv12PiR5 = 1/(12*M_PI*r5);
@@ -240,21 +249,21 @@ void eval_gaussian(Vector3 evalAt,const double* model,double* value, double* gra
     userdata.stddev = model[PARAM_STDDEV];
 	userdata.evalAt = evalAt;
 
-    userdata.xmax =   5*userdata.stddev;
-	userdata.xmin =  -5*userdata.stddev;
+    userdata.xmax =   4*userdata.stddev;
+	userdata.xmin =  -4*userdata.stddev;
     
-    userdata.ymax =    5*userdata.stddev;
-    userdata.ymin =  -5*userdata.stddev;
+    userdata.ymax =   4*userdata.stddev;
+    userdata.ymin =  -4*userdata.stddev;
     
-    userdata.zmax =    5*userdata.stddev;
-    userdata.zmin =   -5*userdata.stddev;;
+    userdata.zmax =   4*userdata.stddev;
+    userdata.zmin =  -4*userdata.stddev;;
 
 	double integral[10];
 
 	cuhreIntegrate(Integrand2,static_cast<IntegralBounds*>(&userdata),integral);
 
 	//Scale the result
-    double normalizer = pow(userdata.stddev/M_PI,1.5);
+    double normalizer = pow(M_PI*userdata.stddev*userdata.stddev,-1.5);
 
     for(unsigned long i = 0; i < 9; i++){integral[i]*=normalizer;}
 

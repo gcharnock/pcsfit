@@ -73,6 +73,7 @@ int main(int argc,char** argv) {
     string method;
 	string filename;
 	unsigned long seed;
+    bool rescale = true;
 	try {
 		options_description optDesc("Options");
 
@@ -83,6 +84,7 @@ int main(int argc,char** argv) {
 			("model",value<string>(&modelType)->default_value("point"),
 			 "Select the model to use")
             ("method",value<string>(&method)->default_value("bfgs"),"")
+            ("dont-rescale","")
 			("random-model-type",
 			 "Specify the type of the model to use for generating random data")
 			("input-file",value<string>(&filename),"specify an input file")
@@ -106,17 +108,23 @@ int main(int argc,char** argv) {
 			cout << optDesc << endl;
 			return 0;
 		}
-		if(variablesMap.count("input-file") != 1 && 
-		   variablesMap.count("random-data") == 0) {
-			cout << "Specify exactly one input file" << endl;
-			return 0;
-		}
-
+        if(variablesMap.count("run-tests") == 0) {
+            if(variablesMap.count("input-file") != 1 && 
+               variablesMap.count("random-data") == 0) {
+                cout << "Specify exactly one input file" << endl;
+                return 0;
+            }
+        }
 	} catch(std::exception& e) {
 		//I'm not sure if this is possible
 		cerr << "An error occured when trying to parse the command line" << endl;
 	}
 	notify(variablesMap);
+
+    if(variablesMap.count("rescale") > 0) {
+        rescale = false;
+    }
+
 
 	//Open the log file and params.log file
 	flog.open("log.log");
@@ -191,7 +199,7 @@ int main(int argc,char** argv) {
 	params_start[PARAM_CHIYZ] = +96579.0841891781;
 
 	//But the stddev of the gaussian model should be small
-	if(model == &gaussian_model) {params_start[PARAM_STDDEV] = 0.0000001;}
+	if(model == &gaussian_model) {params_start[PARAM_STDDEV] = 1.0;}
 
 	//Open the params file TODO: What is the purpose of this file again?
 	fout.open("params.log");
@@ -208,11 +216,24 @@ int main(int argc,char** argv) {
 	context.params  = params_start;
 	context.model   = model;
 	context.pool    = &pool;
+    context.rescale = rescale;
 
 	double errorFinal = 666; //Set these to easily recognisable uninitalised values
 
-	do_fit_with_grad(&context,params_opt,&errorFinal,&main_on_iterate);
+	//do_fit_with_grad(&context,params_opt,&errorFinal,&main_on_iterate);
     
+    for(unsigned long i = 38;i < 200; i++) {
+        params_start[PARAM_STDDEV] = 0.01*i;
+
+        double* gradient = (double*)alloca(model->size*sizeof(double));
+
+        double value;
+        eval_error(&context,params_start,&value,gradient);
+
+        cout << "f("<<context.params[PARAM_STDDEV]<<") = " << value << endl;
+    }
+    return 0;
+
     for(unsigned long j = 0;j < model->size; j++) {
 		cout << name_param(POINT_PARAM(j)) << " start =" << params_start[j]
 			 << " final = " << params_opt[j] << endl;
@@ -240,7 +261,7 @@ bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_
 	}
 
     cout << itN << "\t";
-    for(unsigned long j = 0;j< x->size;j++) {cout << gsl_vector_get(x,j) << "\t";}
+    for(unsigned long j = 0;j< x->size;j++) {cout << (gsl_vector_get(x,j)*context->params[j]) << "\t";}
 	cout << "\tf(x) = " << fx << "\t|grad| = " << norm << endl;
 
 	return itN < 5000;

@@ -27,6 +27,7 @@ void check_minimum(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool) {
         context.params  = params;
         context.model   = model;
         context.pool    = pool;
+        context.rescale = false;
 
         double  error,n_error;
         double* gradient = (double*)alloca(model->size*sizeof(double));
@@ -53,6 +54,9 @@ void check_derivative (PRNG& prng,const Model* model) {
 
         for(unsigned long j = 0; j< model->size; j++) {
             params[j] = dist(prng);
+        }
+        if(model == &gaussian_model) {
+            params[PARAM_STDDEV] *= 0.01;
         }
 
 		Vector3 evalAt(dist(prng),dist(prng),dist(prng));
@@ -185,9 +189,6 @@ void do_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool) {
 //the gaussian model should converged to the point model as stddev
 //tends to 0
 void testModel(PRNG& prng,Multithreader<fdf_t>* pool) {
-    check_minimum(prng,&point_model   ,pool);
-    check_minimum(prng,&gaussian_model,pool);
-    
     cout << "================================================================================" << endl;
 
     check_derivative (prng,&point_model);
@@ -197,6 +198,9 @@ void testModel(PRNG& prng,Multithreader<fdf_t>* pool) {
     check_error_derivate(prng,&point_model   ,pool);
     check_error_derivate(prng,&gaussian_model,pool);
 
+    check_minimum(prng,&point_model   ,pool);
+    check_minimum(prng,&gaussian_model,pool);
+    
 	do_convergence(prng,&point_model   ,pool);
 	do_convergence(prng,&gaussian_model,pool);
 }
