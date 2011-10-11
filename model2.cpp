@@ -12,7 +12,7 @@ using namespace std;
 
 struct IntegralBounds;
 
-typedef int (*IntegrandF) (const double xx[],double ff[], IntegralBounds *bounds);
+typedef int (*IntegrandF) (const double xx[],double ff[], int ncomp, IntegralBounds *bounds);
 
 struct IntegralBounds {
     double xmax;
@@ -39,31 +39,30 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 	xxprime[1]=xx[1]*(bounds->ymax - bounds->ymin) + bounds->ymin;
 	xxprime[2]=xx[2]*(bounds->zmax - bounds->zmin) + bounds->zmin;
 
-	bounds->integrand(xxprime,ff,bounds);
+	bounds->integrand(xxprime,ff,*ncomp,bounds);
 
-    for(unsigned long i=0;i<10;i++){assert(isfinite(ff[i]));}
+    for(int i=0;i<*ncomp;i++){assert(isfinite(ff[i]));}
 
     return 0;
 }
 
-void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,double* integral) {
+void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,double* integral) {
     const static int NDIM = 3;
-    const static int NCOMP = 10;
     const static double EPSREL = 1e-10;
     const static double EPSABS = 0;
     const static int VERBOSE = 0;
     const static int LAST = 4;
     const static int MINEVAL = 1;
     const static int MAXEVAL = 5000000;
-
-    const static int KEY = 11;
+    const static int KEY = 11; //Use 11 point quadriture
 
 	int nregions, neval, fail;
-	double error[10], prob[10];
+	double* error = (double*)alloca(ncomp * sizeof(double));
+    double* prob  = (double*)alloca(ncomp * sizeof(double));
 
 	bounds->integrand=f;
 
-	Cuhre(NDIM, NCOMP, cuhreIntegrand, (void*)bounds,
+	Cuhre(NDIM, ncomp, cuhreIntegrand, (void*)bounds,
 		  EPSREL, EPSABS, VERBOSE | LAST,
 		  MINEVAL, MAXEVAL, KEY,
 		  &nregions, &neval, &fail, integral, error, prob);
@@ -71,9 +70,9 @@ void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,double* integral) {
     double result_scaling = (bounds->xmax - bounds->xmin) *
 		(bounds->ymax - bounds->ymin) *
 		(bounds->zmax - bounds->zmin);
-    for(unsigned long i = 0; i < 10; i++){integral[i]*=result_scaling;}
+    for(unsigned long i = 0; i < ncomp; i++){integral[i]*=result_scaling;}
 
-    for(unsigned long i = 0; i < 10;i++) {
+    for(unsigned long i = 0; i < ncomp;i++) {
         assert(isfinite(integral[i]));
     }
     if(fail != 0)  {
@@ -110,10 +109,10 @@ void numerical_derivative(Vector3 evalAt,const Model* model,const double* params
 
 
 		params_mutable[i] = params[i] + h;
-		model->modelf_ND(evalAt,params_mutable,&result_plus);
+		model->modelf(evalAt,params_mutable,&result_plus ,NULL);
 
 		params_mutable[i] = params[i] - h;
-		model->modelf_ND(evalAt,params_mutable,&result_minus);
+		model->modelf(evalAt,params_mutable,&result_minus,NULL);
 
 		params_mutable[i] = params[i];
 
@@ -194,6 +193,7 @@ struct Userdata : public IntegralBounds {
     //For sending cuhre.
     const double* pm; //Should be of length 8
     double  stddev;
+    bool wantGradient;
 	Vector3 evalAt;
 };
 
@@ -201,7 +201,7 @@ struct Userdata : public IntegralBounds {
 //a member function. We'll pass the this pointer explicitly to fake a
 //member
 
-int Integrand2(const double xx[],double ff[], IntegralBounds* bounds) {
+int Integrand2(const double xx[],double ff[],int ncomp, IntegralBounds* bounds) {
     Userdata* userdata = static_cast<Userdata*>(bounds);
 
     const double* pm = userdata->pm;
@@ -219,7 +219,7 @@ int Integrand2(const double xx[],double ff[], IntegralBounds* bounds) {
 
     //Evauate the model
     double f;
-    double gradient[8];
+    double* gradient = ncomp == 1 ? NULL: (double*)alloca(8*sizeof(double));
 
     Vector3 x_minus_xprime(userdata->evalAt.x - x,userdata->evalAt.y - y,userdata->evalAt.z - z);
 
@@ -235,10 +235,12 @@ int Integrand2(const double xx[],double ff[], IntegralBounds* bounds) {
 
     //Pass the results and gradient
     ff[0] = rho * f;
-    for(unsigned long i=1;i<9;i++){ff[i] = rho * gradient[i-1];}
-	ff[9] = drho * f;
+    if(ncomp != 1) {
+        for(unsigned long i=1;i<9;i++){ff[i] = rho * gradient[i-1];}
+        ff[9] = drho * f;
+    }
 
-    for(unsigned long i=0;i<10;i++){assert(isfinite(ff[i]));}
+    for(unsigned long i=0;i<ncomp;i++){assert(isfinite(ff[i]));}
 
     return 0;
 }
@@ -258,9 +260,12 @@ void eval_gaussian(Vector3 evalAt,const double* model,double* value, double* gra
     userdata.zmax =   4*userdata.stddev;
     userdata.zmin =  -4*userdata.stddev;;
 
-	double integral[10];
+    unsigned long ncomp = gradient == NULL ? 1 : 10;
+    userdata.wantGradient = gradient != NULL;
 
-	cuhreIntegrate(Integrand2,static_cast<IntegralBounds*>(&userdata),integral);
+	double* integral = (double*)alloca(ncomp*sizeof(double));
+
+	cuhreIntegrate(Integrand2,static_cast<IntegralBounds*>(&userdata),ncomp,integral);
 
 	//Scale the result
     double normalizer = pow(M_PI*userdata.stddev*userdata.stddev,-1.5);
@@ -269,14 +274,11 @@ void eval_gaussian(Vector3 evalAt,const double* model,double* value, double* gra
 
 
     *value = integral[0];
-    memcpy(gradient,integral+1,9*sizeof(double));
+    if(gradient != NULL) {
+        memcpy(gradient,integral+1,9*sizeof(double));
+    }
 }
 
-void eval_gaussian_ND(Vector3 evalAt,const double* model,double* value) {
-    //TODO a version that doesn't though away the gradient
-    double gradient[9];
-    eval_gaussian(evalAt,model,value,gradient);
-}
 
 void random_data(PRNG& prng,const Model& model,const double* params,unsigned long natoms,Dataset* dataset) {
 	RandomDist rand;
@@ -286,9 +288,9 @@ void random_data(PRNG& prng,const Model& model,const double* params,unsigned lon
 
     for(unsigned long i = 0; i < natoms;i++) {
 		dataset->nuclei[i] = Vector3(rand(prng),rand(prng),rand(prng));
-        model.modelf_ND(dataset->nuclei[i],params,&(dataset->vals[i]));
+        model.modelf(dataset->nuclei[i],params,&(dataset->vals[i]),NULL);
     }
 }
 
-const Model point_model    = {eval_point   ,eval_point_ND   ,8,"Point Model"};
-const Model gaussian_model = {eval_gaussian,eval_gaussian_ND,9,"Gaussian Model"};
+const Model point_model    = {eval_point   ,8,"Point Model"};
+const Model gaussian_model = {eval_gaussian,9,"Gaussian Model"};
