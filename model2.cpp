@@ -46,9 +46,10 @@ int cuhreIntegrand(const int *ndim, const double xx[],
     return 0;
 }
 
+
 void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,double* integral) {
     const static int NDIM = 3;
-    const static double EPSREL = 1e-10;
+    const static double EPSREL = 1e-2;
     const static double EPSABS = 0;
     const static int VERBOSE = 0;
     const static int LAST = 4;
@@ -149,14 +150,6 @@ void eval_point(Vector3 evalAt,const double* pm,double* value, double* gradient)
     double r2 = x2+y2+z2;
 
     double r = sqrt(r2);
-
-    /*    if(r2 < 0.001) {
-        *value = 0;
-        for(unsigned long i=0;i<8;i++){gradient[i] = 0.0;}
-        return;
-        }*/
-
-
     double r5 = r2*r2*r;
 
     double inv12PiR5 = 1/(12*M_PI*r5);
@@ -191,9 +184,9 @@ void eval_point_ND(Vector3 evalAt,const double* pm,double* value) {
 
 struct Userdata : public IntegralBounds {
     //For sending cuhre.
-    const double* pm; //Should be of length 8
+    const Model* point_model;
+    const double* params; 
     double  stddev;
-    bool wantGradient;
 	Vector3 evalAt;
 };
 
@@ -204,13 +197,10 @@ struct Userdata : public IntegralBounds {
 int Integrand2(const double xx[],double ff[],int ncomp, IntegralBounds* bounds) {
     Userdata* userdata = static_cast<Userdata*>(bounds);
 
-    const double* pm = userdata->pm;
+    const double* params      = userdata->params;
     double stddev = abs(userdata->stddev);
 
-	if(pm[PARAM_X] == 0.0 && pm[PARAM_Y] == 0.0 && pm[PARAM_Z] == 0.0) {
-		for(unsigned long i = 0; i < 10; i++){ff[i] = 0.0;}
-		return 0;
-	}
+    unsigned long point_size = userdata->point_model->size;
 
     double x = xx[0];
     double y = xx[1];
@@ -219,16 +209,17 @@ int Integrand2(const double xx[],double ff[],int ncomp, IntegralBounds* bounds) 
 
     //Evauate the model
     double f;
-    double* gradient = ncomp == 1 ? NULL: (double*)alloca(8*sizeof(double));
+    double* gradient = ncomp == 1 ? NULL: (double*)alloca(point_size*sizeof(double));
 
     Vector3 x_minus_xprime(userdata->evalAt.x - x,userdata->evalAt.y - y,userdata->evalAt.z - z);
 
-    eval_point(x_minus_xprime,pm,&f,gradient);
+    userdata->point_model->modelf(x_minus_xprime,params,&f,gradient);
 
     //We don't need the gradient of the gaussian function with respect
     //to the spaceial pramiters
     double a_coef = 1/(stddev*stddev);                                    assert(isfinite(a_coef));
     double theExp = exp(-a_coef*r2);
+
     double rho =  theExp;  assert(isfinite(rho));
 
     double drho = pow(M_PI,-1.5)*(1.5*pow(stddev,0.5)+2*pow(stddev,-1.5)*r2)*theExp;
@@ -240,15 +231,16 @@ int Integrand2(const double xx[],double ff[],int ncomp, IntegralBounds* bounds) 
         ff[9] = drho * f;
     }
 
-    for(unsigned long i=0;i<ncomp;i++){assert(isfinite(ff[i]));}
+    for(int i=0;i<ncomp;i++){assert(isfinite(ff[i]));}
 
     return 0;
 }
 
-void eval_gaussian(Vector3 evalAt,const double* model,double* value, double* gradient) {
+void eval_gaussian(Vector3 evalAt,const double* params,double* value, double* gradient) {
     Userdata userdata;
-    userdata.pm = model;
-    userdata.stddev = model[PARAM_STDDEV];
+    userdata.point_model = &point_model;
+    userdata.params = params;
+    userdata.stddev = params[PARAM_STDDEV];
 	userdata.evalAt = evalAt;
 
     userdata.xmax =   4*userdata.stddev;
@@ -261,7 +253,6 @@ void eval_gaussian(Vector3 evalAt,const double* model,double* value, double* gra
     userdata.zmin =  -4*userdata.stddev;;
 
     unsigned long ncomp = gradient == NULL ? 1 : 10;
-    userdata.wantGradient = gradient != NULL;
 
 	double* integral = (double*)alloca(ncomp*sizeof(double));
 
@@ -270,8 +261,7 @@ void eval_gaussian(Vector3 evalAt,const double* model,double* value, double* gra
 	//Scale the result
     double normalizer = pow(M_PI*userdata.stddev*userdata.stddev,-1.5);
 
-    for(unsigned long i = 0; i < 9; i++){integral[i]*=normalizer;}
-
+    for(unsigned long i = 0; i < point_model.size; i++){integral[i]*=normalizer;}
 
     *value = integral[0];
     if(gradient != NULL) {

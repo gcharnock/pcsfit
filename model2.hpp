@@ -8,7 +8,7 @@
 #define MAX_PARAMS 10
 
 
-typedef void (*ModelF)    (Vector3 evalAt, const double* model,double* value,double* gradient);
+typedef void (*ModelF)        (Vector3 evalAt, const double* model  ,double* value,double* gradient);
 
 struct Model { //Encodes a function with an analytic gradient, and size paramiters
     ModelF    modelf;
@@ -16,7 +16,10 @@ struct Model { //Encodes a function with an analytic gradient, and size paramite
     const char* name;
 };
 
+//Point models
 extern const Model point_model;
+
+//Extended models
 extern const Model gaussian_model;
 
 
@@ -48,8 +51,10 @@ void cart_to_axrh(const double* axrh_params,double* cart_params);
 
 std::string name_param(POINT_PARAM param);
 
+//Point models
 void eval_point(   Vector3 evalAt,const double* pm,double* value, double* gradient);
-void eval_gaussian(   Vector3 evalAt,const double* model,double* value, double* gradient);
+
+void eval_gaussian(Vector3 evalAt,const double* model,double* value, double* gradient);
 
 void random_data(PRNG& prng,const Model& model,const double* params,unsigned long natoms,Dataset* dataset);
 

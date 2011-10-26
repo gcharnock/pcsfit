@@ -15,20 +15,23 @@ using namespace std;
  */
 
 
-fdf_t worker(const ErrorContext* context,const double* params,unsigned long jobN) {
+fdf_t worker(const ErrorContext* context,const double* params,bool withGradient,unsigned long jobN) {
     assert(jobN < context->dataset->nuclei.size());
+    unsigned long size = context->model->size;
 
     double value;
+    double* gradient_buff = withGradient ? (double*)alloca(size*sizeof(double)) : NULL;
     vector<double> gradient;
-    double* gradient_array = (double*)alloca(context->model->size * sizeof(double));
 
-    context->model->modelf(context->dataset->nuclei[jobN], params, &value, gradient_array);
+    context->model->modelf(context->dataset->nuclei[jobN], params, &value, gradient_buff);
     
-    for(unsigned long i = 0;i < context->model->size;i++){
-        gradient.push_back(gradient_array[i]);
+    if(withGradient) {
+        for(unsigned long i = 0;i < size;i++) {
+            gradient.push_back(gradient_buff[i]);
+        }
     }
 
-    return fdf_t(value,gradient);
+    return pair<double,vector<double> >(value,gradient);
 }
 
 
@@ -41,7 +44,7 @@ void eval_error(const ErrorContext* context,const double* params,double* value, 
     vector<fdf_t> results;
 
     for(unsigned long i = 0;i<context->dataset->nuclei.size();i++) {
-        work.push_back(boost::bind(&worker,context,params,i));
+        work.push_back(boost::bind(&worker,context,params,gradient,i));
     }
 
     //Map the work to the result
@@ -49,23 +52,23 @@ void eval_error(const ErrorContext* context,const double* params,double* value, 
 
     //Reduce the results
     *value = 0;
-    for(unsigned long i = 0; i<size; i++) {
-        gradient[i] = 0;
-    }
+
     for(unsigned long i = 0; i<context->dataset->nuclei.size();i++) {
         double modelMinusexpVal = results[i].first - context->dataset->vals[i];
         (*value)+=modelMinusexpVal*modelMinusexpVal; //Squared error
-        for(unsigned long j = 0; j < size; j++) {
-            //The gradient of the error is twice the gradient of the
-            //model - the expeimental value
-            gradient[j] += 2 * results[i].second[j] * modelMinusexpVal;
+        
+        if(gradient != NULL) {
+            for(unsigned long j = 0; j < size; j++) {
+                //The gradient of the error is twice the gradient of the
+                //model - the expeimental value
+                gradient[j] += 2 * results[i].second[j] * modelMinusexpVal;
+            }
         }
     }
 }
 
 void numerical_error_derivative(const ErrorContext* context,double* value, double* gradient) {
 	unsigned long size = context->model->size;
-    double* fake_gradient = (double*)alloca(size * sizeof(double));
 
 	double* params_mutable = (double*)alloca(size * sizeof(double));
 	memcpy(params_mutable,context->params,size*sizeof(double));
@@ -75,15 +78,15 @@ void numerical_error_derivative(const ErrorContext* context,double* value, doubl
 		double result_plus,result_minus;
 
 		params_mutable[i] = context->params[i] + h;
-		eval_error(context,params_mutable,&result_plus,fake_gradient);
+		eval_error(context,params_mutable,&result_plus, NULL);
 		params_mutable[i] = context->params[i] - h;
-		eval_error(context,params_mutable,&result_minus,fake_gradient);
+		eval_error(context,params_mutable,&result_minus,NULL);
 
 		params_mutable[i] = context->params[i];
 
 		gradient[i] = (result_plus-result_minus)/(2*h);
 	}
-    eval_error(context,context->params,value,fake_gradient);
+    eval_error(context,context->params,value,NULL);
 }
 
 
@@ -94,8 +97,8 @@ void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector
 
     unsigned long size = context->model->size;
 
-    double* rescaled_x    = (double*)alloca(context->model->size *sizeof(double));
-    double* gradient = (double*)alloca(context->model->size *sizeof(double));
+    double* rescaled_x  = (double*)alloca(context->model->size *sizeof(double));
+    double* gradient    = (double*)alloca(context->model->size *sizeof(double));
 
     //Rescale the gradient
     for(unsigned long i = 0; i<size; i++) {
