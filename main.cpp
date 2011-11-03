@@ -1,3 +1,14 @@
+
+/*
+  Licenced under the GPL v2
+
+  As an experiment, I decided to try to write this programe in a more
+  C-ish style, even though its still C++ and a few C++ features are
+  used where appropriate. I just tried to avoid using every feature in
+  the C++ toolkit just because I could.
+ */
+
+
 #include <unistd.h>
 #include <gsl/gsl_multimin.h>
 #include <vector>
@@ -7,14 +18,13 @@
 #include <cassert>
 #include <boost/function.hpp>
 #include <limits>
+#include <fstream>
 
 #include "fit.hpp"
 #include "foreach.hpp"
 #include "threads.hpp"
-#include "model.hpp"
 #include "model2.hpp"
 #include "data.hpp"
-#include "vis.hpp"
 #include "minimiser.hpp"
 #include "tests.hpp"
 
@@ -25,38 +35,30 @@ using namespace boost;
 
 bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_fdfminimizer* min);
 
-/********************************************************************************
- * Visuliser
- *********************************************************************************/
 
-struct VisualThread {
-    VisualThread(){
-		fw = NULL;
-	}
-	~VisualThread() {
-		if(fw) delete fw;
-	}
-	void start() {
-		fw = new FittingWindow;
-	}
-    void operator()() {
-		if(!fw) {
-			cerr << "Fitting window not allocated" << endl;
-			assert(false);
-			return;
-		}
-        fw->mainLoop();
-    }
-    FittingWindow* fw;
-private:
-    VisualThread(const VisualThread&);
+struct Options {
+    string params_file;
+    string input_file;
+
+    string random_params_file;
+
+    string method;
+
+    bool dont_rescale;
+    double integral_tol;
+
+    unsigned long seed;
+
+    unsigned long scanparam;
+    double scanparam_min;
+    double scanparam_max;
+    unsigned long step_count;
 };
 
 /********************************************************************************
  * Logging
  ********************************************************************************/
 
-ofstream fout;
 ofstream flog;
 
 
@@ -69,32 +71,36 @@ int main(int argc,char** argv) {
 	//Parse the command line and decide what to do
 	using namespace boost::program_options;
 	variables_map variablesMap;
-	string modelType;
-    string method;
-	string filename;
-	unsigned long seed;
+    
+    string command;
+    Options options;
+    options.seed = 0;
+
     bool rescale = true;
 	try {
+        positional_options_description posOpt;
+        posOpt.add("command",-1);
+
 		options_description optDesc("Options");
 
 		optDesc.add_options()
-			("run-tests","")
-			("help","print this help page and exit")
-			("gui","Visualise the fitting process with VTK")
-			("model",value<string>(&modelType)->default_value("point"),
-			 "Select the model to use")
-            ("method",value<string>(&method)->default_value("bfgs"),"")
+            ("command",value<string>(&command),"fit|scan|selftest")
+            ("params-file,p",value<string>(&options.params_file),"")
+			("random-data,r",value<string>(&options.random_params_file),
+			 "Instead of loading a file, generate random data and try and fit that")
+			("input-file,i",value<string>(&options.input_file),"specify an input file")
+			("help,h","print this help page and exit")
+            ("method,m",value<string>(&options.method)->default_value("bfgs"),"")
             ("dont-rescale","")
 			("random-model-type",
 			 "Specify the type of the model to use for generating random data")
-			("input-file",value<string>(&filename),"specify an input file")
-			("random-data",
-			 "Instead of loading a file, generate random data and try and fit that")
-			("show-only","Show the data only, don't try and fit. Implies --gui")
-			("seed",value<unsigned long>(&seed),"Specify a seed for the random number generator");
-
+			("seed,s",value<unsigned long>(&options.seed),"Specify a seed for the random number generator")
+			("param-to-scan,-s",value<unsigned long>(&options.scanparam),"")
+			("min",value<double>(&options.scanparam_min)->default_value(0),"")
+			("max",value<double>(&options.scanparam_max)->default_value(1),"")
+            ("step_count",value<unsigned long>(&options.step_count)->default_value(50),"");
 		try {
-			store(command_line_parser(argc,argv).options(optDesc).run(),variablesMap);
+			store(command_line_parser(argc,argv).options(optDesc).positional(posOpt).run(),variablesMap);
 		} catch(std::exception& e) {
 			cerr << e.what() << endl;
 
@@ -108,13 +114,16 @@ int main(int argc,char** argv) {
 			cout << optDesc << endl;
 			return 0;
 		}
-        if(variablesMap.count("run-tests") == 0) {
-            if(variablesMap.count("input-file") != 1 && 
-               variablesMap.count("random-data") == 0) {
-                cout << "Specify exactly one input file" << endl;
-                return 0;
-            }
+        if(variablesMap.count("command")) {
+            command = variablesMap["command"].as<string>();
         }
+        if(!(command == "fit" || command == "scan" || command == "selftest")) {
+			cout << "Usage:" << endl;
+			cout << optDesc << endl;
+			return -1;
+        }
+
+
 	} catch(std::exception& e) {
 		//I'm not sure if this is possible
 		cerr << "An error occured when trying to parse the command line" << endl;
@@ -123,6 +132,14 @@ int main(int argc,char** argv) {
 
     if(variablesMap.count("rescale") > 0) {
         rescale = false;
+    }
+
+    if(command == "fit") {
+        if(variablesMap.count("input-file") != 1 && 
+           variablesMap.count("random-data") == 0) {
+            cout << "Specify exactly one input file" << endl;
+            return 0;
+        }
     }
 
 
@@ -136,87 +153,120 @@ int main(int argc,char** argv) {
 	//Seed the random number generator
 	PRNG prng;
 	RandomDist dist;
-
-	if(variablesMap.count("seed") > 1) {
-		prng.seed(seed);
-	}
-
+    prng.seed(options.seed);
+    logMsg("Random number generator seeded with " << options.seed);
 
     //Start the thread pool
     Multithreader<fdf_t> pool;
 
+
+    //If we just want to run the self tests, do it and stop
+    if(command == "selftest") {
+        testModel(prng,&pool);
+        return 0;
+    }
+    //----------------------------------------------------------------------//
+    // We're not self testing, so we need to decide of a model and get
+    // paramiters for that model
+
+	//Now, which model should we use?
+	const Model* model;
+    std::vector<double> params;
+
+    int retVal =  parse_params_file(options.params_file,&model,&params);
+    if(retVal != PARSE_SUCESS) {
+        cerr << "Parse of param file failed: ";
+        switch(retVal) {
+        case UNKNOWN_MODEL:
+            cerr << "unknown model" << endl;
+        case NOT_ENOUGH_PARAMS:
+            cerr << "not enough params" << endl;
+        case PARAM_FILE_NOT_FOUND:
+            cerr << "file not found" << endl;
+        default:
+            assert(false);
+        }
+        return -1;
+    }
+
+	//Set up buffers to store the paramiters
+	double* params_start         = (double*)alloca(model->size*sizeof(double));
+	double* params_opt           = (double*)alloca(model->size*sizeof(double));
+
+
+	for(unsigned long i = 0; i < model->size;i++) {
+		params_start[i] = params[i];
+	}
+
+    //Are we doing a paramiter scan or a fit.
+    cout << "================================================================================" << endl;
+    cout << "Doing a one paramiter scan" << endl;
+
+    if(command == "scan") {
+        for(unsigned long i = 0; i < options.step_count; i++) {
+            double t = double(i)/options.step_count;
+            double p = options.scanparam_min*(1-t) + options.scanparam_max*t;
+
+            params_start[options.scanparam] = p;
+
+            double value;
+            model->modelf(Vector3(0,0,0),params_start,&value,NULL);
+
+            cout << value << endl;
+        }
+        return 0;
+    }
+
+    //----------------------------------------------------------------------//
+    //We're not scanning as a paramiter varies, so we must be fitting,
+    //so we need a dataset to do that.
+
 	//Load the data
 	Dataset dataset;
 
-	//If tests were requested, perform them and exit
-	if(variablesMap.count("run-tests") > 0) {
-		testModel(prng,&pool);
-		return 0;
-	}
-
-
 	//Okay, we don't want tests, we are doing a fitting. Where should
 	//data dataset come from?
-
-	if(variablesMap.count("random-data") == 0) {
-		logMsg("Opening the data");
-		loadData(filename,&dataset);
+	if(options.random_params_file == "") {
+        //A file
+        logMsg("Loading data from file " << options.input_file);
+		loadData(options.input_file,&dataset);
 	} else {
-		//We want to generate it randomly. Which model should we use?
-		//TODO
-		logMsg("Generating a random point model");
-		return -5;
+        //Generate it randomly
+        logMsg("Generating random data from paramiter file " << options.random_params_file);
+
+        const Model* model;
+        std::vector<double> params;
+        
+        int retVal = parse_params_file(options.random_params_file,&model,&params);
+        if(retVal != PARSE_SUCESS) {
+            cerr << "Parse of param file for the random dataset failed: ";
+            switch(retVal) {
+            case UNKNOWN_MODEL:
+                cerr << "unknown model" << endl;
+            case NOT_ENOUGH_PARAMS:
+                cerr << "not enough params" << endl;
+            case PARAM_FILE_NOT_FOUND:
+                cerr << "file not found" << endl;
+            default:
+                assert(false);
+            }
+            return -1;
+        }
+        random_data(prng,*model,&(params[0]),20,&dataset);
     }
 
-	//Now, which model should we use for fitting?
-	const Model* model;
 
-	if(modelType == "point") {
-		model = &point_model;
-	} else if(modelType == "gauss") {
-		model = &gaussian_model;
-	} else {
-		cerr << "Unknown model type" << endl;
-		return 1;
-	}
-
-	//What starting paramiters should we use?
-	double* params_start       = (double*)alloca(model->size*sizeof(double));
-	double* params_opt         = (double*)alloca(model->size*sizeof(double));
-
-	//For now, let them be random
-	for(unsigned long i = 0; i < model->size;i++) {
-		params_start[i] = dist(prng);
-	}
-	params_start[PARAM_X] = 14.2815239342;
-	params_start[PARAM_Y] = 58.2035463806;
-	params_start[PARAM_Z] = 4.9245389075;
-
-	params_start[PARAM_CHI1] = -10807.9638649971;
-	params_start[PARAM_CHI2] = +118058.3614822003;
-	params_start[PARAM_CHIXY] = +122257.0610884236;
-	params_start[PARAM_CHIXZ] = +148620.2078244424;
-	params_start[PARAM_CHIYZ] = +96579.0841891781;
-
-	//But the stddev of the gaussian model should be small
-	if(model == &gaussian_model) {params_start[PARAM_STDDEV] = 1.0;}
-
-	//Open the params file TODO: What is the purpose of this file again?
-	fout.open("params.log");
-	if(!fout.is_open()) {
-		cerr << "Could not open params.log for writing" << endl;
-		return 1;
-	}
-	logMsg("Log file opened");
-
-	//Okay, we've got everything, do the fitting
-
+    //Stuff our dataset, starting params and model in an ErrorContex
 	ErrorContext context;
 	context.dataset = &dataset;
 	context.params  = params_start;
 	context.model   = model;
 	context.pool    = &pool;
     context.rescale = rescale;
+
+
+	//Okay, we've got everything, do the fitting
+
 
 	double errorFinal = 666; //Set these to easily recognisable uninitalised values
 

@@ -185,23 +185,71 @@ void do_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool) {
     }
 }
 
+void test_gaussian(PRNG& prng) {
+	RandomDist rand;
+
+    for(unsigned long i = 1; i<4; i++) {
+        //Generate a random dataset using the Gaussian and Gaussian
+        //test models. We expect them to match
+
+        double* params = (double*)alloca(gaussian_model.size*sizeof(double));
+
+        for(unsigned long j=0;j<gaussian_model.size;j++) {
+            params[j]  = dist(prng);
+        }
+        unsigned long natoms = i*10;
+
+        Nuclei nuclei;
+        Vals valsG;
+        Vals valsTest;
+
+        nuclei.resize(natoms);
+        valsG.resize(natoms);
+        valsTest.resize(natoms);
+
+        for(unsigned long j = 0; j < natoms;j++) {
+            Vector3 pos = Vector3(rand(prng),rand(prng),rand(prng));
+            nuclei[j] = pos;
+            eval_gaussian(     pos,params,&(valsG[j])   ,NULL);
+            eval_gaussian_testing(pos,params,&(valsTest[j]),NULL);
+        }
+
+
+        for(unsigned long j = 0; j<natoms; j++) {
+            double x = nuclei[j].x;
+            double y = nuclei[j].y;
+            double z = nuclei[j].z;
+
+            double stddev = params[PARAM_STDDEV];
+            double r_singularity = sqrt(x*x+y*y+z*z);
+
+            cout << "(" << (r_singularity/stddev) << "," << valsG[j] << "," << valsTest[j] << ")" << endl;
+        }
+        cout << endl;
+        cout << "================================================================================" << endl;
+    }
+}
+
 //Perform a sanity check on the models. Given teh same paramiter set
 //the gaussian model should converged to the point model as stddev
 //tends to 0
 void testModel(PRNG& prng,Multithreader<fdf_t>* pool) {
     cout << "================================================================================" << endl;
 
-    check_derivative (prng,&point_model);
+    //Check the gaussian model;
+    test_gaussian(prng);
+
+    //check_derivative (prng,&point_model);
     check_derivative (prng,&gaussian_model);
 
     //cout << "Evaulating the analytic and numerical derivatives of the error functional" << endl;
-    check_error_derivate(prng,&point_model   ,pool);
+    //check_error_derivate(prng,&point_model   ,pool);
     check_error_derivate(prng,&gaussian_model,pool);
 
-    check_minimum(prng,&point_model   ,pool);
+    //check_minimum(prng,&point_model   ,pool);
     check_minimum(prng,&gaussian_model,pool);
     
-	do_convergence(prng,&point_model   ,pool);
+	//do_convergence(prng,&point_model   ,pool);
 	do_convergence(prng,&gaussian_model,pool);
 }
 

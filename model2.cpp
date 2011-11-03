@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cassert>
 #include <alloca.h>
+#include <fstream>
 
 using namespace std;
 
@@ -49,7 +50,7 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 
 void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,double* integral) {
     const static int NDIM = 3;
-    const static double EPSREL = 1e-2;
+    const static double EPSREL = 1e-3;
     const static double EPSABS = 0;
     const static int VERBOSE = 0;
     const static int LAST = 4;
@@ -129,7 +130,9 @@ void eval_point(Vector3 evalAt,const double* pm,double* value, double* gradient)
 
 	if(x == 0 && y == 0 && z == 0) {
 		*value = 0;
-		for(unsigned long i = 0;i < 8; i++){gradient[i] = 0;}
+        if(gradient != NULL) {
+            for(unsigned long i = 0;i < 8; i++){gradient[i] = 0;}
+        }
 		return;
 	}
 
@@ -202,6 +205,14 @@ int Integrand2(const double xx[],double ff[],int ncomp, IntegralBounds* bounds) 
 
     unsigned long point_size = userdata->point_model->size;
 
+    double singularity_x = params[0];
+    double singularity_y = params[1];
+    double singularity_z = params[2];
+    
+    double singularity_r = singularity_x*singularity_x +
+        singularity_y*singularity_y +
+        singularity_z*singularity_z;
+
     double x = xx[0];
     double y = xx[1];
     double z = xx[2];
@@ -218,15 +229,28 @@ int Integrand2(const double xx[],double ff[],int ncomp, IntegralBounds* bounds) 
     //We don't need the gradient of the gaussian function with respect
     //to the spaceial pramiters
     double a_coef = 1/(stddev*stddev);                                    assert(isfinite(a_coef));
+
+    //Potential optimisation: pull the calculation of this out of the integral
+    double normalizer = pow(M_PI*stddev*stddev,-1.5);
     double theExp = exp(-a_coef*r2);
 
-    double rho =  theExp;  assert(isfinite(rho));
+    double rho = normalizer*theExp;
+    if(r2 < 1) {
+      double theExpSing = normalizer*exp(-a_coef*singularity_r);
 
-    double drho = pow(M_PI,-1.5)*(1.5*pow(stddev,0.5)+2*pow(stddev,-1.5)*r2)*theExp;
+      double common_factor = -2*pow(M_PI,-3.0/2.0)/sqrt(stddev) * theExpSing; 
+      double drhoBydx_dx   = common_factor * singularity_x * (x-singularity_x);
+      double drhoBydy_dy   = common_factor * singularity_y * (y-singularity_y);
+      double drhoBydz_dz   = common_factor * singularity_z * (z-singularity_z);
+      
+      rho -= normalizer*theExpSing + drhoBydx_dx + drhoBydy_dy + drhoBydz_dz;
+    }
 
-    //Pass the results and gradient
+
+    assert(isfinite(rho));
     ff[0] = rho * f;
     if(ncomp != 1) {
+        double drho = pow(M_PI,-1.5)*(1.5*pow(stddev,0.5)+2*pow(stddev,-1.5)*r2)*theExp;
         for(unsigned long i=1;i<9;i++){ff[i] = rho * gradient[i-1];}
         ff[9] = drho * f;
     }
@@ -243,14 +267,14 @@ void eval_gaussian(Vector3 evalAt,const double* params,double* value, double* gr
     userdata.stddev = params[PARAM_STDDEV];
 	userdata.evalAt = evalAt;
 
-    userdata.xmax =   4*userdata.stddev;
-	userdata.xmin =  -4*userdata.stddev;
+    userdata.xmax =   7*userdata.stddev;
+    userdata.xmin =  -7*userdata.stddev;
     
-    userdata.ymax =   4*userdata.stddev;
-    userdata.ymin =  -4*userdata.stddev;
+    userdata.ymax =   7*userdata.stddev;
+    userdata.ymin =  -7*userdata.stddev;
     
-    userdata.zmax =   4*userdata.stddev;
-    userdata.zmin =  -4*userdata.stddev;;
+    userdata.zmax =   7*userdata.stddev;
+    userdata.zmin =  -7*userdata.stddev;
 
     unsigned long ncomp = gradient == NULL ? 1 : 10;
 
@@ -258,15 +282,37 @@ void eval_gaussian(Vector3 evalAt,const double* params,double* value, double* gr
 
 	cuhreIntegrate(Integrand2,static_cast<IntegralBounds*>(&userdata),ncomp,integral);
 
-	//Scale the result
-    double normalizer = pow(M_PI*userdata.stddev*userdata.stddev,-1.5);
-
-    for(unsigned long i = 0; i < point_model.size; i++){integral[i]*=normalizer;}
 
     *value = integral[0];
+
     if(gradient != NULL) {
         memcpy(gradient,integral+1,9*sizeof(double));
     }
+}
+
+
+int parse_params_file(const std::string& filename,const Model** model,std::vector<double>* params) {
+    ifstream fin(filename.c_str());
+    if(!fin.is_open()) {
+        return PARAM_FILE_NOT_FOUND;
+    }
+    string model_name;
+    fin >> model_name;
+    if(model_name == "point") {
+        *model = &point_model;
+    } else if(model_name == "gauss") {
+        *model = &gaussian_model;
+    } else {
+        return  UNKNOWN_MODEL;
+    }
+    params->resize((*model)->size);
+    for(unsigned long i = 0;i < (*model)->size; i++) {
+        fin >> params->at(i);
+        if(fin.eof()) {
+            return NOT_ENOUGH_PARAMS;
+        }
+    }
+    return PARSE_SUCESS;
 }
 
 
@@ -282,5 +328,56 @@ void random_data(PRNG& prng,const Model& model,const double* params,unsigned lon
     }
 }
 
+void eval_gaussian_testing(Vector3 evalAt,const double* params,double* value, double* gradient) {
+    if(gradient != NULL) {
+        //Don't bother with an analytical gradient
+        for(unsigned long i = 0; i < gaussian_model_testing.size;i++) {
+            gradient[i] = 0;
+        }
+    }
+
+    double normalizer = 0;
+    double total      = 0;
+
+    double stddev = params[PARAM_STDDEV];
+    double a_coef = 1/(stddev*stddev);  
+    /*
+      Eval (2l+1)^3 times on a squard grid and spacings of stddev/4
+     */
+
+    long l = 5;
+
+    for(long i = -l; i < l; i++) { // -5,-4, ... , 4,5 if l=5
+        for(long j = -l; j < l; j++) {
+            for(long k = -l; k < l; k++) {
+                double f;
+
+                double x = i * (stddev/2);
+                double y = j * (stddev/2);
+                double z = k * (stddev/2);
+
+		double r = sqrt(x*x+y*y+z*z);
+		
+		if(r < stddev/4) {
+		  continue;
+		}
+
+                double rho = exp(-a_coef*r*r);
+
+                Vector3 x_minus_xprime(evalAt.x - x,
+                                       evalAt.y - y,
+                                       evalAt.z - z);
+                eval_point(x_minus_xprime,params,&f,NULL);
+
+                total += f * rho;
+                normalizer += rho;
+            }
+        }
+    }
+    *value = total / normalizer;
+}
+
+
 const Model point_model    = {eval_point   ,8,"Point Model"};
 const Model gaussian_model = {eval_gaussian,9,"Gaussian Model"};
+const Model gaussian_model_testing = {eval_gaussian_testing,9,"Gaussian Model"};

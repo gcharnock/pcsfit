@@ -11,10 +11,10 @@ set(CMAKE_BUILD_TYPE Debug)
 #set(CMAKE_BUILD_TYPE Release)
 
 
-set(VTKLIBS
-  vtkCommon
-  vtkftgl
-  vtkRendering)
+#set(VTKLIBS
+#  vtkCommon
+#  vtkftgl
+#  vtkRendering)
 
 set(LIBS  
   gsl
@@ -27,14 +27,14 @@ set(LIBS
   -lpthread)
 
 
-if(IS_DIRECTORY /usr/include/vtk-5.4)
-  set(vtkDir /usr/include/vtk-5.4/)
-else()
-  set(vtkDir /usr/include/vtk-5.2/)
-endif()
+#if(IS_DIRECTORY /usr/include/vtk-5.4)
+#  set(vtkDir /usr/include/vtk-5.4/)
+#else()
+#  set(vtkDir /usr/include/vtk-5.2/)
+#endif()
 
 
-include_directories(../Cuba-2.1 ${vtkDir}  $ENV{HOME}/src/boost_1_46_1)
+include_directories(../Cuba-2.1 ${vtkDir}  $ENV{HOME}/src/boost)
 
 
 set(CMAKE_CXX_FLAGS         "-Wno-deprecated -Wall -fno-strict-aliasing")
@@ -43,7 +43,7 @@ set(cmake_cxx_flags_release "-O3 -ffast-math")
 set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS})
 
 
-set(sources  model.cpp model2.cpp fit.cpp  data.cpp  vis.cpp tests.cpp)
+set(sources model2.cpp fit.cpp  data.cpp  tests.cpp)
 
 
 add_executable(pcsfit main.cpp  ${sources})
