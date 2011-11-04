@@ -52,6 +52,11 @@ struct Options {
     unsigned long scanparam;
     double scanparam_min;
     double scanparam_max;
+
+    long scanparam2;
+    double scanparam_min2;
+    double scanparam_max2;
+
     unsigned long step_count;
 };
 
@@ -61,6 +66,53 @@ struct Options {
 
 ofstream flog;
 
+
+void run_scan(const Options& options,const ErrorContext* context,bool errorscan = false) {
+    unsigned long size = context->model->size;
+    double* params = (double*)alloca(size * sizeof(double));
+
+    bool twoDScan = options.scanparam2 > -1;
+
+    if(options.scanparam < 0 || options.scanparam > size) {
+        cerr << "Invalid value for scanparam 1" << endl;
+        return;
+    }
+    if(options.scanparam2 > long(size)) { //long(), shut up, gcc warrning
+        cerr << "Invalid value for scanparam 2" << endl;
+        return;
+    }
+
+    for(unsigned long i = 0; i < options.step_count; i++) {
+        double t1 = double(i)/options.step_count;
+        double p1 = options.scanparam_min+(options.scanparam_max-options.scanparam_min)*t1;
+
+        params[options.scanparam] = p1;
+
+        unsigned long inner_count = twoDScan ? options.step_count : 1;
+        for(unsigned long j = 0; j < inner_count; j++) {
+            double p2;
+            if(twoDScan) {
+                double t2 = double(j)/options.step_count;
+                p2 = options.scanparam_min2 + (options.scanparam_max2-options.scanparam_min2)*t2;
+                params[options.scanparam2] = p2;
+            }
+
+
+            double value;
+            if(errorscan) {
+                context->model->modelf(Vector3(0,0,0),params,&value,NULL);
+            } else {
+                eval_error(context,params,&value,NULL);
+            }
+            
+            if(twoDScan) {
+                cout << p1 << " " << p2 << " " << value << endl;
+            } else {
+                cout << p1 << " " << value << endl;
+            }
+        }
+    }
+}
 
 int main(int argc,char** argv) {
 	cout.width(20);
@@ -95,9 +147,12 @@ int main(int argc,char** argv) {
 			("random-model-type",
 			 "Specify the type of the model to use for generating random data")
 			("seed,s",value<unsigned long>(&options.seed),"Specify a seed for the random number generator")
-			("param-to-scan,-s",value<unsigned long>(&options.scanparam),"")
+			("param-to-scan,-s",value<unsigned long>(&options.scanparam)->default_value(0),"")
+			("param-to-scan2",value<long>(&options.scanparam2)->default_value(-1),"")
 			("min",value<double>(&options.scanparam_min)->default_value(0),"")
 			("max",value<double>(&options.scanparam_max)->default_value(1),"")
+			("min2",value<double>(&options.scanparam_min2)->default_value(0),"")
+			("max2",value<double>(&options.scanparam_max2)->default_value(1),"")
             ("step_count",value<unsigned long>(&options.step_count)->default_value(50),"");
 		try {
 			store(command_line_parser(argc,argv).options(optDesc).positional(posOpt).run(),variablesMap);
@@ -117,7 +172,7 @@ int main(int argc,char** argv) {
         if(variablesMap.count("command")) {
             command = variablesMap["command"].as<string>();
         }
-        if(!(command == "fit" || command == "scan" || command == "selftest")) {
+        if(!(command == "fit" || command == "errorscan" || command == "scan" || command == "selftest")) {
 			cout << "Usage:" << endl;
 			cout << optDesc << endl;
 			return -1;
@@ -179,10 +234,13 @@ int main(int argc,char** argv) {
         switch(retVal) {
         case UNKNOWN_MODEL:
             cerr << "unknown model" << endl;
+            break;
         case NOT_ENOUGH_PARAMS:
             cerr << "not enough params" << endl;
+            break;
         case PARAM_FILE_NOT_FOUND:
-            cerr << "file not found" << endl;
+            cerr << "file " << options.params_file << " not found" << endl;
+            break;
         default:
             assert(false);
         }
@@ -198,23 +256,12 @@ int main(int argc,char** argv) {
 		params_start[i] = params[i];
 	}
 
-    //Are we doing a paramiter scan or a fit.
-    cout << "================================================================================" << endl;
-    cout << "Doing a one paramiter scan" << endl;
-
     if(command == "scan") {
-        for(unsigned long i = 0; i < options.step_count; i++) {
-            double t = double(i)/options.step_count;
-            double p = options.scanparam_min*(1-t) + options.scanparam_max*t;
-
-            params_start[options.scanparam] = p;
-
-            double value;
-            model->modelf(Vector3(0,0,0),params_start,&value,NULL);
-
-            cout << value << endl;
-        }
-        return 0;
+        ErrorContext context;
+        context.params  = params_start;
+        context.model   = model;
+        context.pool    = &pool;
+        run_scan(options,&context,false);
     }
 
     //----------------------------------------------------------------------//
@@ -252,7 +299,13 @@ int main(int argc,char** argv) {
             }
             return -1;
         }
-        random_data(prng,*model,&(params[0]),20,&dataset);
+        //Apparently, &(params[0]) on a vector isn't a good thing to
+        //do. I'm not sure why, but seemed to be having problems
+        double* params_buff = (double*)alloca(params.size()*sizeof(double));
+        for(unsigned long i = 0;i < params.size();i++) {
+            params_buff[i] = params[i];
+        }
+        random_data(prng,*model,params_buff,20,&dataset);
     }
 
 
@@ -264,25 +317,16 @@ int main(int argc,char** argv) {
 	context.pool    = &pool;
     context.rescale = rescale;
 
+    //Do we want to scan thoughZ
+    if(command == "errorscan") {
+        run_scan(options,&context,true);
+        return 0;
+    }
 
 	//Okay, we've got everything, do the fitting
-
-
 	double errorFinal = 666; //Set these to easily recognisable uninitalised values
 
-	//do_fit_with_grad(&context,params_opt,&errorFinal,&main_on_iterate);
-    
-    for(unsigned long i = 38;i < 200; i++) {
-        params_start[PARAM_STDDEV] = 0.01*i;
-
-        double* gradient = (double*)alloca(model->size*sizeof(double));
-
-        double value;
-        eval_error(&context,params_start,&value,gradient);
-
-        cout << "f("<<context.params[PARAM_STDDEV]<<") = " << value << endl;
-    }
-    return 0;
+	do_fit_with_grad(&context,params_opt,&errorFinal,&main_on_iterate);
 
     for(unsigned long j = 0;j < model->size; j++) {
 		cout << name_param(POINT_PARAM(j)) << " start =" << params_start[j]

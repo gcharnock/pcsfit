@@ -158,7 +158,7 @@ void eval_point(Vector3 evalAt,const double* pm,double* value, double* gradient)
     double inv12PiR5 = 1/(12*M_PI*r5);
 
     double A = (r2-3*x2)*chi_1 + (z2-y2)*chi_2 + 6*(xy*chi_xy + xz*chi_xz + yz*chi_yz);
-    *value = inv12PiR5 * A;
+    *value = inv12PiR5 * A; assert(isfinite(*value));
 
     if(gradient != NULL) {
         gradient[PARAM_CHI1]  = inv12PiR5*(r2-3*x2);
@@ -178,12 +178,6 @@ void eval_point(Vector3 evalAt,const double* pm,double* value, double* gradient)
         for(unsigned long i = 0;i<8;i++) {assert(isfinite(gradient[i]));}
     }
 }
-
-void eval_point_ND(Vector3 evalAt,const double* pm,double* value) {
-    eval_point(evalAt,pm,value,NULL);
-}
-
-
 
 struct Userdata : public IntegralBounds {
     //For sending cuhre.

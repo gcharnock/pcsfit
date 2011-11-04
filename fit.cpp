@@ -97,8 +97,8 @@ void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector
 
     unsigned long size = context->model->size;
 
-    double* rescaled_x  = (double*)alloca(context->model->size *sizeof(double));
-    double* gradient    = (double*)alloca(context->model->size *sizeof(double));
+    double* rescaled_x  = (double*)alloca(size *sizeof(double));
+    double* gradient    = (double*)alloca(size *sizeof(double));
 
     //Rescale the gradient
     for(unsigned long i = 0; i<size; i++) {
@@ -107,6 +107,7 @@ void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector
         } else {
             rescaled_x[i] = gsl_vector_get(x,i);
         }
+        assert(isfinite(rescaled_x[i]));
     }
 
     //Test df for nullness and if it's null have the fdf function
@@ -138,8 +139,12 @@ void   eval_error_df (const gsl_vector* v, void* voidContext, gsl_vector *df) {
 void do_fit_with_grad(const ErrorContext* context,double* optModel,double* finalError,OnIterate onIterate) {
     assert(context != NULL);
     assert(optModel != NULL);
-
     unsigned long size = context->model->size;
+
+    for(unsigned long i = 0; i < size; i++) {
+        assert(isfinite(context->params[i]));
+    }
+
 
     gsl_vector* gslModelVec = gsl_vector_alloc(size);
     if(context->rescale) { 
@@ -162,9 +167,11 @@ void do_fit_with_grad(const ErrorContext* context,double* optModel,double* final
     
     //Setup the minimiser
     gsl_multimin_fdfminimizer* gslmin;
-    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_steepest_descent,size);
+    //gsl_multimin_fdfminimizer_conjugate_fr
+    //gsl_multimin_fdfminimizer_vector_bfgs2
+    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_conjugate_fr,size);
     
-    gsl_multimin_fdfminimizer_set(gslmin,&minfunc,gslModelVec,0.1,0.1);
+    gsl_multimin_fdfminimizer_set(gslmin,&minfunc,gslModelVec,0.01,0.2);
 
     
 	for(unsigned long i = 0;;i++) {
