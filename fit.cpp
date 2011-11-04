@@ -52,16 +52,26 @@ void eval_error(const ErrorContext* context,const double* params,double* value, 
 
     //Reduce the results
     *value = 0;
+    for(unsigned long i = 0; i<context->dataset->nuclei.size();i++) {
+        gradient[i] = 0.0;
+    }
 
     for(unsigned long i = 0; i<context->dataset->nuclei.size();i++) {
         double modelMinusexpVal = results[i].first - context->dataset->vals[i];
-        (*value)+=modelMinusexpVal*modelMinusexpVal; //Squared error
-        
+        double sq_error=modelMinusexpVal*modelMinusexpVal; 
+        //Divide by the square of the shift so that large shifts don't
+        //contribute excessily
+        double sq_shift = (context->dataset->vals[i]*context->dataset->vals[i]);
+        (*value) += sq_error/sq_shift; 
+        //cout << "Spin " << i << " error = " << modelMinusexpVal*modelMinusexpVal << endl;
         if(gradient != NULL) {
             for(unsigned long j = 0; j < size; j++) {
                 //The gradient of the error is twice the gradient of the
                 //model - the expeimental value
-                gradient[j] += 2 * results[i].second[j] * modelMinusexpVal;
+                gradient[j] += 2 * results[i].second[i] * modelMinusexpVal / sq_shift;
+
+                assert(isfinite(gradient[j]));
+                assert(isfinite(gradient[j]*gradient[j]));
             }
         }
     }
@@ -85,6 +95,8 @@ void numerical_error_derivative(const ErrorContext* context,double* value, doubl
 		params_mutable[i] = context->params[i];
 
 		gradient[i] = (result_plus-result_minus)/(2*h);
+        assert(isfinite(gradient[i]));
+        assert(isfinite(gradient[i]*gradient[i]));
 	}
     eval_error(context,context->params,value,NULL);
 }
@@ -117,7 +129,10 @@ void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector
     //Rescale the gradient (if it is needed)
     if(df != NULL) {
         for(unsigned long i = 0; i<size; i++) {
-            gsl_vector_set(df,i,gradient[i] / (context->rescale ? context->params[i] : 1.0));
+            double re_gradient = context->rescale ? gradient[i]/context->params[i] : gradient[i];
+            assert(isfinite(re_gradient));
+            assert(isfinite(re_gradient*re_gradient));
+            gsl_vector_set(df,i,re_gradient);
         }
     }
 }

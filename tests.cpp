@@ -67,7 +67,7 @@ void check_derivative (PRNG& prng,const Model* model) {
 
         cout << "Result = " << endl;
         for(unsigned long i=0;i<model->size;i++) {
-			cout << name_param(POINT_PARAM(i)) << " = " << params[i] <<
+			cout << name_param(i) << " = " << params[i] <<
 				" grad = " << gradient[i]
 				 << " ceneral Differenceing gradient of " << numerical_gradient[i] << endl;
         }
@@ -111,7 +111,7 @@ void check_error_derivate(PRNG prng,const Model* model,Multithreader<fdf_t>* poo
 
         cout << "Result = " << result << endl;
         for(unsigned long i=0;i<model->size;i++) {
-			cout << name_param(POINT_PARAM(i)) << " = " << params[i];
+			cout << name_param(i) << " = " << params[i];
 
 			cout.setf(ios::floatfield,ios::scientific);
 			cout <<	" grad = " << gradient[i]
@@ -174,7 +174,7 @@ void do_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool) {
 
         do_fit_with_grad(&context,params_opt,&errorFinal,do_convergence_on_iterate);
         for(unsigned long j = 0;j < 8; j++) {
-            cout << name_param(POINT_PARAM(j)) << ": real = " << params_real[j] << " start = " << params_start[j]
+            cout << name_param(j) << ": real = " << params_real[j] << " start = " << params_start[j]
                  << " final = " << params_opt[j] << endl;
         }
 		cout.setf(ios::floatfield,ios::scientific);

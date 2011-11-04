@@ -39,9 +39,6 @@ bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_
 struct Options {
     string params_file;
     string input_file;
-
-    string random_params_file;
-
     string method;
 
     bool dont_rescale;
@@ -99,7 +96,7 @@ void run_scan(const Options& options,const ErrorContext* context,bool errorscan 
 
 
             double value;
-            if(errorscan) {
+            if(!errorscan) {
                 context->model->modelf(Vector3(0,0,0),params,&value,NULL);
             } else {
                 eval_error(context,params,&value,NULL);
@@ -138,8 +135,6 @@ int main(int argc,char** argv) {
 		optDesc.add_options()
             ("command",value<string>(&command),"fit|scan|selftest")
             ("params-file,p",value<string>(&options.params_file),"")
-			("random-data,r",value<string>(&options.random_params_file),
-			 "Instead of loading a file, generate random data and try and fit that")
 			("input-file,i",value<string>(&options.input_file),"specify an input file")
 			("help,h","print this help page and exit")
             ("method,m",value<string>(&options.method)->default_value("bfgs"),"")
@@ -172,7 +167,7 @@ int main(int argc,char** argv) {
         if(variablesMap.count("command")) {
             command = variablesMap["command"].as<string>();
         }
-        if(!(command == "fit" || command == "errorscan" || command == "scan" || command == "selftest")) {
+        if(!(command == "fit" || command == "errorscan" || command == "scan" || command == "selftest" || command == "makedata")) {
 			cout << "Usage:" << endl;
 			cout << optDesc << endl;
 			return -1;
@@ -273,39 +268,19 @@ int main(int argc,char** argv) {
 
 	//Okay, we don't want tests, we are doing a fitting. Where should
 	//data dataset come from?
-	if(options.random_params_file == "") {
+	if(command != "makedata") {
         //A file
         logMsg("Loading data from file " << options.input_file);
 		loadData(options.input_file,&dataset);
 	} else {
-        //Generate it randomly
-        logMsg("Generating random data from paramiter file " << options.random_params_file);
-
-        const Model* model;
-        std::vector<double> params;
-        
-        int retVal = parse_params_file(options.random_params_file,&model,&params);
-        if(retVal != PARSE_SUCESS) {
-            cerr << "Parse of param file for the random dataset failed: ";
-            switch(retVal) {
-            case UNKNOWN_MODEL:
-                cerr << "unknown model" << endl;
-            case NOT_ENOUGH_PARAMS:
-                cerr << "not enough params" << endl;
-            case PARAM_FILE_NOT_FOUND:
-                cerr << "file not found" << endl;
-            default:
-                assert(false);
-            }
-            return -1;
+        random_data(prng,*model,params_start,20,&dataset);
+        for(unsigned long i = 0; i < dataset.nuclei.size(); i++) {
+            cout << dataset.vals[i]     << " "
+                 << dataset.nuclei[i].x << " "
+                 << dataset.nuclei[i].y << " "
+                 << dataset.nuclei[i].z << endl;
         }
-        //Apparently, &(params[0]) on a vector isn't a good thing to
-        //do. I'm not sure why, but seemed to be having problems
-        double* params_buff = (double*)alloca(params.size()*sizeof(double));
-        for(unsigned long i = 0;i < params.size();i++) {
-            params_buff[i] = params[i];
-        }
-        random_data(prng,*model,params_buff,20,&dataset);
+        return 0;
     }
 
 
@@ -329,8 +304,8 @@ int main(int argc,char** argv) {
 	do_fit_with_grad(&context,params_opt,&errorFinal,&main_on_iterate);
 
     for(unsigned long j = 0;j < model->size; j++) {
-		cout << name_param(POINT_PARAM(j)) << " start =" << params_start[j]
-			 << " final = " << params_opt[j] << endl;
+		cout << name_param(j) << " start =" << params_start[j]
+			 << " final = " << params_start[j]*params_opt[j] << endl;
 	}
 	cout.setf(ios::floatfield,ios::scientific);
 	
@@ -351,8 +326,11 @@ bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_
 
 	double norm = 0;
 	for(unsigned long j = 0; j < g->size; j++) {
-		norm += gsl_vector_get(g,j)*gsl_vector_get(g,j);
+        double gradj = gsl_vector_get(g,j);
+		norm += gradj*gradj;
+        assert(isfinite(norm));
 	}
+    assert(isfinite(norm));
 
     cout << itN << "\t";
     for(unsigned long j = 0;j< x->size;j++) {cout << (gsl_vector_get(x,j)*context->params[j]) << "\t";}

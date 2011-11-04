@@ -83,11 +83,11 @@ void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,doub
 }
 
 
-std::string name_param(POINT_PARAM param) {
+std::string name_param(int param) {
     switch(param) {
-    case PARAM_X: return "x";   
-    case PARAM_Y: return "y";   
-    case PARAM_Z: return "z";  
+    case PARAM_X: return "x";
+    case PARAM_Y: return "y";
+    case PARAM_Z: return "z";
                  
     case PARAM_CHI1:  return "chi_1";
     case PARAM_CHI2:  return "chi_2";
@@ -175,7 +175,10 @@ void eval_point(Vector3 evalAt,const double* pm,double* value, double* gradient)
         gradient[PARAM_Y] = -(-y*fiveAOver12Pi7 + (2*y*(chi_1 - chi_2) + 6*(x*chi_xy + z*chi_yz))*inv12PiR5);
         gradient[PARAM_Z] = -(-z*fiveAOver12Pi7 + (2*z*(chi_1 + chi_2) + 6*(x*chi_xz + y*chi_yz))*inv12PiR5);
 	
-        for(unsigned long i = 0;i<8;i++) {assert(isfinite(gradient[i]));}
+        for(unsigned long i = 0;i<8;i++) {
+            assert(isfinite(gradient[i]));
+            assert(isfinite(gradient[i]*gradient[i]));
+        }
     }
 }
 
@@ -312,12 +315,18 @@ int parse_params_file(const std::string& filename,const Model** model,std::vecto
 
 void random_data(PRNG& prng,const Model& model,const double* params,unsigned long natoms,Dataset* dataset) {
 	RandomDist rand;
+
+    //We should center our imaginary spins around the dipole or
+    //fitting will be very hard.
+    double x = params[PARAM_X];
+    double y = params[PARAM_Y];
+    double z = params[PARAM_Z];
     
     dataset->nuclei.resize(natoms);
     dataset->vals.resize(natoms);
 
     for(unsigned long i = 0; i < natoms;i++) {
-		dataset->nuclei[i] = Vector3(rand(prng),rand(prng),rand(prng));
+		dataset->nuclei[i] = Vector3(x + 10*rand(prng),y + 10*rand(prng),z + 10*rand(prng));
         model.modelf(dataset->nuclei[i],params,&(dataset->vals[i]),NULL);
     }
 }

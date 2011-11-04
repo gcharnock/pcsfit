@@ -38,9 +38,16 @@ public:
 		mMapTo = &mapTo;
         mMapTo->resize(mFuncs->size());
 
-		_barrier.wait();
-        //Theads to work here
-		_barrier.wait();
+        if(true) {
+            //Do work
+            for(unsigned long i = 0;i<mFuncs->size();i++) {
+                mMapTo->at(i) = mFuncs->at(i)();
+            }
+        } else {
+            _barrier.wait();
+            //Theads to work here
+            _barrier.wait();
+        }
     }
 private:
     bool mQuiting;

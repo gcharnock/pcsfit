@@ -23,27 +23,19 @@ extern const Model point_model;
 extern const Model gaussian_model;
 extern const Model gaussian_model_testing; //A much simplier model that gaussian_model for testing
 
-enum POINT_PARAM {
-    PARAM_X,    
-    PARAM_Y,    
-    PARAM_Z,    
+
+#define PARAM_X 0
+#define PARAM_Y 1
+#define PARAM_Z 2
                 
-    PARAM_CHI1, 
-    PARAM_CHI2, 
-    PARAM_CHIXY,
-    PARAM_CHIXZ,
-    PARAM_CHIYZ,
+#define PARAM_CHI1 3
+#define PARAM_CHI2 4
+#define PARAM_CHIXY 5
+#define PARAM_CHIXZ 6
+#define PARAM_CHIYZ 7
 
-    PARAM_STDDEV
-};
+#define PARAM_STDDEV 8
 
-enum AR_POINT_PARAM {
-    PARAM_CHI_AX = PARAM_Z+1, 
-    PARAM_CHI_RH, 
-    PARAM_ALPHA,
-    PARAM_BETA,
-    PARAM_GAMMA
-};
 
 enum {
     PARSE_SUCESS,
@@ -60,7 +52,7 @@ int parse_params_file(const std::string& filename,const Model** model,std::vecto
 void axrh_to_cart(const double* axrh_params,double* cart_params);
 void cart_to_axrh(const double* axrh_params,double* cart_params);
 
-std::string name_param(POINT_PARAM param);
+std::string name_param(int param);
 
 //Point models
 void eval_point(   Vector3 evalAt,const double* params,double* value, double* gradient);
