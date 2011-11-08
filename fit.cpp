@@ -24,7 +24,7 @@ fdf_t worker(const ErrorContext* context,const double* params,bool withGradient,
     vector<double> gradient;
 
     context->model->modelf(context->dataset->nuclei[jobN], params, &value, gradient_buff);
-    
+
     if(withGradient) {
         for(unsigned long i = 0;i < size;i++) {
             gradient.push_back(gradient_buff[i]);
@@ -52,8 +52,10 @@ void eval_error(const ErrorContext* context,const double* params,double* value, 
 
     //Reduce the results
     *value = 0;
-    for(unsigned long i = 0; i<context->dataset->nuclei.size();i++) {
-        gradient[i] = 0.0;
+    if(gradient != NULL) {
+        for(unsigned long i = 0; i<size;i++) {
+            gradient[i] = 0.0;
+        }
     }
 
     for(unsigned long i = 0; i<context->dataset->nuclei.size();i++) {
@@ -61,14 +63,14 @@ void eval_error(const ErrorContext* context,const double* params,double* value, 
         double sq_error=modelMinusexpVal*modelMinusexpVal; 
         //Divide by the square of the shift so that large shifts don't
         //contribute excessily
-        double sq_shift = (context->dataset->vals[i]*context->dataset->vals[i]);
+        double sq_shift = 1;//(context->dataset->vals[i]*context->dataset->vals[i]);
         (*value) += sq_error/sq_shift; 
         //cout << "Spin " << i << " error = " << modelMinusexpVal*modelMinusexpVal << endl;
         if(gradient != NULL) {
             for(unsigned long j = 0; j < size; j++) {
                 //The gradient of the error is twice the gradient of the
                 //model - the expeimental value
-                gradient[j] += 2 * results[i].second[i] * modelMinusexpVal / sq_shift;
+                gradient[j] += 2 * results[i].second[j] * modelMinusexpVal / sq_shift;
 
                 assert(isfinite(gradient[j]));
                 assert(isfinite(gradient[j]*gradient[j]));
@@ -129,7 +131,7 @@ void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector
     //Rescale the gradient (if it is needed)
     if(df != NULL) {
         for(unsigned long i = 0; i<size; i++) {
-            double re_gradient = context->rescale ? gradient[i]/context->params[i] : gradient[i];
+            double re_gradient = context->rescale ? gradient[i]*context->params[i] : gradient[i];
             assert(isfinite(re_gradient));
             assert(isfinite(re_gradient*re_gradient));
             gsl_vector_set(df,i,re_gradient);
@@ -184,7 +186,7 @@ void do_fit_with_grad(const ErrorContext* context,double* optModel,double* final
     gsl_multimin_fdfminimizer* gslmin;
     //gsl_multimin_fdfminimizer_conjugate_fr
     //gsl_multimin_fdfminimizer_vector_bfgs2
-    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_conjugate_fr,size);
+    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2,size);
     
     gsl_multimin_fdfminimizer_set(gslmin,&minfunc,gslModelVec,0.01,0.2);
 

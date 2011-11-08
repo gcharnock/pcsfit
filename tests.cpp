@@ -78,13 +78,14 @@ void check_derivative (PRNG& prng,const Model* model) {
 void check_error_derivate(PRNG prng,const Model* model,Multithreader<fdf_t>* pool) {
     cout << "Checking the analytic and numerical derivaties match for the error functional" << endl;
 
+    double* params             = (double*)alloca(model->size*sizeof(double));
+    double* params2            = (double*)alloca(model->size*sizeof(double));
+    double* gradient           = (double*)alloca(model->size*sizeof(double));
+    double* numerical_gradient = (double*)alloca(model->size*sizeof(double));
+
     //Chekcs the analytic and numerical derivates are equil
     for(unsigned long i = 1;i<4;i++) {
         double result;
-        double* params             = (double*)alloca(model->size*sizeof(double));
-        double* params2            = (double*)alloca(model->size*sizeof(double));
-        double* gradient           = (double*)alloca(model->size*sizeof(double));
-		double* numerical_gradient = (double*)alloca(model->size*sizeof(double));;
 
 		//We need to generate two models, or else the gradient of the
 		//error function will always be zero (and the numerical

@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <utility>
+#include <ostream>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_01.hpp>
 
@@ -50,6 +51,6 @@ typedef std::pair<Nuclei,Vals> pairNucVals;
 
 void loadData(const std::string& filename,Dataset* dataset);
 
-
+void toSketch3d(std::ostream& out,Dataset* dataset);
 
 #endif

@@ -41,6 +41,8 @@ struct Options {
     string input_file;
     string method;
 
+    string sketch3dFile;
+
     bool dont_rescale;
     double integral_tol;
 
@@ -139,6 +141,7 @@ int main(int argc,char** argv) {
 			("help,h","print this help page and exit")
             ("method,m",value<string>(&options.method)->default_value("bfgs"),"")
             ("dont-rescale","")
+            ("sketch3d-file",value<string>(&options.sketch3dFile),"")
 			("random-model-type",
 			 "Specify the type of the model to use for generating random data")
 			("seed,s",value<unsigned long>(&options.seed),"Specify a seed for the random number generator")
@@ -167,7 +170,8 @@ int main(int argc,char** argv) {
         if(variablesMap.count("command")) {
             command = variablesMap["command"].as<string>();
         }
-        if(!(command == "fit" || command == "errorscan" || command == "scan" || command == "selftest" || command == "makedata")) {
+        if(!(command == "fit" || command == "errorscan" || command == "sketch3d" ||
+             command == "scan" || command == "selftest" || command == "makedata")) {
 			cout << "Usage:" << endl;
 			cout << optDesc << endl;
 			return -1;
@@ -223,34 +227,38 @@ int main(int argc,char** argv) {
 	const Model* model;
     std::vector<double> params;
 
-    int retVal =  parse_params_file(options.params_file,&model,&params);
-    if(retVal != PARSE_SUCESS) {
-        cerr << "Parse of param file failed: ";
-        switch(retVal) {
-        case UNKNOWN_MODEL:
-            cerr << "unknown model" << endl;
-            break;
-        case NOT_ENOUGH_PARAMS:
-            cerr << "not enough params" << endl;
-            break;
-        case PARAM_FILE_NOT_FOUND:
-            cerr << "file " << options.params_file << " not found" << endl;
-            break;
-        default:
-            assert(false);
+    double* params_start = NULL;
+    double* params_opt   = NULL;
+
+    if(command != "sketch3d") {
+        int retVal =  parse_params_file(options.params_file,&model,&params);
+        if(retVal != PARSE_SUCESS) {
+            cerr << "Parse of param file failed: ";
+            switch(retVal) {
+            case UNKNOWN_MODEL:
+                cerr << "unknown model" << endl;
+                break;
+            case NOT_ENOUGH_PARAMS:
+                cerr << "not enough params" << endl;
+                break;
+            case PARAM_FILE_NOT_FOUND:
+                cerr << "file " << options.params_file << " not found" << endl;
+                break;
+            default:
+                assert(false);
+            }
+            return -1;
         }
-        return -1;
+
+    	//Set up buffers to store the paramiters
+    	params_start         = (double*)alloca(model->size*sizeof(double));
+    	params_opt           = (double*)alloca(model->size*sizeof(double));
+
+
+    	for(unsigned long i = 0; i < model->size;i++) {
+    		params_start[i] = params[i];
+    	}
     }
-
-	//Set up buffers to store the paramiters
-	double* params_start         = (double*)alloca(model->size*sizeof(double));
-	double* params_opt           = (double*)alloca(model->size*sizeof(double));
-
-
-	for(unsigned long i = 0; i < model->size;i++) {
-		params_start[i] = params[i];
-	}
-
     if(command == "scan") {
         ErrorContext context;
         context.params  = params_start;
@@ -268,11 +276,8 @@ int main(int argc,char** argv) {
 
 	//Okay, we don't want tests, we are doing a fitting. Where should
 	//data dataset come from?
-	if(command != "makedata") {
-        //A file
-        logMsg("Loading data from file " << options.input_file);
-		loadData(options.input_file,&dataset);
-	} else {
+
+    if (command == "makedata") {
         random_data(prng,*model,params_start,20,&dataset);
         for(unsigned long i = 0; i < dataset.nuclei.size(); i++) {
             cout << dataset.vals[i]     << " "
@@ -281,8 +286,27 @@ int main(int argc,char** argv) {
                  << dataset.nuclei[i].z << endl;
         }
         return 0;
+	} else {
+        //A file
+        logMsg("Loading data from file " << options.input_file);
+		loadData(options.input_file,&dataset);
+    }
+    if (dataset.nuclei.size() == 0) {
+        cout << "WARNING: dataset contains no spins" << endl;
     }
 
+
+    //Do we want to produce a publishable quality visualisation?  Is
+    //so, do it now and quit
+    if(command == "sketch3d") {
+        ofstream out(options.sketch3dFile.c_str());
+        if(!out.is_open()) {
+            cerr << "Could not open file " << options.sketch3dFile << endl;
+            return 1;
+        }
+        toSketch3d(out,&dataset);
+        return 0;
+    }
 
     //Stuff our dataset, starting params and model in an ErrorContex
 	ErrorContext context;
@@ -336,6 +360,6 @@ bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_
     for(unsigned long j = 0;j< x->size;j++) {cout << (gsl_vector_get(x,j)*context->params[j]) << "\t";}
 	cout << "\tf(x) = " << fx << "\t|grad| = " << norm << endl;
 
-	return itN < 5000;
+	return itN < 6000 && norm > 1e-30;
 }
 
