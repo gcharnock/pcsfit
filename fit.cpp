@@ -184,9 +184,10 @@ void do_fit_with_grad(const ErrorContext* context,double* optModel,double* final
     
     //Setup the minimiser
     gsl_multimin_fdfminimizer* gslmin;
+    //gsl_multimin_fdfminimizer_steepest_descent
     //gsl_multimin_fdfminimizer_conjugate_fr
     //gsl_multimin_fdfminimizer_vector_bfgs2
-    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2,size);
+    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_steepest_descent,size);
     
     gsl_multimin_fdfminimizer_set(gslmin,&minfunc,gslModelVec,0.01,0.2);
 

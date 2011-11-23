@@ -25,7 +25,6 @@
 #include "threads.hpp"
 #include "model2.hpp"
 #include "data.hpp"
-#include "minimiser.hpp"
 #include "tests.hpp"
 
 #define logMsg(x) flog << __FILE__ << "(" << __LINE__ << ")" << x << endl;
@@ -37,6 +36,19 @@ bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_
 
 
 struct Options {
+    Options ()
+        : dont_rescale(false),
+          dont_reg(false),
+          integral_tol(1e-3),
+          seed(0),
+          scanparam(0),
+          scanparam_min(0),
+          scanparam_max(1),
+          scanparam2(1),
+          scanparam_min2(0),
+          scanparam_max2(1),
+          step_count(10) {
+    }
     string params_file;
     string input_file;
     string method;
@@ -44,6 +56,7 @@ struct Options {
     string sketch3dFile;
 
     bool dont_rescale;
+    bool dont_reg;
     double integral_tol;
 
     unsigned long seed;
@@ -69,6 +82,7 @@ ofstream flog;
 void run_scan(const Options& options,const ErrorContext* context,bool errorscan = false) {
     unsigned long size = context->model->size;
     double* params = (double*)alloca(size * sizeof(double));
+    memcpy(params,context->params,size * sizeof(double));
 
     bool twoDScan = options.scanparam2 > -1;
 
@@ -80,6 +94,19 @@ void run_scan(const Options& options,const ErrorContext* context,bool errorscan 
         cerr << "Invalid value for scanparam 2" << endl;
         return;
     }
+    
+    cout << "Paramiter set:" << endl;
+    for(unsigned long i = 0; i < size; i++) { 
+        cout << context->params[i];
+        if(options.scanparam == i) {
+            cout << "  - First scan dimension";
+        }
+        if(options.scanparam2 == long(i)) {
+            cout << "  - Second scan dimension";
+        }
+        cout << endl;
+    }
+    cout << endl;
 
     for(unsigned long i = 0; i < options.step_count; i++) {
         double t1 = double(i)/options.step_count;
@@ -89,7 +116,7 @@ void run_scan(const Options& options,const ErrorContext* context,bool errorscan 
 
         unsigned long inner_count = twoDScan ? options.step_count : 1;
         for(unsigned long j = 0; j < inner_count; j++) {
-            double p2;
+            double p2 = 0; //Shut up the warning
             if(twoDScan) {
                 double t2 = double(j)/options.step_count;
                 p2 = options.scanparam_min2 + (options.scanparam_max2-options.scanparam_min2)*t2;
@@ -99,7 +126,7 @@ void run_scan(const Options& options,const ErrorContext* context,bool errorscan 
 
             double value;
             if(!errorscan) {
-                context->model->modelf(Vector3(0,0,0),params,&value,NULL);
+                context->model->modelf(Vector3(14.286,58.2,4.932),params,&value,NULL);
             } else {
                 eval_error(context,params,&value,NULL);
             }
@@ -135,11 +162,12 @@ int main(int argc,char** argv) {
 		options_description optDesc("Options");
 
 		optDesc.add_options()
-            ("command",value<string>(&command),"fit|scan|selftest")
+            ("command",value<string>(&command),"fit|scan|errorscan|sketch3d|makedata|selftest")
             ("params-file,p",value<string>(&options.params_file),"")
 			("input-file,i",value<string>(&options.input_file),"specify an input file")
 			("help,h","print this help page and exit")
             ("method,m",value<string>(&options.method)->default_value("bfgs"),"")
+            ("dont-reg","Don't regualize")
             ("dont-rescale","")
             ("sketch3d-file",value<string>(&options.sketch3dFile),"")
 			("random-model-type",
@@ -151,7 +179,7 @@ int main(int argc,char** argv) {
 			("max",value<double>(&options.scanparam_max)->default_value(1),"")
 			("min2",value<double>(&options.scanparam_min2)->default_value(0),"")
 			("max2",value<double>(&options.scanparam_max2)->default_value(1),"")
-            ("step_count",value<unsigned long>(&options.step_count)->default_value(50),"");
+            ("steps",value<unsigned long>(&options.step_count)->default_value(20),"");
 		try {
 			store(command_line_parser(argc,argv).options(optDesc).positional(posOpt).run(),variablesMap);
 		} catch(std::exception& e) {
@@ -186,6 +214,11 @@ int main(int argc,char** argv) {
 
     if(variablesMap.count("rescale") > 0) {
         rescale = false;
+        options.dont_rescale = true;
+    }
+
+    if(variablesMap.count("dont-reg") > 0) {
+        options.dont_reg = true;
     }
 
     if(command == "fit") {
@@ -265,6 +298,7 @@ int main(int argc,char** argv) {
         context.model   = model;
         context.pool    = &pool;
         run_scan(options,&context,false);
+        return 0;
     }
 
     //----------------------------------------------------------------------//

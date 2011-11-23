@@ -240,17 +240,17 @@ void testModel(PRNG& prng,Multithreader<fdf_t>* pool) {
     //Check the gaussian model;
     //test_gaussian(prng);
 
-    check_derivative (prng,&point_model);
+    //check_derivative (prng,&point_model);
     check_derivative (prng,&gaussian_model);
 
     //cout << "Evaulating the analytic and numerical derivatives of the error functional" << endl;
-    check_error_derivate(prng,&point_model   ,pool);
+    //check_error_derivate(prng,&point_model   ,pool);
     //check_error_derivate(prng,&gaussian_model,pool);
 
-    check_minimum(prng,&point_model   ,pool);
+    //check_minimum(prng,&point_model   ,pool);
     //check_minimum(prng,&gaussian_model,pool);
     
-	do_convergence(prng,&point_model   ,pool);
+	//do_convergence(prng,&point_model   ,pool);
 	//do_convergence(prng,&gaussian_model,pool);
 }
 

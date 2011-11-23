@@ -38,7 +38,7 @@ public:
 		mMapTo = &mapTo;
         mMapTo->resize(mFuncs->size());
 
-        if(true) {
+        if(false) {
             //Do work
             for(unsigned long i = 0;i<mFuncs->size();i++) {
                 mMapTo->at(i) = mFuncs->at(i)();
