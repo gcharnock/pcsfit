@@ -15,7 +15,7 @@ ofstream* integralOut;
 
 struct IntegralBounds;
 
-typedef int (*IntegrandF) (const double xx[],double ff[], int ncomp, IntegralBounds *bounds);
+typedef int (*IntegrandF) (const double xx[],double ff[], int ncomp, void *data);
 
 struct IntegralBounds {
     double xmax;
@@ -27,8 +27,7 @@ struct IntegralBounds {
     double zmax;
     double zmin;
 
-    double reg_radius2;
-
+    void* data;
 	IntegrandF integrand;
 };
 
@@ -68,7 +67,7 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 	xxprime[1]=xx[1]*(bounds->ymax - bounds->ymin) + bounds->ymin;
 	xxprime[2]=xx[2]*(bounds->zmax - bounds->zmin) + bounds->zmin;
 
-	bounds->integrand(xxprime,ff,*ncomp,bounds);
+	bounds->integrand(xxprime,ff,*ncomp,NULL);
 
     for(int i=0;i<*ncomp;i++){assert(isfinite(ff[i]));}
 
@@ -210,12 +209,14 @@ void eval_point(Vector3 evalAt,const double* pm,double* value, double* gradient)
     }
 }
 
-struct Userdata : public IntegralBounds {
+struct Userdata {
     //For sending cuhre.
     const Model* point_model;
     const double* params; 
     double  stddev;
 	Vector3 evalAt;
+
+    double reg_radius2;
 };
 
 double bump(double t)  {
@@ -226,10 +227,12 @@ double bump(double t)  {
 //a member function. We'll pass the this pointer explicitly to fake a
 //member
 
-int Integrand2(const double xx[],double ff[],int ncomp, IntegralBounds* bounds) {
-    Userdata* userdata = static_cast<Userdata*>(bounds);
+int Integrand2(const double xx[],double ff[],int ncomp, void* void_userdata) {
+    Userdata* userdata = (Userdata*)(void_userdata);
+    cout << userdata << endl;
+    return 0;
 
-    const double* params      = userdata->params;
+    const double* params = userdata->params;
     double stddev = abs(userdata->stddev);
 
     unsigned long point_size = userdata->point_model->size;
@@ -324,22 +327,24 @@ void eval_gaussian(Vector3 evalAt,const double* params,double* value, double* gr
     Userdata userdata;
     userdata.point_model = &point_model;
     userdata.params = params;
-    userdata.stddev = params[PARAM_STDDEV];
 	userdata.evalAt = evalAt;
 
-    userdata.xmax =   5*userdata.stddev;
-    userdata.xmin =  -5*userdata.stddev;
+    double stddev = params[PARAM_STDDEV];
+
+    IntegralBounds bounds;
+    bounds.xmax =   5*stddev;
+    bounds.xmin =  -5*stddev;
     
-    userdata.ymax =   5*userdata.stddev;
-    userdata.ymin =  -5*userdata.stddev;
+    bounds.ymax =   5*stddev;
+    bounds.ymin =  -5*stddev;
     
-    userdata.zmax =   5*userdata.stddev;
-    userdata.zmin =  -5*userdata.stddev;
+    bounds.zmax =   5*stddev;
+    bounds.zmin =  -5*stddev;
 
     //Make sure that the region where regualization is applied is
     //wholey included or wholey excluded.
 
-    double reg_radius    = userdata.stddev/2;
+    double reg_radius    = stddev/2;
     userdata.reg_radius2 = reg_radius*reg_radius;
     /*
     //TODO: Use a less stupid sphere-cube collision detection
@@ -373,7 +378,7 @@ void eval_gaussian(Vector3 evalAt,const double* params,double* value, double* gr
 
 	double* integral = (double*)alloca(ncomp*sizeof(double));
 
-	cuhreIntegrate(Integrand2,static_cast<IntegralBounds*>(&userdata),ncomp,integral);
+	cuhreIntegrate(Integrand2,&bounds,ncomp,integral);
 
 
     *value = integral[0];
