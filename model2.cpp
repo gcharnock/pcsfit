@@ -67,7 +67,7 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 	xxprime[1]=xx[1]*(bounds->ymax - bounds->ymin) + bounds->ymin;
 	xxprime[2]=xx[2]*(bounds->zmax - bounds->zmin) + bounds->zmin;
 
-	bounds->integrand(xxprime,ff,*ncomp,NULL);
+	bounds->integrand(xxprime,ff,*ncomp,bounds->data);
 
     for(int i=0;i<*ncomp;i++){assert(isfinite(ff[i]));}
 
@@ -75,7 +75,7 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 }
 
 
-void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,double* integral) {
+void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,double* integral,void* data) {
     const static int NDIM = 3;
     const static double EPSREL = 1e-5;
     const static double EPSABS = 0.01;
@@ -90,6 +90,7 @@ void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,doub
     double* prob  = (double*)alloca(ncomp * sizeof(double));
 
 	bounds->integrand=f;
+    bounds->data=data;
 
 	Cuhre(NDIM, ncomp, cuhreIntegrand, (void*)bounds,
 		  EPSREL, EPSABS, VERBOSE | LAST,
@@ -229,7 +230,7 @@ double bump(double t)  {
 
 int Integrand2(const double xx[],double ff[],int ncomp, void* void_userdata) {
     Userdata* userdata = (Userdata*)(void_userdata);
-    cout << userdata << endl;
+
     return 0;
 
     const double* params = userdata->params;
@@ -378,7 +379,7 @@ void eval_gaussian(Vector3 evalAt,const double* params,double* value, double* gr
 
 	double* integral = (double*)alloca(ncomp*sizeof(double));
 
-	cuhreIntegrate(Integrand2,&bounds,ncomp,integral);
+	cuhreIntegrate(Integrand2,&bounds,ncomp,integral,(void*)&userdata);
 
 
     *value = integral[0];
