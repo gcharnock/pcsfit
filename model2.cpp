@@ -8,6 +8,7 @@
 #include <cassert>
 #include <alloca.h>
 #include <fstream>
+#include <limits>
 
 using namespace std;
 
@@ -488,6 +489,84 @@ void eval_gaussian_testing(Vector3 evalAt,const double* params,double* value, do
 }
 
 
+//================================================================================//
+
+int IntegrandNumDev(const double xx[],double ff[],int ncomp, void* void_userdata) {
+    Userdata* userdata = (Userdata*)(void_userdata);
+    Userdata userdata_copy = *userdata;
+
+    unsigned long size = (userdata->point_model->size+1);
+
+	double* params_mutable = (double*)alloca(size*sizeof(double));
+	memcpy(params_mutable,userdata->params,size*sizeof(double));
+    userdata_copy.params=params_mutable;
+
+    assert(ncomp == int(1 + userdata->point_model->size + 1));
+
+    Integrand2(xx,ff,1,(void*)&userdata_copy);
+
+    for(unsigned long i = 0;i<userdata->point_model->size;i++) {
+        double param = userdata->params[i];
+
+		double h     = abs(param*0.0001);
+		double result_plus  = numeric_limits<double>::quiet_NaN();
+        double result_minus = numeric_limits<double>::quiet_NaN();
+
+		params_mutable[i] = param + h;
+        Integrand2(xx,&result_plus,1,(void*)&userdata_copy);
+
+		params_mutable[i] = param - h;
+        Integrand2(xx,&result_minus,1,(void*)&userdata_copy);
+
+		params_mutable[i] = param;
+
+		ff[i] = (result_plus-result_minus)/(2*h);
+	}
+
+    return 0;
+}
+
+
+void eval_gaussian_num_dev(Vector3 evalAt,const double* params,double* value, double* gradient) {
+    integralOut = new ofstream("int.dat");
+
+    Userdata userdata;
+    userdata.point_model = &point_model;
+    userdata.params = params;
+	userdata.evalAt = evalAt;
+    double stddev = params[PARAM_STDDEV];
+
+    IntegralBounds bounds;
+    bounds.xmax =   5*stddev;
+    bounds.xmin =  -5*stddev;
+    
+    bounds.ymax =   5*stddev;
+    bounds.ymin =  -5*stddev;
+    
+    bounds.zmax =   5*stddev;
+    bounds.zmin =  -5*stddev;
+
+
+    double reg_radius    = stddev/2;
+    userdata.reg_radius2 = reg_radius*reg_radius;
+
+    //We we're doing the gradient, how many functions do we need? 
+    unsigned long ncomp = 1 + userdata.point_model->size + 1;
+
+	double* integral = (double*)alloca(ncomp*sizeof(double));
+
+    if(gradient == NULL) {
+        cuhreIntegrate(Integrand2     ,&bounds,ncomp,integral,(void*)&userdata);
+    } else {
+        cuhreIntegrate(IntegrandNumDev,&bounds,ncomp,integral,(void*)&userdata);
+    }
+
+    *value = integral[0];
+
+    delete integralOut;
+}
+
 const Model point_model    = {eval_point   ,8,"Point Model"};
 const Model gaussian_model = {eval_gaussian,9,"Gaussian Model"};
+const Model gaussian_model_num_dev  = {eval_gaussian_num_dev,9,"Gaussian Model with Numerical Derivatives"};
 const Model gaussian_model_testing = {eval_gaussian_testing,9,"Gaussian Model"};
