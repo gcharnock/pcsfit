@@ -65,7 +65,7 @@ void check_derivative (PRNG& prng,const Model* model) {
 
         numerical_derivative(evalAt,model,params,numerical_gradient);
 
-        cout << "Result = " << endl;
+        cout << "Result = " << result << endl;
         for(unsigned long i=0;i<model->size;i++) {
 			cout << name_param(i) << " = " << params[i] <<
 				" grad = " << gradient[i]
@@ -242,6 +242,7 @@ void testModel(PRNG& prng,Multithreader<fdf_t>* pool) {
 
     //check_derivative (prng,&point_model);
     check_derivative (prng,&gaussian_model);
+    check_derivative (prng,&gaussian_model_num_dev);
 
     //cout << "Evaulating the analytic and numerical derivatives of the error functional" << endl;
     //check_error_derivate(prng,&point_model   ,pool);

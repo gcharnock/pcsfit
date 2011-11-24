@@ -78,12 +78,12 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 
 void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,double* integral,void* data) {
     const static int NDIM = 3;
-    const static double EPSREL = 1e-5;
-    const static double EPSABS = 0.01;
+    const static double EPSREL = 1;
+    const static double EPSABS = 0.00;
     const static int VERBOSE = 0;
     const static int LAST = 4;
     const static int MINEVAL = 1;
-    const static int MAXEVAL = 5000000;
+    const static int MAXEVAL = 50000;
     const static int KEY = 7; //Use 11 point quadriture
 
 	int nregions, neval, fail;
@@ -215,7 +215,6 @@ struct Userdata {
     //For sending cuhre.
     const Model* point_model;
     const double* params; 
-    double  stddev;
 	Vector3 evalAt;
 
     double reg_radius2;
@@ -232,10 +231,8 @@ double bump(double t)  {
 int Integrand2(const double xx[],double ff[],int ncomp, void* void_userdata) {
     Userdata* userdata = (Userdata*)(void_userdata);
 
-    return 0;
-
     const double* params = userdata->params;
-    double stddev = abs(userdata->stddev);
+    double stddev = abs(params[PARAM_STDDEV]);
 
     unsigned long point_size = userdata->point_model->size;
 
@@ -299,6 +296,7 @@ int Integrand2(const double xx[],double ff[],int ncomp, void* void_userdata) {
         //cout << singularity_r2 << ", " << rho << endl;
     } 
     assert(isfinite(rho));
+    assert(isfinite(f));
 
     ff[0] = rho*f;
 
@@ -381,7 +379,6 @@ void eval_gaussian(Vector3 evalAt,const double* params,double* value, double* gr
 	double* integral = (double*)alloca(ncomp*sizeof(double));
 
 	cuhreIntegrate(Integrand2,&bounds,ncomp,integral,(void*)&userdata);
-
 
     *value = integral[0];
 
@@ -490,7 +487,6 @@ void eval_gaussian_testing(Vector3 evalAt,const double* params,double* value, do
 
 
 //================================================================================//
-
 int IntegrandNumDev(const double xx[],double ff[],int ncomp, void* void_userdata) {
     Userdata* userdata = (Userdata*)(void_userdata);
     Userdata userdata_copy = *userdata;
@@ -505,10 +501,10 @@ int IntegrandNumDev(const double xx[],double ff[],int ncomp, void* void_userdata
 
     Integrand2(xx,ff,1,(void*)&userdata_copy);
 
-    for(unsigned long i = 0;i<userdata->point_model->size;i++) {
+    for(unsigned long i = 0; i < size; i++) {
         double param = userdata->params[i];
 
-		double h     = abs(param*0.0001);
+		double h     = abs(param*0.01);
 		double result_plus  = numeric_limits<double>::quiet_NaN();
         double result_minus = numeric_limits<double>::quiet_NaN();
 
@@ -520,7 +516,8 @@ int IntegrandNumDev(const double xx[],double ff[],int ncomp, void* void_userdata
 
 		params_mutable[i] = param;
 
-		ff[i] = (result_plus-result_minus)/(2*h);
+		ff[i+1] = (result_plus-result_minus)/(2*h);
+        if(i == 8 && abs(xx[2]) < 0.01) cout << xx[0] << " " << xx[1] << " " <<  ff[i+1] << endl;
 	}
 
     return 0;
@@ -558,7 +555,9 @@ void eval_gaussian_num_dev(Vector3 evalAt,const double* params,double* value, do
     if(gradient == NULL) {
         cuhreIntegrate(Integrand2     ,&bounds,ncomp,integral,(void*)&userdata);
     } else {
+        cout << "lollol-st" << endl;
         cuhreIntegrate(IntegrandNumDev,&bounds,ncomp,integral,(void*)&userdata);
+        cout << "lollol-ed" << endl;
     }
 
     *value = integral[0];

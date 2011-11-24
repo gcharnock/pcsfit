@@ -22,7 +22,7 @@ extern const Model point_model;
 //Extended models
 extern const Model gaussian_model;
 extern const Model gaussian_model_testing; //A much simplier model that gaussian_model for testing
-
+extern const Model gaussian_model_num_dev;
 
 #define PARAM_X 0
 #define PARAM_Y 1
