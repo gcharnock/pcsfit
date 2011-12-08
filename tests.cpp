@@ -1,8 +1,9 @@
 
 #include "tests.hpp"
-#include "model.hpp"
 #include "model2.hpp"
+#include "pointdev.hpp"
 #include "fit.hpp"
+
 
 #include <boost/bind.hpp>
 #include <iostream>
@@ -47,7 +48,7 @@ void check_derivative (PRNG& prng,const Model* model) {
     
     //Chekcs the analytic and numerical derivates are equil
     for(unsigned long i = 0;i<3;i++) {
-        double result;
+        double result,point_result;
         double* params             = (double*)alloca(model->size*sizeof(double));
         double* gradient           = (double*)alloca(model->size*sizeof(double));
 		double* numerical_gradient = (double*)alloca(model->size*sizeof(double));
@@ -55,17 +56,22 @@ void check_derivative (PRNG& prng,const Model* model) {
         for(unsigned long j = 0; j< model->size; j++) {
             params[j] = dist(prng);
         }
-        if(model == &gaussian_model) {
-            params[PARAM_STDDEV] *= 0.01;
-        }
 
 		Vector3 evalAt(dist(prng),dist(prng),dist(prng));
 
+        if(i != 2) continue;
+
         model->modelf(evalAt,params,&result,gradient);
+        point_model.modelf(evalAt,params,&point_result,NULL);
 
         numerical_derivative(evalAt,model,params,numerical_gradient);
 
-        cout << "Result = " << result << endl;
+        double x = evalAt.x - params[PARAM_X];
+        double y = evalAt.y - params[PARAM_Y];
+        double z = evalAt.z - params[PARAM_Z];
+
+        cout << "evalAt = (" << evalAt.x << "," << evalAt.y << "," << evalAt.z << ") r = " << sqrt(x*x+y*y+z*z) << endl;
+        cout << "Result = " << result << " (point result = " << point_result <<  ")" << endl;
         for(unsigned long i=0;i<model->size;i++) {
 			cout << name_param(i) << " = " << params[i] <<
 				" grad = " << gradient[i]
@@ -237,12 +243,15 @@ void test_gaussian(PRNG& prng) {
 void testModel(PRNG& prng,Multithreader<fdf_t>* pool) {
     cout << "================================================================================" << endl;
 
+    multinomial_run_tests();
+
     //Check the gaussian model;
     //test_gaussian(prng);
 
     //check_derivative (prng,&point_model);
-    check_derivative (prng,&gaussian_model);
-    check_derivative (prng,&gaussian_model_num_dev);
+    //PRNG prng_copy = prng;
+    //check_derivative (prng,&gaussian_model);
+    //check_derivative (prng_copy,&gaussian_model_num_dev);
 
     //cout << "Evaulating the analytic and numerical derivatives of the error functional" << endl;
     //check_error_derivate(prng,&point_model   ,pool);

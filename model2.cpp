@@ -12,8 +12,6 @@
 
 using namespace std;
 
-ofstream* integralOut;
-
 struct IntegralBounds;
 
 typedef int (*IntegrandF) (const double xx[],double ff[], int ncomp, void *data);
@@ -78,12 +76,12 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 
 void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,double* integral,void* data) {
     const static int NDIM = 3;
-    const static double EPSREL = 1;
+    const static double EPSREL = 1e-6;
     const static double EPSABS = 0.00;
     const static int VERBOSE = 0;
     const static int LAST = 4;
     const static int MINEVAL = 1;
-    const static int MAXEVAL = 50000;
+    const static int MAXEVAL = 5000000;
     const static int KEY = 7; //Use 11 point quadriture
 
 	int nregions, neval, fail;
@@ -107,7 +105,11 @@ void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,doub
         assert(isfinite(integral[i]));
     }
     if(fail != 0 || neval >= MAXEVAL)  {
-        cerr << "Warning, an integral failed to converge" << endl;
+        cerr << "Warning, an integral failed to converge, ncomp=" << ncomp << endl;
+        for(unsigned long i = 0; i < ncomp; i++) {
+            cout << "ff[" << i << "] = " << integral[i] << " +- " << (error[i]*result_scaling) 
+                 << " " << (error[i]*result_scaling/integral[i])*100 << "%" << endl;
+        }
     }
 }
 
@@ -241,10 +243,6 @@ int Integrand2(const double xx[],double ff[],int ncomp, void* void_userdata) {
     double z = xx[2];
 	double r2 = x*x + y*y + z*z;
 
-    static long count = 0;
-    if(count % 300 == 0)(*integralOut) << x << " " << y << " " << z << endl;
-    count++;
-
     //A vector pointing from the centre of 1/r^3 to the center of the gaussian
     double singularity_x = userdata->evalAt.x - x - params[0];
     double singularity_y = userdata->evalAt.y - y - params[1];
@@ -274,40 +272,65 @@ int Integrand2(const double xx[],double ff[],int ncomp, void* void_userdata) {
     double rho = normalizer*theExp;
 
     //Is any sort of regualisation needed?
-    if(singularity_r2 < 4*userdata->reg_radius2) {
-        double another_x = (userdata->evalAt.x - params[0]);
-        double another_y = (userdata->evalAt.y - params[1]);
-        double another_z = (userdata->evalAt.z - params[2]);
+    bool close      = singularity_r2 < 4*userdata->reg_radius2;
+    bool very_close = singularity_r2 < userdata->reg_radius2;
 
-        double rho0 = normalizer*exp(-a_coef*(another_x*another_x+
-                                              another_y*another_y+
-                                              another_z*another_z));
-        if(singularity_r2 < userdata->reg_radius2) {
-            rho = rho-rho0;
+    double another_r2;
+
+    double another_x;
+    double another_y;
+    double another_z;
+
+    double correction = 0;
+
+    another_x  = (userdata->evalAt.x - params[0]);
+    another_y  = (userdata->evalAt.y - params[1]);
+    another_z  = (userdata->evalAt.z - params[2]);
+    another_r2 = another_x*another_x + another_y*another_y + another_z*another_z;
+
+    if(close) {
+        if(very_close) {
+            correction = 1;
         } else {
             double reg_radius = sqrt(userdata->reg_radius2);
             double singularity_r = sqrt(singularity_r2);
 
             double t =  (singularity_r - reg_radius)/(reg_radius);
-            double poly = magic_polynomial(t);
 
-            rho = rho-(1-poly)*rho0;
+            correction = magic_polynomial(t);
         }
-        //cout << singularity_r2 << ", " << rho << endl;
-    } 
+    }
+    double rho0 = normalizer*exp(-a_coef*(another_r2));
+
     assert(isfinite(rho));
+    assert(isfinite(rho0));
     assert(isfinite(f));
 
-    ff[0] = rho*f;
-
-    if(ncomp != 1) {
-        double drho = pow(M_PI,-1.5)*(1.5*pow(stddev,0.5)+2*pow(stddev,-1.5)*r2)*theExp;
-        for(unsigned long i=1;i<9;i++){ff[i] = rho * gradient[i-1];}
-        ff[9] = drho * f;
+    ff[0] = (rho-rho0*correction)*f;
+    assert(isfinite(ff[0]));
+    if(ncomp == 1) {
+        //If we don't need a gradient, we can stop here.
+        return 0;
     }
 
-    for(int i=0;i<ncomp;i++){assert(isfinite(ff[i]));}
+    double drhoBy_ds  = pow(M_PI,-1.5)*(2*pow(stddev,-6)*r2-3*pow(stddev,-4))*theExp;
 
+    double theExp0 = exp(-a_coef*another_r2);
+    double drhoBy_ds0 = pow(M_PI,-1.5)*(2*pow(stddev,-6)*another_r2-3*pow(stddev,-4))*theExp0;
+
+    //double common_factor = -2*pow(M_PI,-3.0/2.0)/sqrt(stddev) * theExp0;
+    //double drhoBydx_dx   = common_factor * singularity_x * (x-singularity_x);
+    //double drhoBydy_dy   = common_factor * singularity_y * (y-singularity_y);
+    //double drhoBydz_dz   = common_factor * singularity_z * (z-singularity_z);
+        
+    //double drho0 = drhoBydx_dx*another_x + drhoBydy_dy*another_y + drhoBydz_dz*another_z;
+
+    for(unsigned long i=1;i<9;i++){
+        ff[i] = (rho-rho0*correction) * gradient[i-1];
+    }
+    ff[9] = (drhoBy_ds-correction*drhoBy_ds0) * f;
+
+    for(int i=0;i<ncomp;i++){assert(isfinite(ff[i]));}
     return 0;
 }
 
@@ -322,8 +345,6 @@ bool intersect(double a,double b,double c,double d) {
 }
 
 void eval_gaussian(Vector3 evalAt,const double* params,double* value, double* gradient) {
-    integralOut = new ofstream("int.dat");
-
     Userdata userdata;
     userdata.point_model = &point_model;
     userdata.params = params;
@@ -332,48 +353,20 @@ void eval_gaussian(Vector3 evalAt,const double* params,double* value, double* gr
     double stddev = params[PARAM_STDDEV];
 
     IntegralBounds bounds;
-    bounds.xmax =   5*stddev;
-    bounds.xmin =  -5*stddev;
+    bounds.xmax =   12*stddev;
+    bounds.xmin =  -12*stddev;
     
-    bounds.ymax =   5*stddev;
-    bounds.ymin =  -5*stddev;
+    bounds.ymax =   12*stddev;
+    bounds.ymin =  -12*stddev;
     
-    bounds.zmax =   5*stddev;
-    bounds.zmin =  -5*stddev;
+    bounds.zmax =   12*stddev;
+    bounds.zmin =  -12*stddev;
 
     //Make sure that the region where regualization is applied is
     //wholey included or wholey excluded.
 
-    double reg_radius    = stddev/2;
+    double reg_radius    = stddev/3.0;
     userdata.reg_radius2 = reg_radius*reg_radius;
-    /*
-    //TODO: Use a less stupid sphere-cube collision detection
-    //algorithm here
-    double singularity_x = evalAt.x-params[0];
-    double singularity_y = evalAt.y-params[1];
-    double singularity_z = evalAt.z-params[2];
-
-    double sphere_xmin = singularity_x-reg_radius;
-    double sphere_ymin = singularity_y-reg_radius;
-    double sphere_zmin = singularity_z-reg_radius;
-
-    double sphere_xmax = singularity_x+reg_radius;
-    double sphere_ymax = singularity_y+reg_radius;
-    double sphere_zmax = singularity_z+reg_radius;
-
-    if(intersect(sphere_xmin,sphere_xmax,userdata.xmin,userdata.xmax)) {
-        userdata.xmax = userdata.xmax > sphere_xmax ? userdata.xmax : sphere_xmin;
-        userdata.xmin = userdata.xmin < sphere_xmin ? userdata.xmin : sphere_xmax;
-    }
-    if(intersect(sphere_xmin,sphere_xmax,userdata.xmin,userdata.xmax)) {
-        userdata.ymax = userdata.ymax > sphere_ymax ? userdata.ymax : sphere_ymin;
-        userdata.ymin = userdata.ymin < sphere_ymin ? userdata.ymin : sphere_ymax;
-    }
-    if(intersect(sphere_xmin,sphere_xmax,userdata.xmin,userdata.xmax)) {
-        userdata.zmax = userdata.zmax > sphere_zmax ? userdata.zmax : sphere_zmin;
-        userdata.zmin = userdata.zmin < sphere_zmin ? userdata.zmin : sphere_zmax;
-    }
-    */
     unsigned long ncomp = gradient == NULL ? 1 : 10;
 
 	double* integral = (double*)alloca(ncomp*sizeof(double));
@@ -383,10 +376,8 @@ void eval_gaussian(Vector3 evalAt,const double* params,double* value, double* gr
     *value = integral[0];
 
     if(gradient != NULL) {
-        memcpy(gradient,integral+1,9*sizeof(double));
+        memcpy(gradient,integral+1,10*sizeof(double));
     }
-
-    delete integralOut;
 }
 
 
@@ -504,7 +495,7 @@ int IntegrandNumDev(const double xx[],double ff[],int ncomp, void* void_userdata
     for(unsigned long i = 0; i < size; i++) {
         double param = userdata->params[i];
 
-		double h     = abs(param*0.01);
+		double h     = abs(param*0.00001);
 		double result_plus  = numeric_limits<double>::quiet_NaN();
         double result_minus = numeric_limits<double>::quiet_NaN();
 
@@ -517,7 +508,7 @@ int IntegrandNumDev(const double xx[],double ff[],int ncomp, void* void_userdata
 		params_mutable[i] = param;
 
 		ff[i+1] = (result_plus-result_minus)/(2*h);
-        if(i == 8 && abs(xx[2]) < 0.01) cout << xx[0] << " " << xx[1] << " " <<  ff[i+1] << endl;
+        //if(i == 8 && abs(xx[2]) < 0.01) cout << xx[0] << " " << xx[1] << " " <<  ff[i+1] << endl;
 	}
 
     return 0;
@@ -525,8 +516,6 @@ int IntegrandNumDev(const double xx[],double ff[],int ncomp, void* void_userdata
 
 
 void eval_gaussian_num_dev(Vector3 evalAt,const double* params,double* value, double* gradient) {
-    integralOut = new ofstream("int.dat");
-
     Userdata userdata;
     userdata.point_model = &point_model;
     userdata.params = params;
@@ -548,21 +537,21 @@ void eval_gaussian_num_dev(Vector3 evalAt,const double* params,double* value, do
     userdata.reg_radius2 = reg_radius*reg_radius;
 
     //We we're doing the gradient, how many functions do we need? 
-    unsigned long ncomp = 1 + userdata.point_model->size + 1;
+    unsigned long ncomp = gradient == NULL ? 1 : 1 + userdata.point_model->size + 1;
 
 	double* integral = (double*)alloca(ncomp*sizeof(double));
 
     if(gradient == NULL) {
         cuhreIntegrate(Integrand2     ,&bounds,ncomp,integral,(void*)&userdata);
     } else {
-        cout << "lollol-st" << endl;
         cuhreIntegrate(IntegrandNumDev,&bounds,ncomp,integral,(void*)&userdata);
-        cout << "lollol-ed" << endl;
     }
 
     *value = integral[0];
 
-    delete integralOut;
+    if(gradient != NULL) {
+        memcpy(gradient,integral+1,9*sizeof(double));
+    }
 }
 
 const Model point_model    = {eval_point   ,8,"Point Model"};

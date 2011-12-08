@@ -125,17 +125,22 @@ void run_scan(const Options& options,const ErrorContext* context,bool errorscan 
 
 
             double value;
+            double* gradient = (double*)alloca(size*sizeof(double));
             if(!errorscan) {
-                context->model->modelf(Vector3(14.286,58.2,4.932),params,&value,NULL);
+                context->model->modelf(Vector3(10,50,0),params,&value,gradient);
             } else {
-                eval_error(context,params,&value,NULL);
+                eval_error(context,params,&value,gradient);
             }
             
             if(twoDScan) {
-                cout << p1 << " " << p2 << " " << value << endl;
+                cout << p1 << " " << p2 << " " << value;
             } else {
-                cout << p1 << " " << value << endl;
+                cout << p1 << " " << value;
             }
+            for(unsigned long i = 0; i < size; i++) {
+                cout << " " << gradient[i];
+            }
+            cout << endl;
         }
     }
 }
