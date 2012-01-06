@@ -4,11 +4,14 @@ project(pcsfit)
 
 #set(CMAKE_VERBOSE_MAKEFILE TRUE)
 
+#set(CMAKE_CXX_COMPILER "g++-4.4")
+#set(CMAKE_CXX_LINKER "g++-4.4")
+
 #Debug build, can use with gdb
-set(CMAKE_BUILD_TYPE Debug)
+#set(CMAKE_BUILD_TYPE Debug)
 
 #Compile a release build
-#set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Release)
 
 
 #set(VTKLIBS
@@ -43,7 +46,7 @@ set(cmake_cxx_flags_release "-O3 -ffast-math")
 set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS})
 
 
-set(sources model2.cpp fit.cpp  data.cpp  tests.cpp pointdev.cpp)
+set(sources model2.cpp fit.cpp  data.cpp  tests.cpp pointdev.cpp maths.cpp)
 
 
 add_executable(pcsfit main.cpp  ${sources})

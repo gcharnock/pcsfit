@@ -1,5 +1,6 @@
 
 #include "model2.hpp"
+#include "pointdev.hpp"
 #include "cuba.h"
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_01.hpp>
@@ -16,6 +17,8 @@ struct IntegralBounds;
 
 typedef int (*IntegrandF) (const double xx[],double ff[], int ncomp, void *data);
 
+ofstream iout("int.dat",ios::out);
+
 struct IntegralBounds {
     double xmax;
     double xmin;
@@ -30,7 +33,37 @@ struct IntegralBounds {
 	IntegrandF integrand;
 };
 
+
+
 double magic_polynomial(double t) {
+    double t2 =  t*t;
+    double t3 =  t2*t;
+    double t4 =  t3*t;
+    double t5 =  t4*t;
+    double t6 =  t5*t;
+    double t7 =  t6*t;
+    double t8 =  t7*t;
+    double t9 =  t8*t;
+    double t10 = t9*t;
+    double t11 = t10*t;
+
+    return 3879876*t11*
+        (+      t10 /21.0
+         -      t9  /2.0
+         +45  * t8  /19.0
+         -20  * t7  /3.0
+         +210 * t6  /17.0
+         -63  * t5  /4.0
+         +14  * t4
+         -60  * t3  /7.0
+         +45  * t2  /13.0
+         -5   *t    /6.0
+         +1         /11.0);
+}
+
+
+
+/*double magic_polynomial(double t) {
     double t2 =  t*t;
     double t3 =  t2*t;
     double t4 =  t3*t;
@@ -52,7 +85,7 @@ double magic_polynomial(double t) {
          +1956240* t7
          -461890 * t8
          +48620  * t9);
-}
+         }*/
 
 int cuhreIntegrand(const int *ndim, const double xx[],
 					const int *ncomp, double ff[], void *voidbounds) {
@@ -76,13 +109,13 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 
 void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,double* integral,void* data) {
     const static int NDIM = 3;
-    const static double EPSREL = 1e-6;
+    const static double EPSREL = 1e-2;
     const static double EPSABS = 0.00;
     const static int VERBOSE = 0;
     const static int LAST = 4;
     const static int MINEVAL = 1;
     const static int MAXEVAL = 5000000;
-    const static int KEY = 7; //Use 11 point quadriture
+    const static int KEY = 11; //Use 11 point quadriture
 
 	int nregions, neval, fail;
 	double* error = (double*)alloca(ncomp * sizeof(double));
@@ -201,7 +234,10 @@ void eval_point(Vector3 evalAt,const double* pm,double* value, double* gradient)
 
         double fiveAOver12Pi7 = 5*A/(12*M_PI*r5*r2);
 
-        //I'm not sure yet what the meaning of the sign error. Added a - to the total expression to fix it.
+        //There is a minus here because this is a deriative with
+        //respect to the position of the metal, which appears as
+        //sigma(r - r_m) where sigma is a model assuming the metal
+        //sits at the origin and r_m is the location of the metal
         gradient[PARAM_X] = -(-x*fiveAOver12Pi7 + (-4*x*chi_1          + 6*(y*chi_xy + z*chi_xz))*inv12PiR5);
         gradient[PARAM_Y] = -(-y*fiveAOver12Pi7 + (2*y*(chi_1 - chi_2) + 6*(x*chi_xy + z*chi_yz))*inv12PiR5);
         gradient[PARAM_Z] = -(-z*fiveAOver12Pi7 + (2*z*(chi_1 + chi_2) + 6*(x*chi_xz + y*chi_yz))*inv12PiR5);
@@ -273,7 +309,7 @@ int Integrand2(const double xx[],double ff[],int ncomp, void* void_userdata) {
 
     //Is any sort of regualisation needed?
     bool close      = singularity_r2 < 4*userdata->reg_radius2;
-    bool very_close = singularity_r2 < userdata->reg_radius2;
+    bool very_close = singularity_r2 <   userdata->reg_radius2;
 
     double another_r2;
 
@@ -297,7 +333,7 @@ int Integrand2(const double xx[],double ff[],int ncomp, void* void_userdata) {
 
             double t =  (singularity_r - reg_radius)/(reg_radius);
 
-            correction = magic_polynomial(t);
+            correction = magic_polynomial(1-t);
         }
     }
     double rho0 = normalizer*exp(-a_coef*(another_r2));
@@ -305,6 +341,7 @@ int Integrand2(const double xx[],double ff[],int ncomp, void* void_userdata) {
     assert(isfinite(rho));
     assert(isfinite(rho0));
     assert(isfinite(f));
+
 
     ff[0] = (rho-rho0*correction)*f;
     assert(isfinite(ff[0]));
@@ -394,7 +431,7 @@ int parse_params_file(const std::string& filename,const Model** model,std::vecto
         cout << "Using gauss_test model " << endl;
         *model = &gaussian_model_testing;
     } else if(model_name == "gauss") {
-        *model = &gaussian_model;
+        *model = &gaussian_model_series;
     } else {
         return  UNKNOWN_MODEL;
     }
@@ -426,6 +463,218 @@ void random_data(PRNG& prng,const Model& model,const double* params,unsigned lon
         model.modelf(dataset->nuclei[i],params,&(dataset->vals[i]),NULL);
     }
 }
+
+//================================================================================//
+
+int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
+    Userdata* userdata = (Userdata*)(void_userdata);
+
+    const double* params = userdata->params;
+    double stddev = abs(params[PARAM_STDDEV]);
+
+    unsigned long point_size = userdata->point_model->size;
+
+    double x = xx[0];
+    double y = xx[1];
+    double z = xx[2];
+
+    //if(abs(z) < 0.00001) {
+    //static long c = 0;
+    //c++;
+    //if(c % 1000 == 0) {
+    //iout << x << "  " << y << "  " << z << endl;
+    //}
+    //}
+
+	double r2 = x*x + y*y + z*z;
+
+
+    //The location of the singularity (optimisation: take these
+    //calculations out of the integral)
+    double singularity_x = (userdata->evalAt.x - params[0]);;
+    double singularity_y = (userdata->evalAt.y - params[1]);
+    double singularity_z = (userdata->evalAt.z - params[2]);
+
+    double singularity_r2 =
+        singularity_x*singularity_x +
+        singularity_y*singularity_y +
+        singularity_z*singularity_z;
+
+    //Potential optimisation: pull the calculation of these out of the integral
+    double a_coef = 1/(stddev*stddev);   assert(isfinite(a_coef));
+    double normalizer = pow(M_PI*stddev*stddev,-1.5);
+    double theExp0 = exp(-a_coef*(singularity_r2));
+    double rho0 = normalizer*theExp0;
+
+    double stddev2 = stddev*stddev;
+    double stddev4 = stddev2*stddev2;
+    double stddev6 = stddev4*stddev2;
+
+    double sx = singularity_x;
+    double sy = singularity_y;
+    double sz = singularity_z;
+
+    //First derivative
+    double d_rho0_x = -2*sx/stddev2 * rho0;
+    double d_rho0_y = -2*sy/stddev2 * rho0;
+    double d_rho0_z = -2*sz/stddev2 * rho0;
+
+    double d2_rho0_xx = (4*sx*sx - 2*stddev2)/stddev4 * rho0;
+    double d2_rho0_yy = (4*sy*sy - 2*stddev2)/stddev4 * rho0;
+    double d2_rho0_zz = (4*sz*sz - 2*stddev2)/stddev4 * rho0;
+
+    //Second Derivative
+    double d2_rho0_xy = (4*sx*sy)/stddev4 * rho0;
+    double d2_rho0_xz = (4*sx*sz)/stddev4 * rho0;
+    double d2_rho0_yz = (4*sy*sz)/stddev4 * rho0;
+
+    //Third Derivative
+    double d2_rho0_xxx = (12*sx*stddev2 - 8*sx*sx*sx)/stddev6 * rho0;
+    double d2_rho0_yyy = (12*sy*stddev2 - 8*sy*sy*sy)/stddev6 * rho0;
+    double d2_rho0_zzz = (12*sz*stddev2 - 8*sz*sz*sz)/stddev6 * rho0;
+                      
+    double d2_rho0_xxy = (4*y*(stddev2-2*sx*sx))/stddev6 * rho0;
+    double d2_rho0_xxz = (4*z*(stddev2-2*sx*sx))/stddev6 * rho0;
+                      
+    double d2_rho0_yyx = (4*x*(stddev2-2*sy*sy))/stddev6 * rho0;
+    double d2_rho0_yyz = (4*z*(stddev2-2*sy*sy))/stddev6 * rho0;
+                      
+    double d2_rho0_zzx = (4*x*(stddev2-2*sz*sz))/stddev6 * rho0;
+    double d2_rho0_zzy = (4*y*(stddev2-2*sz*sz))/stddev6 * rho0;
+                      
+    double d2_rho0_xyz = -(8*sx*sy*sz)/stddev6 * rho0;
+
+    //A vector pointing from the centre of 1/r^3 to the center of the gaussian
+    double expand_around_x = x - singularity_x;
+    double expand_around_y = y - singularity_y;
+    double expand_around_z = z - singularity_z;
+    
+    double expand_r2 =
+        expand_around_x*expand_around_x +
+        expand_around_y*expand_around_y +
+        expand_around_z*expand_around_z;
+
+    //Evauate the model
+    double f;
+    double* gradient = ncomp == 1 ? NULL: (double*)alloca(point_size*sizeof(double));
+
+    Vector3 x_minus_xprime(userdata->evalAt.x - x,
+                           userdata->evalAt.y - y,
+                           userdata->evalAt.z - z);
+
+    userdata->point_model->modelf(x_minus_xprime,params,&f,gradient);
+
+
+    double theExp = exp(-a_coef*r2);
+    double rho = normalizer*theExp;
+
+    //Is any sort of regualisation needed?
+    bool close      = expand_r2 < 4*userdata->reg_radius2;
+    bool very_close = expand_r2 < userdata->reg_radius2;
+
+
+
+    double correction = 0;
+
+    if(close) {
+        if(very_close) {
+            correction = 1;
+        } else {
+            double reg_radius = sqrt(userdata->reg_radius2);
+            double expand_r = sqrt(expand_r2);
+
+            double t =  (expand_r - reg_radius)/(reg_radius);
+
+            correction = magic_polynomial(1-t);
+            //cout << 1-t << " " << correction << endl;;
+        }
+    }
+
+    assert(isfinite(rho));
+    assert(isfinite(rho0));
+    assert(isfinite(f));
+
+    double toSub =  correction*(rho0 + expand_around_x*d_rho0_x
+                                +      expand_around_y*d_rho0_y
+                                +      expand_around_z*d_rho0_z
+                                  
+                                /*+      xprime_to_singularity*xprime_to_singularity*d2_rho0_xx
+                                +      yprime_to_singularity*yprime_to_singularity*d2_rho0_yy
+                                +      zprime_to_singularity*zprime_to_singularity*d2_rho0_zz
+
+                                +      2*xprime_to_singularity*yprime_to_singularity*d2_rho0_xy
+                                +      2*xprime_to_singularity*zprime_to_singularity*d2_rho0_xz
+                                +      2*yprime_to_singularity*zprime_to_singularity*d2_rho0_yz*/);
+
+    if( abs((rho-toSub)/rho) < 1e-10) {
+        //cout << " Warning, possible loss of precision, rho = "
+        //<< rho << " toSub = " << toSub << "  diff = " << (rho-toSub);
+        Vec3d r(x,y,z);
+        Vec3d a(singularity_x,singularity_y,singularity_z);
+
+        //cout << " computed diff = " << normalizer*gaussian_error_term_one(r,a,stddev) << endl;
+    } else {
+        ff[0] = (rho-toSub)*f;
+    }
+
+    assert(isfinite(ff[0]));
+    if(ncomp == 1) {
+        //If we don't need a gradient, we can stop here.
+        return 0;
+    }
+
+    for(unsigned long i=1;i<9;i++){
+        ff[i] = (rho-toSub) * gradient[i-1];
+
+        //if(i == 1) cout << sqrt(prime_to_singularity2) << ", " << ff[i] << endl;
+    }
+    for(int i=0;i<ncomp;i++){assert(isfinite(ff[i]));}
+    return 0;
+}
+
+
+void eval_gaussian_series(Vector3 evalAt,const double* params,double* value, double* gradient) {
+    Userdata userdata;
+    userdata.point_model = &point_model;
+    userdata.params = params;
+	userdata.evalAt = evalAt;
+
+    double stddev = params[PARAM_STDDEV];
+
+    IntegralBounds bounds;
+    bounds.xmax =  7*stddev;
+    bounds.xmin = -7*stddev;
+    
+    bounds.ymax =  7*stddev;
+    bounds.ymin = -7*stddev;
+    
+    bounds.zmax =  7*stddev;
+    bounds.zmin = -7*stddev;
+
+    //Make sure that the region where regualization is applied is
+    //wholey included or wholey excluded.
+
+    double reg_radius    = stddev/3.0;
+    userdata.reg_radius2 = reg_radius*reg_radius;
+    unsigned long ncomp = gradient == NULL ? 1 : (POINT_SIZE+1);
+
+	double* integral = (double*)alloca(ncomp*sizeof(double));
+
+	cuhreIntegrate(Integrand3,&bounds,ncomp,integral,(void*)&userdata);
+
+    *value = integral[0];
+
+    if(gradient != NULL) {
+        memcpy(gradient,integral+1,POINT_SIZE*sizeof(double));
+
+        //We compute the gradient with respect to stddev via a series
+        //expansion.
+
+        gradient[PARAM_STDDEV] = 0;
+    }
+}
+
+//================================================================================//
 
 void eval_gaussian_testing(Vector3 evalAt,const double* params,double* value, double* gradient) {
     if(gradient != NULL) {
@@ -550,11 +799,27 @@ void eval_gaussian_num_dev(Vector3 evalAt,const double* params,double* value, do
     *value = integral[0];
 
     if(gradient != NULL) {
-        memcpy(gradient,integral+1,9*sizeof(double));
+        memcpy(gradient,integral+1,8*sizeof(double));
+
+        double s5 = stddev*stddev*stddev*stddev*stddev;
+
+        double sigma_xxxx = eval_point_model_dev_xyz(params,2,0,0,evalAt);
+        double sigma_yyyy = eval_point_model_dev_xyz(params,0,2,0,evalAt);
+        double sigma_zzzz = eval_point_model_dev_xyz(params,0,0,2,evalAt);
+
+        double sigma_xxyy = eval_point_model_dev_xyz(params,2,0,0,evalAt);
+        double sigma_xxzz = eval_point_model_dev_xyz(params,0,2,0,evalAt);
+        double sigma_yyzz = eval_point_model_dev_xyz(params,0,0,2,evalAt);
+
+        gradient[PARAM_STDDEV] = 6*s5*(
+                                       3.0/4*(sigma_xxxx + sigma_yyyy + sigma_zzzz)+
+                                       1.0/2*(sigma_xxyy + sigma_xxzz + sigma_yyzz)
+                                       )/24;
     }
 }
 
 const Model point_model    = {eval_point   ,8,"Point Model"};
 const Model gaussian_model = {eval_gaussian,9,"Gaussian Model"};
+const Model gaussian_model_series = {eval_gaussian_series,9,"Gaussian Model Series"};
 const Model gaussian_model_num_dev  = {eval_gaussian_num_dev,9,"Gaussian Model with Numerical Derivatives"};
 const Model gaussian_model_testing = {eval_gaussian_testing,9,"Gaussian Model"};

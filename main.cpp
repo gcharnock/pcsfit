@@ -148,7 +148,7 @@ void run_scan(const Options& options,const ErrorContext* context,bool errorscan 
 int main(int argc,char** argv) {
 	cout.width(20);
 	cout.fill(' ');
-	cout.precision(10);
+	cout.precision(17);
 	cout << fixed << showpos;
 
 	//Parse the command line and decide what to do
@@ -254,6 +254,7 @@ int main(int argc,char** argv) {
 
     //If we just want to run the self tests, do it and stop
     if(command == "selftest") {
+        testMaths(prng);
         testModel(prng,&pool);
         return 0;
     }

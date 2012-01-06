@@ -21,6 +21,7 @@ extern const Model point_model;
 
 //Extended models
 extern const Model gaussian_model;
+extern const Model gaussian_model_series;
 extern const Model gaussian_model_testing; //A much simplier model that gaussian_model for testing
 extern const Model gaussian_model_num_dev;
 
@@ -36,6 +37,8 @@ extern const Model gaussian_model_num_dev;
 
 #define PARAM_STDDEV 8
 
+#define POINT_SIZE 8
+#define GAUSS_SIZE 9
 
 enum {
     PARSE_SUCESS,
@@ -58,6 +61,7 @@ std::string name_param(int param);
 void eval_point(   Vector3 evalAt,const double* params,double* value, double* gradient);
 
 void eval_gaussian(Vector3 evalAt,const double* params,double* value, double* gradient);
+void eval_gaussian_series(Vector3 evalAt,const double* params,double* value, double* gradient);
 void eval_gaussian_testing(Vector3 evalAt,const double* params,double* value, double* gradient);
 
 
