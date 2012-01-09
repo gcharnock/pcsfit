@@ -17,6 +17,8 @@ struct ErrorContext {
 
     const Model* model;   //The model to use
     const double* params; //Starting paramiters
+
+    long freezeParam;
     
     bool rescale;
 

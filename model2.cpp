@@ -529,20 +529,20 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
     double d2_rho0_yz = (4*sy*sz)/stddev4 * rho0;
 
     //Third Derivative
-    double d2_rho0_xxx = (12*sx*stddev2 - 8*sx*sx*sx)/stddev6 * rho0;
-    double d2_rho0_yyy = (12*sy*stddev2 - 8*sy*sy*sy)/stddev6 * rho0;
-    double d2_rho0_zzz = (12*sz*stddev2 - 8*sz*sz*sz)/stddev6 * rho0;
+    double d3_rho0_xxx = (12*sx*stddev2 - 8*sx*sx*sx)/stddev6 * rho0;
+    double d3_rho0_yyy = (12*sy*stddev2 - 8*sy*sy*sy)/stddev6 * rho0;
+    double d3_rho0_zzz = (12*sz*stddev2 - 8*sz*sz*sz)/stddev6 * rho0;
                       
-    double d2_rho0_xxy = (4*y*(stddev2-2*sx*sx))/stddev6 * rho0;
-    double d2_rho0_xxz = (4*z*(stddev2-2*sx*sx))/stddev6 * rho0;
+    double d3_rho0_xxy = (4*y*(stddev2-2*sx*sx))/stddev6 * rho0;
+    double d3_rho0_xxz = (4*z*(stddev2-2*sx*sx))/stddev6 * rho0;
                       
-    double d2_rho0_yyx = (4*x*(stddev2-2*sy*sy))/stddev6 * rho0;
-    double d2_rho0_yyz = (4*z*(stddev2-2*sy*sy))/stddev6 * rho0;
+    double d3_rho0_yyx = (4*x*(stddev2-2*sy*sy))/stddev6 * rho0;
+    double d3_rho0_yyz = (4*z*(stddev2-2*sy*sy))/stddev6 * rho0;
                       
-    double d2_rho0_zzx = (4*x*(stddev2-2*sz*sz))/stddev6 * rho0;
-    double d2_rho0_zzy = (4*y*(stddev2-2*sz*sz))/stddev6 * rho0;
+    double d3_rho0_zzx = (4*x*(stddev2-2*sz*sz))/stddev6 * rho0;
+    double d3_rho0_zzy = (4*y*(stddev2-2*sz*sz))/stddev6 * rho0;
                       
-    double d2_rho0_xyz = -(8*sx*sy*sz)/stddev6 * rho0;
+    double d3_rho0_xyz = -(8*sx*sy*sz)/stddev6 * rho0;
 
     //A vector pointing from the centre of 1/r^3 to the center of the gaussian
     double expand_around_x = x - singularity_x;
@@ -669,7 +669,46 @@ void eval_gaussian_series(Vector3 evalAt,const double* params,double* value, dou
 
         //We compute the gradient with respect to stddev via a series
         //expansion.
+        /*
+        double sxxxx = eval_point_model_dev_xyz(params,4,0,0,evalAt);
+        double syyyy = eval_point_model_dev_xyz(params,0,4,0,evalAt);
+        double szzzz = eval_point_model_dev_xyz(params,0,0,4,evalAt);
 
+        double sxxyy = eval_point_model_dev_xyz(params,2,2,0,evalAt);
+        double syyzz = eval_point_model_dev_xyz(params,0,2,2,evalAt);
+        double szzxx = eval_point_model_dev_xyz(params,2,0,2,evalAt);
+
+        double s2 = stddev*stddev;
+        double s5 = stddev*s2*s2;
+        
+        gradient[PARAM_STDDEV] = (6/24.0) * s5 * (
+                                                  3.0/4.0 * (sxxxx+syyyy+szzzz) +
+                                                  1.0/2.0 * (sxxyy+syyzz+szzxx)
+                                                  );
+        *//*
+        double h = 0.0002;
+        double val_plus,val_minus;
+        double val_2plus,val_2minus;
+        
+        double mute_params[GAUSS_SIZE];
+        userdata.params = mute_params;
+
+        memcpy(mute_params,params,sizeof(double)*GAUSS_SIZE);
+
+        mute_params[PARAM_STDDEV] = stddev + 2*h;
+        cuhreIntegrate(Integrand3,&bounds,1,&val_2plus,(void*)&userdata);
+
+        mute_params[PARAM_STDDEV] = stddev + h;
+        cuhreIntegrate(Integrand3,&bounds,1,&val_plus,(void*)&userdata);
+
+        mute_params[PARAM_STDDEV] = stddev - h;
+        cuhreIntegrate(Integrand3,&bounds,1,&val_minus,(void*)&userdata);
+
+        mute_params[PARAM_STDDEV] = stddev - 2*h;
+        cuhreIntegrate(Integrand3,&bounds,1,&val_2minus,(void*)&userdata);
+        
+
+        gradient[PARAM_STDDEV] = (val_2minus - 8*val_minus + 8*val_plus - val_2plus)/(12*h);*/
         gradient[PARAM_STDDEV] = 0;
     }
 }

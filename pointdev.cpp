@@ -67,7 +67,7 @@ void eval_point_numerator(Vector3 evalAt,const double* pm,double out[9]) {
     out[7] = -4*chi_1;   
     out[8] =  2*chi_1 - 2*chi_2;
     out[9] =  2*chi_1 + 2*chi_2;
-    cout << "Azz = " << out[9] << endl;
+    //cout << "Azz = " << out[9] << endl;
 
     for(unsigned long i = 0;i<10;i++) {
         assert(isfinite(out[i]));
@@ -97,7 +97,7 @@ double u_nmp_over_v(ulong n,ulong m,ulong p, double x,double y,double z) {
     xyz[1] = y;
     xyz[2] = z;
     
-    cout << u << endl;
+    //cout << u << endl;
 
     return u.eval(xyz)/vn;
 }

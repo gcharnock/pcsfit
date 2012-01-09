@@ -65,6 +65,8 @@ struct Options {
     double scanparam_min;
     double scanparam_max;
 
+    long freezeParam;
+
     long scanparam2;
     double scanparam_min2;
     double scanparam_max2;
@@ -173,6 +175,7 @@ int main(int argc,char** argv) {
 			("help,h","print this help page and exit")
             ("method,m",value<string>(&options.method)->default_value("bfgs"),"")
             ("dont-reg","Don't regualize")
+            ("freeze,f",value<long>(&options.freezeParam)->default_value(-1),"Don't vary a paramiter")
             ("dont-rescale","")
             ("sketch3d-file",value<string>(&options.sketch3dFile),"")
 			("random-model-type",
@@ -220,10 +223,6 @@ int main(int argc,char** argv) {
     if(variablesMap.count("rescale") > 0) {
         rescale = false;
         options.dont_rescale = true;
-    }
-
-    if(variablesMap.count("dont-reg") > 0) {
-        options.dont_reg = true;
     }
 
     if(command == "fit") {
@@ -355,6 +354,7 @@ int main(int argc,char** argv) {
 	context.model   = model;
 	context.pool    = &pool;
     context.rescale = rescale;
+    context.freezeParam = options.freezeParam;
 
     //Do we want to scan thoughZ
     if(command == "errorscan") {
