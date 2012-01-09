@@ -4,7 +4,8 @@
 #include <limits>
 
 #include "data.hpp"
-#include "model.hpp"
+#include <cmath>
+
 
 using namespace std;
 
@@ -32,9 +33,9 @@ void Nuclei::updateMinMax() {
     max_min mmz;
 
 	for(Nuclei::iterator i = begin(); i!= end(); ++i) {
-        mmx.putVal(i->x);
-        mmy.putVal(i->y);
-        mmz.putVal(i->z);
+        mmx.putVal(i->x());
+        mmy.putVal(i->y());
+        mmz.putVal(i->z());
 	}
 
     xmax = mmx.max;
@@ -82,7 +83,7 @@ void loadData(const std::string& filename,Dataset* dataset) {
             continue;
         }
         dataset->vals.push_back(v);
-        dataset->nuclei.push_back(Vector3(x,y,z));
+        dataset->nuclei.push_back(Vec3d(x,y,z));
 	}
 	fclose(fp);
 
@@ -116,9 +117,9 @@ void toSketch3d(ostream& out,Dataset* dataset) {
     out << "def scene {" << endl;
 
     for(unsigned long i = 0; i < dataset->nuclei.size(); i++) {
-        double x = dataset->nuclei[i].x / 3;
-        double y = dataset->nuclei[i].y / 3;
-        double z = dataset->nuclei[i].z / 3;
+        double x = dataset->nuclei[i].x() / 3;
+        double y = dataset->nuclei[i].y() / 3;
+        double z = dataset->nuclei[i].z() / 3;
 
         double absMax = abs(dataset->vals.max) > abs(dataset->vals.min) ? abs(dataset->vals.max) : abs(dataset->vals.min);
 

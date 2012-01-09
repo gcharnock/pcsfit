@@ -3,7 +3,7 @@
 #include "data.hpp"
 #include "maths.hpp"
 
-double eval_point_model_dev_xyz(const double* params,ulong ndx, ulong ndy, ulong xdz,Vector3 evalAt);
+double eval_point_model_dev_xyz(const double* params,ulong ndx, ulong ndy, ulong xdz,Vec3d evalAt);
 
 
 template<typename T>

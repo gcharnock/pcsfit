@@ -46,7 +46,17 @@ set(cmake_cxx_flags_release "-O3 -ffast-math")
 set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS})
 
 
-set(sources model2.cpp fit.cpp  data.cpp  tests.cpp pointdev.cpp maths.cpp)
+set(sources 
+model_common.cpp
+model_point.cpp
+model_gauss.cpp
+model_series.cpp
+integrate.cpp
+fit.cpp
+data.cpp
+tests.cpp
+pointdev.cpp
+maths.cpp)
 
 
 add_executable(pcsfit main.cpp  ${sources})

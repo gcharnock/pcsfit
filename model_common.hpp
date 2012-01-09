@@ -8,7 +8,7 @@
 #define MAX_PARAMS 10
 
 
-typedef void (*ModelF)        (Vector3 evalAt, const double* model  ,double* value,double* gradient);
+typedef void (*ModelF)        (Vec3d evalAt, const double* model  ,double* value,double* gradient);
 
 struct Model { //Encodes a function with an analytic gradient, and size paramiters
     ModelF    modelf;
@@ -58,17 +58,27 @@ void cart_to_axrh(const double* axrh_params,double* cart_params);
 std::string name_param(int param);
 
 //Point models
-void eval_point(   Vector3 evalAt,const double* params,double* value, double* gradient);
+void eval_point(Vec3d evalAt,const double* params,double* value, double* gradient);
 
-void eval_gaussian(Vector3 evalAt,const double* params,double* value, double* gradient);
-void eval_gaussian_series(Vector3 evalAt,const double* params,double* value, double* gradient);
-void eval_gaussian_testing(Vector3 evalAt,const double* params,double* value, double* gradient);
+void eval_gaussian(Vec3d evalAt,const double* params,double* value, double* gradient);
+void eval_gaussian_series(Vec3d evalAt,const double* params,double* value, double* gradient);
+void eval_gaussian_testing(Vec3d evalAt,const double* params,double* value, double* gradient);
 
 
 void random_data(PRNG& prng,const Model& model,const double* params,unsigned long natoms,Dataset* dataset);
 
 //void numerical_derivative(Vector3 evalAt,const Model& model,unsigned long nparams,double * gradient);
-void numerical_derivative(Vector3 evalAt,const Model* model,const double* params,double* gradient);
+void numerical_derivative(Vec3d evalAt,const Model* model,const double* params,double* gradient);
+
+struct Userdata {
+    //For sending cuhre.
+    const Model* point_model;
+    const double* params; 
+	Vec3d evalAt;
+
+    double reg_radius2;
+};
+
 
 #endif
 

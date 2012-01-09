@@ -1,7 +1,7 @@
 
 
 #include "tests.hpp"
-#include "model2.hpp"
+#include "model_common.hpp"
 #include "pointdev.hpp"
 #include "fit.hpp"
 #include "maths.hpp"
@@ -60,18 +60,18 @@ void check_derivative (PRNG& prng,const Model* model) {
             params[j] = dist(prng);
         }
 
-		Vector3 evalAt(dist(prng),dist(prng),dist(prng));
+		Vec3d evalAt(dist(prng),dist(prng),dist(prng));
 
         model->modelf(evalAt,params,&result,gradient);
         point_model.modelf(evalAt,params,&point_result,NULL);
 
         numerical_derivative(evalAt,model,params,numerical_gradient);
 
-        double x = evalAt.x - params[PARAM_X];
-        double y = evalAt.y - params[PARAM_Y];
-        double z = evalAt.z - params[PARAM_Z];
+        double x = evalAt.x() - params[PARAM_X];
+        double y = evalAt.y() - params[PARAM_Y];
+        double z = evalAt.z() - params[PARAM_Z];
 
-        cout << "evalAt = (" << evalAt.x << "," << evalAt.y << "," << evalAt.z << ") r = " << sqrt(x*x+y*y+z*z) << endl;
+        cout << "evalAt = (" << evalAt.x() << "," << evalAt.y() << "," << evalAt.z() << ") r = " << sqrt(x*x+y*y+z*z) << endl;
         cout << "Result = " << result << " (point result = " << point_result <<  ")" << endl;
         for(unsigned long i=0;i<model->size;i++) {
 			cout << name_param(i) << " = " << params[i] <<
@@ -216,7 +216,7 @@ void test_gaussian(PRNG& prng) {
         valsTest.resize(natoms);
 
         for(unsigned long j = 0; j < natoms;j++) {
-            Vector3 pos = Vector3(rand(prng),rand(prng),rand(prng));
+            Vec3d pos = Vec3d(rand(prng),rand(prng),rand(prng));
             nuclei[j] = pos;
             eval_gaussian(     pos,params,&(valsG[j])   ,NULL);
             eval_gaussian_testing(pos,params,&(valsTest[j]),NULL);
@@ -224,9 +224,9 @@ void test_gaussian(PRNG& prng) {
 
 
         for(unsigned long j = 0; j<natoms; j++) {
-            double x = nuclei[j].x;
-            double y = nuclei[j].y;
-            double z = nuclei[j].z;
+            double x = nuclei[j].x();
+            double y = nuclei[j].y();
+            double z = nuclei[j].z();
 
             double stddev = params[PARAM_STDDEV];
             double r_singularity = sqrt(x*x+y*y+z*z);
@@ -317,7 +317,7 @@ void multinomial_run_tests() {
     params[PARAM_CHIXZ] = chi_xz;
     params[PARAM_CHIYZ] = chi_yz;
 
-    double derivative = eval_point_model_dev_xyz(params,2,3,2,Vector3(4,5,4));
+    double derivative = eval_point_model_dev_xyz(params,2,3,2,Vec3d(4,5,4));
     cout << "derivative = " << derivative << endl;
 
     cout << "Expression to past into mathematica/wolfram alpha" << endl;
@@ -331,7 +331,7 @@ void multinomial_run_tests() {
          << ",y->"   << (y-metal_y)
          << ", z-> " << (z-metal_z) << "}" << endl;
     cout << "================================================================================" << endl;
-    Vector3 evalAt = Vector3(4,4,4);
+    Vec3d evalAt = Vec3d(4,4,4);
 
     //Evauate the point model using the well tested method, to compare the terms
     double value;
