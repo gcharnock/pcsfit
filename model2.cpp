@@ -411,31 +411,15 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
 
     unsigned long point_size = userdata->point_model->size;
 
-    double x = xx[0];
-    double y = xx[1];
-    double z = xx[2];
+    Vec3d xyz = Vec3d(xx);
+	double r2 = xyz.r2();
 
-    //if(abs(z) < 0.00001) {
-    //static long c = 0;
-    //c++;
-    //if(c % 1000 == 0) {
-    //iout << x << "  " << y << "  " << z << endl;
-    //}
-    //}
-
-	double r2 = x*x + y*y + z*z;
-
+    Vec3d metal = Vec3d(params);
 
     //The location of the singularity (optimisation: take these
     //calculations out of the integral)
-    double singularity_x = (userdata->evalAt.x() - params[0]);;
-    double singularity_y = (userdata->evalAt.y() - params[1]);
-    double singularity_z = (userdata->evalAt.z() - params[2]);
-
-    double singularity_r2 =
-        singularity_x*singularity_x +
-        singularity_y*singularity_y +
-        singularity_z*singularity_z;
+    Vec3d singularity = userdata->evalAt - metal;
+    double singularity_r2 = singularity.r2();
 
     //Potential optimisation: pull the calculation of these out of the integral
     double a_coef = 1/(stddev*stddev);   assert(isfinite(a_coef));
@@ -445,32 +429,20 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
 
     double stddev2 = stddev*stddev;
 
-    double sx = singularity_x;
-    double sy = singularity_y;
-    double sz = singularity_z;
-
     //First derivative
-    double d_rho0_x = -2*sx/stddev2 * rho0;
-    double d_rho0_y = -2*sy/stddev2 * rho0;
-    double d_rho0_z = -2*sz/stddev2 * rho0;
+    double d_rho0_x = -2*singularity.x()/stddev2 * rho0;
+    double d_rho0_y = -2*singularity.y()/stddev2 * rho0;
+    double d_rho0_z = -2*singularity.z()/stddev2 * rho0;
 
     //A vector pointing from the centre of 1/r^3 to the center of the gaussian
-    double expand_around_x = x - singularity_x;
-    double expand_around_y = y - singularity_y;
-    double expand_around_z = z - singularity_z;
-    
-    double expand_r2 =
-        expand_around_x*expand_around_x +
-        expand_around_y*expand_around_y +
-        expand_around_z*expand_around_z;
+    Vec3d expand_around = xyz - singularity;
+    double expand_r2 = expand_around.r2();
 
     //Evauate the model
     double f;
     double* gradient = ncomp == 1 ? NULL: (double*)alloca(point_size*sizeof(double));
 
-    Vec3d x_minus_xprime(userdata->evalAt.x() - x,
-                         userdata->evalAt.y() - y,
-                         userdata->evalAt.z() - z);
+    Vec3d x_minus_xprime = userdata->evalAt - xyz;
 
     userdata->point_model->modelf(x_minus_xprime,params,&f,gradient);
 
@@ -481,8 +453,6 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
     //Is any sort of regualisation needed?
     bool close      = expand_r2 < 4*userdata->reg_radius2;
     bool very_close = expand_r2 < userdata->reg_radius2;
-
-
 
     double correction = 0;
 
@@ -504,9 +474,9 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
     assert(isfinite(rho0));
     assert(isfinite(f));
 
-    double toSub =  correction*(rho0 + expand_around_x*d_rho0_x
-                                +      expand_around_y*d_rho0_y
-                                +      expand_around_z*d_rho0_z
+    double toSub =  correction*(rho0 + expand_around.x()*d_rho0_x
+                                +      expand_around.y()*d_rho0_y
+                                +      expand_around.z()*d_rho0_z
                                   
                                 /*+      xprime_to_singularity*xprime_to_singularity*d2_rho0_xx
                                 +      yprime_to_singularity*yprime_to_singularity*d2_rho0_yy
@@ -519,8 +489,6 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
     if( abs((rho-toSub)/rho) < 1e-10) {
         //cout << " Warning, possible loss of precision, rho = "
         //<< rho << " toSub = " << toSub << "  diff = " << (rho-toSub);
-        Vec3d r(x,y,z);
-        Vec3d a(singularity_x,singularity_y,singularity_z);
 
         //cout << " computed diff = " << normalizer*gaussian_error_term_one(r,a,stddev) << endl;
     } else {
