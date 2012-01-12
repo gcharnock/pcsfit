@@ -9,21 +9,14 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_01.hpp>
 
+#include "maths.hpp"
+
 typedef boost::mt19937 PRNG;
 typedef boost::uniform_01<> RandomDist;
 
 struct GaussModel;
 
-struct Vector3 {
-	Vector3(double _x,double _y,double _z)
-		: x(_x),y(_y),z(_z){}
-	Vector3() {}
-	double x;
-	double y;
-	double z;
-};
-
-struct Nuclei : std::vector<Vector3> {
+struct Nuclei : std::vector<Vec3d> {
 	void updateMinMax();
     double xmax;
     double xmin;

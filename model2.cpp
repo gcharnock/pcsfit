@@ -114,7 +114,7 @@ std::string name_param(int param) {
     return "";
 }
 
-void numerical_derivative(Vector3 evalAt,const Model* model,const double* params,double* gradient) {
+void numerical_derivative(Vec3d evalAt,const Model* model,const double* params,double* gradient) {
 	double* params_mutable = (double*)alloca(model->size*sizeof(double));
 	memcpy(params_mutable,params,model->size*sizeof(double));
 
@@ -136,10 +136,10 @@ void numerical_derivative(Vector3 evalAt,const Model* model,const double* params
 }
 
 
-void eval_point(Vector3 evalAt,const double* pm,double* value, double* gradient) {
-    double x = evalAt.x - pm[PARAM_X];
-    double y = evalAt.y - pm[PARAM_Y];
-    double z = evalAt.z - pm[PARAM_Z];
+void eval_point(Vec3d evalAt,const double* pm,double* value, double* gradient) {
+    double x = evalAt.x() - pm[PARAM_X];
+    double y = evalAt.y() - pm[PARAM_Y];
+    double z = evalAt.z() - pm[PARAM_Z];
 
 	if(x == 0 && y == 0 && z == 0) {
 		*value = 0;
@@ -202,7 +202,7 @@ struct Userdata {
     //For sending cuhre.
     const Model* point_model;
     const double* params; 
-	Vector3 evalAt;
+	Vec3d evalAt;
 
     double reg_radius2;
 };
@@ -226,9 +226,9 @@ int Integrand2(const double xx[],double ff[],int ncomp, void* void_userdata) {
 	double r2 = x*x + y*y + z*z;
 
     //A vector pointing from the centre of 1/r^3 to the center of the gaussian
-    double singularity_x = userdata->evalAt.x - x - params[0];
-    double singularity_y = userdata->evalAt.y - y - params[1];
-    double singularity_z = userdata->evalAt.z - z - params[2];
+    double singularity_x = userdata->evalAt.x() - x - params[0];
+    double singularity_y = userdata->evalAt.y() - y - params[1];
+    double singularity_z = userdata->evalAt.z() - z - params[2];
     
     double singularity_r2 = singularity_x*singularity_x +
         singularity_y*singularity_y +
@@ -238,9 +238,9 @@ int Integrand2(const double xx[],double ff[],int ncomp, void* void_userdata) {
     double f;
     double* gradient = ncomp == 1 ? NULL: (double*)alloca(point_size*sizeof(double));
 
-    Vector3 x_minus_xprime(userdata->evalAt.x - x,
-                           userdata->evalAt.y - y,
-                           userdata->evalAt.z - z);
+    Vec3d x_minus_xprime(userdata->evalAt.x() - x,
+                         userdata->evalAt.y() - y,
+                         userdata->evalAt.z() - z);
 
     userdata->point_model->modelf(x_minus_xprime,params,&f,gradient);
 
@@ -265,9 +265,9 @@ int Integrand2(const double xx[],double ff[],int ncomp, void* void_userdata) {
 
     double correction = 0;
 
-    another_x  = (userdata->evalAt.x - params[0]);
-    another_y  = (userdata->evalAt.y - params[1]);
-    another_z  = (userdata->evalAt.z - params[2]);
+    another_x  = (userdata->evalAt.x() - params[0]);
+    another_y  = (userdata->evalAt.y() - params[1]);
+    another_z  = (userdata->evalAt.z() - params[2]);
     another_r2 = another_x*another_x + another_y*another_y + another_z*another_z;
 
     if(close) {
@@ -318,7 +318,7 @@ int Integrand2(const double xx[],double ff[],int ncomp, void* void_userdata) {
 }
 
 
-void eval_gaussian(Vector3 evalAt,const double* params,double* value, double* gradient) {
+void eval_gaussian(Vec3d evalAt,const double* params,double* value, double* gradient) {
     Userdata userdata;
     userdata.point_model = &point_model;
     userdata.params = params;
@@ -396,7 +396,7 @@ void random_data(PRNG& prng,const Model& model,const double* params,unsigned lon
     dataset->vals.resize(natoms);
 
     for(unsigned long i = 0; i < natoms;i++) {
-		dataset->nuclei[i] = Vector3(x + 10*rand(prng),y + 10*rand(prng),z + 10*rand(prng));
+		dataset->nuclei[i] = Vec3d(x + 10*rand(prng),y + 10*rand(prng),z + 10*rand(prng));
         model.modelf(dataset->nuclei[i],params,&(dataset->vals[i]),NULL);
     }
 }
@@ -428,9 +428,9 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
 
     //The location of the singularity (optimisation: take these
     //calculations out of the integral)
-    double singularity_x = (userdata->evalAt.x - params[0]);;
-    double singularity_y = (userdata->evalAt.y - params[1]);
-    double singularity_z = (userdata->evalAt.z - params[2]);
+    double singularity_x = (userdata->evalAt.x() - params[0]);;
+    double singularity_y = (userdata->evalAt.y() - params[1]);
+    double singularity_z = (userdata->evalAt.z() - params[2]);
 
     double singularity_r2 =
         singularity_x*singularity_x +
@@ -444,8 +444,6 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
     double rho0 = normalizer*theExp0;
 
     double stddev2 = stddev*stddev;
-    double stddev4 = stddev2*stddev2;
-    double stddev6 = stddev4*stddev2;
 
     double sx = singularity_x;
     double sy = singularity_y;
@@ -455,31 +453,6 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
     double d_rho0_x = -2*sx/stddev2 * rho0;
     double d_rho0_y = -2*sy/stddev2 * rho0;
     double d_rho0_z = -2*sz/stddev2 * rho0;
-
-    double d2_rho0_xx = (4*sx*sx - 2*stddev2)/stddev4 * rho0;
-    double d2_rho0_yy = (4*sy*sy - 2*stddev2)/stddev4 * rho0;
-    double d2_rho0_zz = (4*sz*sz - 2*stddev2)/stddev4 * rho0;
-
-    //Second Derivative
-    double d2_rho0_xy = (4*sx*sy)/stddev4 * rho0;
-    double d2_rho0_xz = (4*sx*sz)/stddev4 * rho0;
-    double d2_rho0_yz = (4*sy*sz)/stddev4 * rho0;
-
-    //Third Derivative
-    double d3_rho0_xxx = (12*sx*stddev2 - 8*sx*sx*sx)/stddev6 * rho0;
-    double d3_rho0_yyy = (12*sy*stddev2 - 8*sy*sy*sy)/stddev6 * rho0;
-    double d3_rho0_zzz = (12*sz*stddev2 - 8*sz*sz*sz)/stddev6 * rho0;
-                      
-    double d3_rho0_xxy = (4*y*(stddev2-2*sx*sx))/stddev6 * rho0;
-    double d3_rho0_xxz = (4*z*(stddev2-2*sx*sx))/stddev6 * rho0;
-                      
-    double d3_rho0_yyx = (4*x*(stddev2-2*sy*sy))/stddev6 * rho0;
-    double d3_rho0_yyz = (4*z*(stddev2-2*sy*sy))/stddev6 * rho0;
-                      
-    double d3_rho0_zzx = (4*x*(stddev2-2*sz*sz))/stddev6 * rho0;
-    double d3_rho0_zzy = (4*y*(stddev2-2*sz*sz))/stddev6 * rho0;
-                      
-    double d3_rho0_xyz = -(8*sx*sy*sz)/stddev6 * rho0;
 
     //A vector pointing from the centre of 1/r^3 to the center of the gaussian
     double expand_around_x = x - singularity_x;
@@ -495,9 +468,9 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
     double f;
     double* gradient = ncomp == 1 ? NULL: (double*)alloca(point_size*sizeof(double));
 
-    Vector3 x_minus_xprime(userdata->evalAt.x - x,
-                           userdata->evalAt.y - y,
-                           userdata->evalAt.z - z);
+    Vec3d x_minus_xprime(userdata->evalAt.x() - x,
+                         userdata->evalAt.y() - y,
+                         userdata->evalAt.z() - z);
 
     userdata->point_model->modelf(x_minus_xprime,params,&f,gradient);
 
@@ -570,7 +543,7 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
 }
 
 
-void eval_gaussian_series(Vector3 evalAt,const double* params,double* value, double* gradient) {
+void eval_gaussian_series(Vec3d evalAt,const double* params,double* value, double* gradient) {
     Userdata userdata;
     userdata.point_model = &point_model;
     userdata.params = params;
@@ -652,7 +625,7 @@ void eval_gaussian_series(Vector3 evalAt,const double* params,double* value, dou
 
 //================================================================================//
 
-void eval_gaussian_testing(Vector3 evalAt,const double* params,double* value, double* gradient) {
+void eval_gaussian_testing(Vec3d evalAt,const double* params,double* value, double* gradient) {
     if(gradient != NULL) {
         //Don't bother with an analytical gradient
         for(unsigned long i = 0; i < gaussian_model_testing.size;i++) {
@@ -688,9 +661,9 @@ void eval_gaussian_testing(Vector3 evalAt,const double* params,double* value, do
 
                 double rho = exp(-a_coef*r*r);
 
-                Vector3 x_minus_xprime(evalAt.x - x,
-                                       evalAt.y - y,
-                                       evalAt.z - z);
+                Vec3d x_minus_xprime(evalAt.x() - x,
+                                     evalAt.y() - y,
+                                     evalAt.z() - z);
                 eval_point(x_minus_xprime,params,&f,NULL);
 
                 total += f * rho;
@@ -740,7 +713,7 @@ int IntegrandNumDev(const double xx[],double ff[],int ncomp, void* void_userdata
 }
 
 
-void eval_gaussian_num_dev(Vector3 evalAt,const double* params,double* value, double* gradient) {
+void eval_gaussian_num_dev(Vec3d evalAt,const double* params,double* value, double* gradient) {
     Userdata userdata;
     userdata.point_model = &point_model;
     userdata.params = params;

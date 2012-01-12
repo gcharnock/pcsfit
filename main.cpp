@@ -129,7 +129,7 @@ void run_scan(const Options& options,const ErrorContext* context,bool errorscan 
             double value;
             double* gradient = (double*)alloca(size*sizeof(double));
             if(!errorscan) {
-                context->model->modelf(Vector3(10,50,0),params,&value,gradient);
+                context->model->modelf(Vec3d(10,50,0),params,&value,gradient);
             } else {
                 eval_error(context,params,&value,gradient);
             }
@@ -320,9 +320,9 @@ int main(int argc,char** argv) {
         random_data(prng,*model,params_start,20,&dataset);
         for(unsigned long i = 0; i < dataset.nuclei.size(); i++) {
             cout << dataset.vals[i]     << " "
-                 << dataset.nuclei[i].x << " "
-                 << dataset.nuclei[i].y << " "
-                 << dataset.nuclei[i].z << endl;
+                 << dataset.nuclei[i].x() << " "
+                 << dataset.nuclei[i].y() << " "
+                 << dataset.nuclei[i].z() << endl;
         }
         return 0;
 	} else {

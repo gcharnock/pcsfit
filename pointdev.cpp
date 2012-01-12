@@ -33,10 +33,10 @@ using namespace boost;
   {0,0,2}
 */
 
-void eval_point_numerator(Vector3 evalAt,const double* pm,double out[9]) {
-    double x = evalAt.x - pm[PARAM_X];
-    double y = evalAt.y - pm[PARAM_Y];
-    double z = evalAt.z - pm[PARAM_Z];
+void eval_point_numerator(Vec3d evalAt,const double* pm,double out[9]) {
+    double x = evalAt.x() - pm[PARAM_X];
+    double y = evalAt.y() - pm[PARAM_Y];
+    double z = evalAt.z() - pm[PARAM_Z];
 
     double chi_1 =  pm[PARAM_CHI1]; 
     double chi_2 =  pm[PARAM_CHI2];
@@ -102,10 +102,10 @@ double u_nmp_over_v(ulong n,ulong m,ulong p, double x,double y,double z) {
     return u.eval(xyz)/vn;
 }
 
-double eval_point_model_dev_xyz(const double* params,ulong ndx, ulong ndy, ulong ndz,Vector3 evalAt) {
-    double x = evalAt.x - params[PARAM_X];
-    double y = evalAt.y - params[PARAM_Y];
-    double z = evalAt.z - params[PARAM_Z];
+double eval_point_model_dev_xyz(const double* params,ulong ndx, ulong ndy, ulong ndz,Vec3d evalAt) {
+    double x = evalAt.x() - params[PARAM_X];
+    double y = evalAt.y() - params[PARAM_Y];
+    double z = evalAt.z() - params[PARAM_Z];
 
     double numerator_devs[10];
     eval_point_numerator(evalAt,params,numerator_devs);
