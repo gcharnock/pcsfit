@@ -32,7 +32,7 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 
 void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,double* integral,void* data) {
     const static int NDIM = 3;
-    const static double EPSREL = 1e-2;
+    const static double EPSREL = 1e-3;
     const static double EPSABS = 0.00;
     const static int VERBOSE = 0;
     const static int LAST = 4;

@@ -420,3 +420,34 @@ bool intersect(double a,double b,double c,double d) {
     return subset(a,b,c,d) || subset(c,d,a,b);
 }
 
+Vec3d firstGaussDerivative(double s,Vec3d evalAt) {
+        double s2 = s*s;
+        double theExp = exp( -(evalAt.x()*evalAt.x() + 
+                               evalAt.y()*evalAt.y() +
+                               evalAt.z()*evalAt.z())/s2);
+
+        //First derivative
+        return Vec3d(-2*evalAt.x()/s2 * theExp,
+                     -2*evalAt.y()/s2 * theExp,
+                     -2*evalAt.z()/s2 * theExp);
+}
+
+void secondGaussDerivative(double s, double theExp,Vec3d evalAt,
+                           double* d2fdxx,
+                           double* d2fdyy,
+                           double* d2fdzz,
+                           double* d2fdxy,
+                           double* d2fdxz,
+                           double* d2fdyz) {
+    double s2 = s*s;
+    double s4 = s2*s2;
+
+
+    *d2fdxx = (4*evalAt.x()*evalAt.x() - 2*s2)/s4 * theExp;
+    *d2fdyy = (4*evalAt.y()*evalAt.y() - 2*s2)/s4 * theExp;
+    *d2fdzz = (4*evalAt.z()*evalAt.z() - 2*s2)/s4 * theExp;
+
+    *d2fdxy = (4*evalAt.x()*evalAt.y())/s4 * theExp;
+    *d2fdxz = (4*evalAt.x()*evalAt.z())/s4 * theExp;
+    *d2fdyz = (4*evalAt.y()*evalAt.z())/s4 * theExp;
+}

@@ -137,21 +137,21 @@ void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector
             gsl_vector_set(df,i,re_gradient);
         }
     }
-    //cout << "eval_error_fdf = " << *f << endl;
+    cout << "eval_error_fdf = " << *f << endl;
 }
 
 
 double eval_error_f  (const gsl_vector* v, void* voidContext) {
     double value;
     eval_error_fdf(v,voidContext,&value,NULL);
-    //cout << "eval_error_f = " << value << endl;
+    cout << "eval_error_f = " << value << endl;
     return value;
 }
 
 void   eval_error_df (const gsl_vector* v, void* voidContext, gsl_vector *df) {
     double value;
     eval_error_fdf(v,voidContext,&value,df);
-    //cout << "eval_error_df = " << value << endl;
+    cout << "eval_error_df = " << value << endl;
     return;
 }
 
@@ -190,7 +190,7 @@ void do_fit_with_grad(const ErrorContext* context,double* optModel,double* final
     //gsl_multimin_fdfminimizer_steepest_descent
     //gsl_multimin_fdfminimizer_conjugate_fr
     //gsl_multimin_fdfminimizer_vector_bfgs2
-    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2,size);
+    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_steepest_descent,size);
     
     gsl_multimin_fdfminimizer_set(gslmin,&minfunc,gslModelVec,0.1,0.2);
 

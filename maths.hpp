@@ -22,13 +22,46 @@ struct Vec3 {
         mData[1] = y;
         mData[2] = z;
     }
-
-	Vec3(T* r) {
-        memcpy(mData,r,sizeof(T)*3);
+    Vec3(const T* array) {
+        memcpy(mData,array,sizeof(T)*3);
     }
+
     Vec3(const Vec3& other) {
         memcpy(mData,other.mData,3*sizeof(T));
     }
+
+    Vec3 operator+(const Vec3& other) {
+        return Vec3(mData[0] + other.mData[0],
+                    mData[1] + other.mData[1],
+                    mData[2] + other.mData[2]);
+    }
+
+    Vec3 operator-(const Vec3& other) {
+        return Vec3(mData[0] - other.mData[0],
+                    mData[1] - other.mData[1],
+                    mData[2] - other.mData[2]);
+    }
+
+    T dot(Vec3 other) {
+        return mData[0]*other.mData[0] +
+            mData[1]*other.mData[1] +
+            mData[2]*other.mData[2];
+    }
+
+    T r2() {
+        return
+            mData[0]*mData[0] +
+            mData[1]*mData[1] +
+            mData[2]*mData[2];
+    }
+
+    Vec3 operator*(T s) {
+        return Vec3(mData[0] * s,
+                    mData[1] * s,
+                    mData[2] * s);
+    }
+
+
     const Vec3& operator=(const Vec3& other) {
         memcpy(mData,other.mData,3*sizeof(T));
         return *this;
@@ -363,5 +396,87 @@ bool subset(double a,double b,double c,double d);
 bool intersect(double a,double b,double c,double d);
 
 
+Vec3d firstGaussDerivative(double s,Vec3d evalAt);
+void secondGaussDerivative(double s, double theExp,Vec3d evalAt,
+                           double* d2fdxx,
+                           double* d2fdyy,
+                           double* d2fdzz,
+                           double* d2fdxy,
+                           double* d2fdxz,
+                           double* d2fdyz);
+
+
+struct GaussDerivatives {
+public:
+    GaussDerivatives(double s,Vec3d xyz) {
+        double sx = xyz.x();
+        double sy = xyz.y();
+        double sz = xyz.z();
+
+        double s2 = s*s;
+        double s4 = s2*s2;
+        double s6 = s4*s2;
+
+        double rho = exp(-(sx*sx + sy*sy + sz*sz)/s*s);
+        //First derivative
+        d_rho0_x = -2*sx/s2 * rho;
+        d_rho0_y = -2*sy/s2 * rho;
+        d_rho0_z = -2*sz/s2 * rho;
+
+        //Second Derivative
+        d2_rho0_xx = (4*sx*sx - 2*s2)/s4 * rho;
+        d2_rho0_yy = (4*sy*sy - 2*s2)/s4 * rho;
+        d2_rho0_zz = (4*sz*sz - 2*s2)/s4 * rho;
+
+        d2_rho0_xy = (4*sx*sy)/s4 * rho;
+        d2_rho0_xz = (4*sx*sz)/s4 * rho;
+        d2_rho0_yz = (4*sy*sz)/s4 * rho;
+
+        //Third Derivative
+        d3_rho0_xxx = (12*sx*s2 - 8*sx*sx*sx)/s6 * rho;
+        d3_rho0_yyy = (12*sy*s2 - 8*sy*sy*sy)/s6 * rho;
+        d3_rho0_zzz = (12*sz*s2 - 8*sz*sz*sz)/s6 * rho;
+               
+        d3_rho0_xxy = (4*sy*(s2-2*sx*sx))/s6 * rho;
+        d3_rho0_xxz = (4*sz*(s2-2*sx*sx))/s6 * rho;
+               
+        d3_rho0_yyx = (4*sx*(s2-2*sy*sy))/s6 * rho;
+        d3_rho0_yyz = (4*sz*(s2-2*sy*sy))/s6 * rho;
+               
+        d3_rho0_zzx = (4*sx*(s2-2*sz*sz))/s6 * rho;
+        d3_rho0_zzy = (4*sy*(s2-2*sz*sz))/s6 * rho;
+               
+        d3_rho0_xyz = -(8*sx*sy*sz)/s6 * rho;
+    }
+    //First derivative
+    double d_rho0_x;
+    double d_rho0_y;
+    double d_rho0_z;
+
+    //Second Derivative
+    double d2_rho0_xx;
+    double d2_rho0_yy;
+    double d2_rho0_zz;
+
+    double d2_rho0_xy;
+    double d2_rho0_xz;
+    double d2_rho0_yz;
+
+    //Third Derivative
+    double d3_rho0_xxx;
+    double d3_rho0_yyy;
+    double d3_rho0_zzz;
+                      
+    double d3_rho0_xxy;
+    double d3_rho0_xxz;
+                      
+    double d3_rho0_yyx;
+    double d3_rho0_yyz;
+                      
+    double d3_rho0_zzx;
+    double d3_rho0_zzy;
+
+    double d3_rho0_xyz;
+};
 
 #endif
