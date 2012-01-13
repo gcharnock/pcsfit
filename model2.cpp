@@ -430,9 +430,7 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
     double stddev2 = stddev*stddev;
 
     //First derivative
-    double d_rho0_x = -2*singularity.x()/stddev2 * rho0;
-    double d_rho0_y = -2*singularity.y()/stddev2 * rho0;
-    double d_rho0_z = -2*singularity.z()/stddev2 * rho0;
+    Vec3d rho0_grad = singularity *(-2/stddev2 * rho0);
 
     //A vector pointing from the centre of 1/r^3 to the center of the gaussian
     Vec3d expand_around = xyz - singularity;
@@ -474,26 +472,15 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
     assert(isfinite(rho0));
     assert(isfinite(f));
 
-    double toSub =  correction*(rho0 + expand_around.x()*d_rho0_x
-                                +      expand_around.y()*d_rho0_y
-                                +      expand_around.z()*d_rho0_z
-                                  
-                                /*+      xprime_to_singularity*xprime_to_singularity*d2_rho0_xx
-                                +      yprime_to_singularity*yprime_to_singularity*d2_rho0_yy
-                                +      zprime_to_singularity*zprime_to_singularity*d2_rho0_zz
-
-                                +      2*xprime_to_singularity*yprime_to_singularity*d2_rho0_xy
-                                +      2*xprime_to_singularity*zprime_to_singularity*d2_rho0_xz
-                                +      2*yprime_to_singularity*zprime_to_singularity*d2_rho0_yz*/);
+    double toSub =  correction*(rho0 + rho0_grad.dot(expand_around));
 
     if( abs((rho-toSub)/rho) < 1e-10) {
         //cout << " Warning, possible loss of precision, rho = "
-        //<< rho << " toSub = " << toSub << "  diff = " << (rho-toSub);
+        //<< rho << " toSub = " << toSub << "  diff = " << (rho-toSub) << endl;
 
         //cout << " computed diff = " << normalizer*gaussian_error_term_one(r,a,stddev) << endl;
-    } else {
-        ff[0] = (rho-toSub)*f;
     }
+    ff[0] = (rho-toSub)*f;
 
     assert(isfinite(ff[0]));
     if(ncomp == 1) {
