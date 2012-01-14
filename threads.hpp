@@ -11,7 +11,7 @@ template<typename T>
 class Multithreader {
 public:
     Multithreader()
-		: numCPU(0/*sysconf(_SC_NPROCESSORS_ONLN)*/),
+		: numCPU(/*sysconf(_SC_NPROCESSORS_ONLN)*/2),
 		  _barrier(numCPU+1),
 		  mFuncs(NULL) {
 
@@ -38,7 +38,7 @@ public:
 		mMapTo = &mapTo;
         mMapTo->resize(mFuncs->size());
 
-        if(true) {
+        if(false) {
             //Do work
             for(unsigned long i = 0;i<mFuncs->size();i++) {
                 mMapTo->at(i) = mFuncs->at(i)();

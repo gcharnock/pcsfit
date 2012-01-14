@@ -58,7 +58,7 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 
 void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,double* integral,void* data) {
     const static int NDIM = 3;
-    const static double EPSREL = 1e-2;
+    const static double EPSREL = 1e-5;
     const static double EPSABS = 0.00;
     const static int VERBOSE = 0;
     const static int LAST = 4;
@@ -493,6 +493,9 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
 
         //if(i == 1) cout << sqrt(prime_to_singularity2) << ", " << ff[i] << endl;
     }
+    ff[1] = 0;
+    ff[2] = 0;
+    ff[3] = 0;
     for(int i=0;i<ncomp;i++){assert(isfinite(ff[i]));}
     return 0;
 }
@@ -532,49 +535,56 @@ void eval_gaussian_series(Vec3d evalAt,const double* params,double* value, doubl
     if(gradient != NULL) {
         memcpy(gradient,integral+1,POINT_SIZE*sizeof(double));
 
-        //We compute the gradient with respect to stddev via a series
-        //expansion.
-        /*
-        double sxxxx = eval_point_model_dev_xyz(params,4,0,0,evalAt);
-        double syyyy = eval_point_model_dev_xyz(params,0,4,0,evalAt);
-        double szzzz = eval_point_model_dev_xyz(params,0,0,4,evalAt);
-
-        double sxxyy = eval_point_model_dev_xyz(params,2,2,0,evalAt);
-        double syyzz = eval_point_model_dev_xyz(params,0,2,2,evalAt);
-        double szzxx = eval_point_model_dev_xyz(params,2,0,2,evalAt);
-
-        double s2 = stddev*stddev;
-        double s5 = stddev*s2*s2;
-        
-        gradient[PARAM_STDDEV] = (6/24.0) * s5 * (
-                                                  3.0/4.0 * (sxxxx+syyyy+szzzz) +
-                                                  1.0/2.0 * (sxxyy+syyzz+szzxx)
-                                                  );
-        *//*
         double h = 0.0002;
-        double val_plus,val_minus;
-        double val_2plus,val_2minus;
+        double val_p,val_m;
+        double val_2p,val_2m;
+        double val_3p,val_3m;
+        double val_4p,val_4m;
         
         double mute_params[GAUSS_SIZE];
         userdata.params = mute_params;
 
         memcpy(mute_params,params,sizeof(double)*GAUSS_SIZE);
 
+        mute_params[PARAM_STDDEV] = stddev + 4*h;
+        cuhreIntegrate(Integrand3,&bounds,1,&val_4p,(void*)&userdata);
+
+        mute_params[PARAM_STDDEV] = stddev + 3*h;
+        cuhreIntegrate(Integrand3,&bounds,1,&val_3p,(void*)&userdata);
+
         mute_params[PARAM_STDDEV] = stddev + 2*h;
-        cuhreIntegrate(Integrand3,&bounds,1,&val_2plus,(void*)&userdata);
+        cuhreIntegrate(Integrand3,&bounds,1,&val_2p,(void*)&userdata);
 
         mute_params[PARAM_STDDEV] = stddev + h;
-        cuhreIntegrate(Integrand3,&bounds,1,&val_plus,(void*)&userdata);
+        cuhreIntegrate(Integrand3,&bounds,1,&val_p,(void*)&userdata);
+
 
         mute_params[PARAM_STDDEV] = stddev - h;
-        cuhreIntegrate(Integrand3,&bounds,1,&val_minus,(void*)&userdata);
+        cuhreIntegrate(Integrand3,&bounds,1,&val_m,(void*)&userdata);
 
         mute_params[PARAM_STDDEV] = stddev - 2*h;
-        cuhreIntegrate(Integrand3,&bounds,1,&val_2minus,(void*)&userdata);
-        
+        cuhreIntegrate(Integrand3,&bounds,1,&val_2m,(void*)&userdata);
 
-        gradient[PARAM_STDDEV] = (val_2minus - 8*val_minus + 8*val_plus - val_2plus)/(12*h);*/
-        gradient[PARAM_STDDEV] = 0;
+        mute_params[PARAM_STDDEV] = stddev - 3*h;
+        cuhreIntegrate(Integrand3,&bounds,1,&val_3m,(void*)&userdata);
+
+        mute_params[PARAM_STDDEV] = stddev - 4*h;
+        cuhreIntegrate(Integrand3,&bounds,1,&val_4m,(void*)&userdata);
+
+        //double fd1gradient = (val_p-val_m)/(2*h);
+        //double fd2gradient = (val_2m - 8*val_m + 8*val_p - val_2p)/(12*h);
+        //double fd3gradient = (-val_3m + 9*val_2m - 45*val_m + 45*val_p - 9*val_2p + val_3p)/(60*h);
+        double fd4gradient = ( val_4m/280 - 4*val_3m/105 + val_2m/5 - 4*val_m/5
+                              -val_4p/280 + 4*val_3p/105 - val_2p/5 + 4*val_p/5)/h;
+
+        /*cout << "sgradient = " << sgradient
+             << " fd1gradient = " << fd1gradient
+             << " fd2gradient = " << fd2gradient
+             << " fd3gradient = " << fd3gradient
+             << " fd4gradient = " << fd4gradient
+             << endl;*/
+
+        gradient[PARAM_STDDEV] = fd4gradient;
     }
 }
 
