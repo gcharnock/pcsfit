@@ -61,7 +61,6 @@ std::string name_param(int param);
 void eval_point(   Vec3d evalAt,const double* params,double* value, double* gradient);
 
 void eval_gaussian(Vec3d evalAt,const double* params,double* value, double* gradient);
-void eval_gaussian_series(Vec3d evalAt,const double* params,double* value, double* gradient);
 void eval_gaussian_testing(Vec3d evalAt,const double* params,double* value, double* gradient);
 
 

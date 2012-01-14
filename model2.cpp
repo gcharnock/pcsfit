@@ -58,7 +58,7 @@ int cuhreIntegrand(const int *ndim, const double xx[],
 
 void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,double* integral,void* data) {
     const static int NDIM = 3;
-    const static double EPSREL = 1e-5;
+    const static double EPSREL = 1e-2;
     const static double EPSABS = 0.00;
     const static int VERBOSE = 0;
     const static int LAST = 4;
@@ -208,151 +208,6 @@ struct Userdata {
 };
 
 
-//Since we need to pass this function to a C api it can't actually be
-//a member function. We'll pass the this pointer explicitly to fake a
-//member
-
-int Integrand2(const double xx[],double ff[],int ncomp, void* void_userdata) {
-    Userdata* userdata = (Userdata*)(void_userdata);
-
-    const double* params = userdata->params;
-    double stddev = abs(params[PARAM_STDDEV]);
-
-    unsigned long point_size = userdata->point_model->size;
-
-    double x = xx[0];
-    double y = xx[1];
-    double z = xx[2];
-	double r2 = x*x + y*y + z*z;
-
-    //A vector pointing from the centre of 1/r^3 to the center of the gaussian
-    double singularity_x = userdata->evalAt.x() - x - params[0];
-    double singularity_y = userdata->evalAt.y() - y - params[1];
-    double singularity_z = userdata->evalAt.z() - z - params[2];
-    
-    double singularity_r2 = singularity_x*singularity_x +
-        singularity_y*singularity_y +
-        singularity_z*singularity_z;
-
-    //Evauate the model
-    double f;
-    double* gradient = ncomp == 1 ? NULL: (double*)alloca(point_size*sizeof(double));
-
-    Vec3d x_minus_xprime(userdata->evalAt.x() - x,
-                         userdata->evalAt.y() - y,
-                         userdata->evalAt.z() - z);
-
-    userdata->point_model->modelf(x_minus_xprime,params,&f,gradient);
-
-    //We don't need the gradient of the gaussian function with respect
-    //to the spaceial pramiters
-    double a_coef = 1/(stddev*stddev);                                    assert(isfinite(a_coef));
-
-    //Potential optimisation: pull the calculation of this out of the integral
-    double normalizer = pow(M_PI*stddev*stddev,-1.5);
-    double theExp = exp(-a_coef*r2);
-    double rho = normalizer*theExp;
-
-    //Is any sort of regualisation needed?
-    bool close      = singularity_r2 < 4*userdata->reg_radius2;
-    bool very_close = singularity_r2 <   userdata->reg_radius2;
-
-    double another_r2;
-
-    double another_x;
-    double another_y;
-    double another_z;
-
-    double correction = 0;
-
-    another_x  = (userdata->evalAt.x() - params[0]);
-    another_y  = (userdata->evalAt.y() - params[1]);
-    another_z  = (userdata->evalAt.z() - params[2]);
-    another_r2 = another_x*another_x + another_y*another_y + another_z*another_z;
-
-    if(close) {
-        if(very_close) {
-            correction = 1;
-        } else {
-            double reg_radius = sqrt(userdata->reg_radius2);
-            double singularity_r = sqrt(singularity_r2);
-
-            double t =  (singularity_r - reg_radius)/(reg_radius);
-
-            correction = magic_polynomial(1-t);
-        }
-    }
-    double rho0 = normalizer*exp(-a_coef*(another_r2));
-
-    assert(isfinite(rho));
-    assert(isfinite(rho0));
-    assert(isfinite(f));
-
-
-    ff[0] = (rho-rho0*correction)*f;
-    assert(isfinite(ff[0]));
-    if(ncomp == 1) {
-        //If we don't need a gradient, we can stop here.
-        return 0;
-    }
-
-    double drhoBy_ds  = pow(M_PI,-1.5)*(2*pow(stddev,-6)*r2-3*pow(stddev,-4))*theExp;
-
-    double theExp0 = exp(-a_coef*another_r2);
-    double drhoBy_ds0 = pow(M_PI,-1.5)*(2*pow(stddev,-6)*another_r2-3*pow(stddev,-4))*theExp0;
-
-    //double common_factor = -2*pow(M_PI,-3.0/2.0)/sqrt(stddev) * theExp0;
-    //double drhoBydx_dx   = common_factor * singularity_x * (x-singularity_x);
-    //double drhoBydy_dy   = common_factor * singularity_y * (y-singularity_y);
-    //double drhoBydz_dz   = common_factor * singularity_z * (z-singularity_z);
-        
-    //double drho0 = drhoBydx_dx*another_x + drhoBydy_dy*another_y + drhoBydz_dz*another_z;
-
-    for(unsigned long i=1;i<9;i++){
-        ff[i] = (rho-rho0*correction) * gradient[i-1];
-    }
-    ff[9] = (drhoBy_ds-correction*drhoBy_ds0) * f;
-
-    for(int i=0;i<ncomp;i++){assert(isfinite(ff[i]));}
-    return 0;
-}
-
-
-void eval_gaussian(Vec3d evalAt,const double* params,double* value, double* gradient) {
-    Userdata userdata;
-    userdata.point_model = &point_model;
-    userdata.params = params;
-	userdata.evalAt = evalAt;
-
-    double stddev = params[PARAM_STDDEV];
-
-    IntegralBounds bounds;
-    bounds.xmax =   12*stddev;
-    bounds.xmin =  -12*stddev;
-    
-    bounds.ymax =   12*stddev;
-    bounds.ymin =  -12*stddev;
-    
-    bounds.zmax =   12*stddev;
-    bounds.zmin =  -12*stddev;
-
-    //Make sure that the region where regualization is applied is
-    //wholey included or wholey excluded.
-
-    double reg_radius    = stddev/3.0;
-    userdata.reg_radius2 = reg_radius*reg_radius;
-    unsigned long ncomp = gradient == NULL ? 1 : 10;
-
-	double* integral = (double*)alloca(ncomp*sizeof(double));
-
-	cuhreIntegrate(Integrand2,&bounds,ncomp,integral,(void*)&userdata);
-
-    *value = integral[0];
-
-    if(gradient != NULL) {
-        memcpy(gradient,integral+1,10*sizeof(double));
-    }
-}
 
 
 int parse_params_file(const std::string& filename,const Model** model,std::vector<double>* params) {
@@ -368,7 +223,7 @@ int parse_params_file(const std::string& filename,const Model** model,std::vecto
         cout << "Using gauss_test model " << endl;
         *model = &gaussian_model_testing;
     } else if(model_name == "gauss") {
-        *model = &gaussian_model_series;
+        *model = &gaussian_model;
     } else {
         return  UNKNOWN_MODEL;
     }
@@ -403,7 +258,7 @@ void random_data(PRNG& prng,const Model& model,const double* params,unsigned lon
 
 //================================================================================//
 
-int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
+int Integrand(const double xx[],double ff[],int ncomp, void* void_userdata) {
     Userdata* userdata = (Userdata*)(void_userdata);
 
     const double* params = userdata->params;
@@ -501,7 +356,7 @@ int Integrand3(const double xx[],double ff[],int ncomp, void* void_userdata) {
 }
 
 
-void eval_gaussian_series(Vec3d evalAt,const double* params,double* value, double* gradient) {
+void eval_gaussian(Vec3d evalAt,const double* params,double* value, double* gradient) {
     Userdata userdata;
     userdata.point_model = &point_model;
     userdata.params = params;
@@ -528,7 +383,7 @@ void eval_gaussian_series(Vec3d evalAt,const double* params,double* value, doubl
 
 	double* integral = (double*)alloca(ncomp*sizeof(double));
 
-	cuhreIntegrate(Integrand3,&bounds,ncomp,integral,(void*)&userdata);
+	cuhreIntegrate(Integrand,&bounds,ncomp,integral,(void*)&userdata);
 
     *value = integral[0];
 
@@ -547,29 +402,29 @@ void eval_gaussian_series(Vec3d evalAt,const double* params,double* value, doubl
         memcpy(mute_params,params,sizeof(double)*GAUSS_SIZE);
 
         mute_params[PARAM_STDDEV] = stddev + 4*h;
-        cuhreIntegrate(Integrand3,&bounds,1,&val_4p,(void*)&userdata);
+        cuhreIntegrate(Integrand,&bounds,1,&val_4p,(void*)&userdata);
 
         mute_params[PARAM_STDDEV] = stddev + 3*h;
-        cuhreIntegrate(Integrand3,&bounds,1,&val_3p,(void*)&userdata);
+        cuhreIntegrate(Integrand,&bounds,1,&val_3p,(void*)&userdata);
 
         mute_params[PARAM_STDDEV] = stddev + 2*h;
-        cuhreIntegrate(Integrand3,&bounds,1,&val_2p,(void*)&userdata);
+        cuhreIntegrate(Integrand,&bounds,1,&val_2p,(void*)&userdata);
 
         mute_params[PARAM_STDDEV] = stddev + h;
-        cuhreIntegrate(Integrand3,&bounds,1,&val_p,(void*)&userdata);
+        cuhreIntegrate(Integrand,&bounds,1,&val_p,(void*)&userdata);
 
 
         mute_params[PARAM_STDDEV] = stddev - h;
-        cuhreIntegrate(Integrand3,&bounds,1,&val_m,(void*)&userdata);
+        cuhreIntegrate(Integrand,&bounds,1,&val_m,(void*)&userdata);
 
         mute_params[PARAM_STDDEV] = stddev - 2*h;
-        cuhreIntegrate(Integrand3,&bounds,1,&val_2m,(void*)&userdata);
+        cuhreIntegrate(Integrand,&bounds,1,&val_2m,(void*)&userdata);
 
         mute_params[PARAM_STDDEV] = stddev - 3*h;
-        cuhreIntegrate(Integrand3,&bounds,1,&val_3m,(void*)&userdata);
+        cuhreIntegrate(Integrand,&bounds,1,&val_3m,(void*)&userdata);
 
         mute_params[PARAM_STDDEV] = stddev - 4*h;
-        cuhreIntegrate(Integrand3,&bounds,1,&val_4m,(void*)&userdata);
+        cuhreIntegrate(Integrand,&bounds,1,&val_4m,(void*)&userdata);
 
         //double fd1gradient = (val_p-val_m)/(2*h);
         //double fd2gradient = (val_2m - 8*val_m + 8*val_p - val_2p)/(12*h);
@@ -653,7 +508,7 @@ int IntegrandNumDev(const double xx[],double ff[],int ncomp, void* void_userdata
 
     assert(ncomp == int(1 + userdata->point_model->size + 1));
 
-    Integrand2(xx,ff,1,(void*)&userdata_copy);
+    Integrand(xx,ff,1,(void*)&userdata_copy);
 
     for(unsigned long i = 0; i < size; i++) {
         double param = userdata->params[i];
@@ -663,10 +518,10 @@ int IntegrandNumDev(const double xx[],double ff[],int ncomp, void* void_userdata
         double result_minus = numeric_limits<double>::quiet_NaN();
 
 		params_mutable[i] = param + h;
-        Integrand2(xx,&result_plus,1,(void*)&userdata_copy);
+        Integrand(xx,&result_plus,1,(void*)&userdata_copy);
 
 		params_mutable[i] = param - h;
-        Integrand2(xx,&result_minus,1,(void*)&userdata_copy);
+        Integrand(xx,&result_minus,1,(void*)&userdata_copy);
 
 		params_mutable[i] = param;
 
@@ -705,7 +560,7 @@ void eval_gaussian_num_dev(Vec3d evalAt,const double* params,double* value, doub
 	double* integral = (double*)alloca(ncomp*sizeof(double));
 
     if(gradient == NULL) {
-        cuhreIntegrate(Integrand2     ,&bounds,ncomp,integral,(void*)&userdata);
+        cuhreIntegrate(Integrand      ,&bounds,ncomp,integral,(void*)&userdata);
     } else {
         cuhreIntegrate(IntegrandNumDev,&bounds,ncomp,integral,(void*)&userdata);
     }
@@ -734,6 +589,5 @@ void eval_gaussian_num_dev(Vec3d evalAt,const double* params,double* value, doub
 
 const Model point_model    = {eval_point   ,8,"Point Model"};
 const Model gaussian_model = {eval_gaussian,9,"Gaussian Model"};
-const Model gaussian_model_series = {eval_gaussian_series,9,"Gaussian Model Series"};
 const Model gaussian_model_num_dev  = {eval_gaussian_num_dev,9,"Gaussian Model with Numerical Derivatives"};
 const Model gaussian_model_testing = {eval_gaussian_testing,9,"Gaussian Model"};

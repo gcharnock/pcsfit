@@ -250,7 +250,7 @@ void testModel(PRNG& prng,Multithreader<fdf_t>* pool) {
 
     //check_derivative (prng,&point_model);
     PRNG prng_copy = prng;
-    check_derivative (prng,&gaussian_model_series);
+    check_derivative (prng,&gaussian_model);
     //check_derivative (prng_copy,&gaussian_model_num_dev);
 
     //cout << "Evaulating the analytic and numerical derivatives of the error functional" << endl;
