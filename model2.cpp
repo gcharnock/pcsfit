@@ -63,7 +63,7 @@ void cuhreIntegrate(IntegrandF f,IntegralBounds* bounds,unsigned long ncomp,doub
     const static int VERBOSE = 0;
     const static int LAST = 4;
     const static int MINEVAL = 1;
-    const static int MAXEVAL = 5000000;
+    const static int MAXEVAL = 200000000;
     const static int KEY = 11; //Use 11 point quadriture
 
 	int nregions, neval, fail;
@@ -204,6 +204,10 @@ struct Userdata {
     const double* params; 
 	Vec3d evalAt;
 
+    //Fintie differencing step size
+    double stddev_h; 
+    double position_h;
+
     double reg_radius2;
 };
 
@@ -258,52 +262,35 @@ void random_data(PRNG& prng,const Model& model,const double* params,unsigned lon
 
 //================================================================================//
 
-int Integrand(const double xx[],double ff[],int ncomp, void* void_userdata) {
-    Userdata* userdata = (Userdata*)(void_userdata);
+double integrand_kernel(Userdata* userdata,
+                        Vec3d xyz,
+                        const double* params,
+                        Vec3d singularity,
+                        double* gradient) {
 
-    const double* params = userdata->params;
-    double stddev = abs(params[PARAM_STDDEV]);
-
-    unsigned long point_size = userdata->point_model->size;
-
-    Vec3d xyz = Vec3d(xx);
-	double r2 = xyz.r2();
-
-    Vec3d metal = Vec3d(params);
-
-    //The location of the singularity (optimisation: take these
-    //calculations out of the integral)
-    Vec3d singularity = userdata->evalAt - metal;
     double singularity_r2 = singularity.r2();
+    double stddev = abs(params[PARAM_STDDEV]);
+    double stddev2 = stddev*stddev;
+
 
     //Potential optimisation: pull the calculation of these out of the integral
     double a_coef = 1/(stddev*stddev);   assert(isfinite(a_coef));
     double normalizer = pow(M_PI*stddev*stddev,-1.5);
     double theExp0 = exp(-a_coef*(singularity_r2));
+
+    //rho0 and its first derivative
     double rho0 = normalizer*theExp0;
-
-    double stddev2 = stddev*stddev;
-
-    //First derivative
     Vec3d rho0_grad = singularity *(-2/stddev2 * rho0);
+
+    //Read the dummy variable from xx[]
+	double r2 = xyz.r2();
 
     //A vector pointing from the centre of 1/r^3 to the center of the gaussian
     Vec3d expand_around = xyz - singularity;
     double expand_r2 = expand_around.r2();
 
-    //Evauate the model
-    double f;
-    double* gradient = ncomp == 1 ? NULL: (double*)alloca(point_size*sizeof(double));
 
-    Vec3d x_minus_xprime = userdata->evalAt - xyz;
-
-    userdata->point_model->modelf(x_minus_xprime,params,&f,gradient);
-
-
-    double theExp = exp(-a_coef*r2);
-    double rho = normalizer*theExp;
-
-    //Is any sort of regualisation needed?
+    //Decide if any sort of regualisation needed?
     bool close      = expand_r2 < 4*userdata->reg_radius2;
     bool very_close = expand_r2 < userdata->reg_radius2;
 
@@ -321,37 +308,147 @@ int Integrand(const double xx[],double ff[],int ncomp, void* void_userdata) {
             correction = magic_polynomial(1-t);
             //cout << 1-t << " " << correction << endl;;
         }
-    }
+    }   
 
-    assert(isfinite(rho));
-    assert(isfinite(rho0));
-    assert(isfinite(f));
+
+
+    //Evauate the model
+    double f;
+    double* point_gradient = gradient == NULL ? NULL : (double*)alloca(POINT_SIZE*sizeof(double));
+
+    Vec3d x_minus_xprime = userdata->evalAt - xyz;
+
+    userdata->point_model->modelf(x_minus_xprime,params,&f,point_gradient);
+
+    double theExp = exp(-a_coef*r2);
+    double rho = normalizer*theExp;
 
     double toSub =  correction*(rho0 + rho0_grad.dot(expand_around));
 
-    if( abs((rho-toSub)/rho) < 1e-10) {
+    if(abs((rho-toSub)/rho) < 1e-10) {
         //cout << " Warning, possible loss of precision, rho = "
         //<< rho << " toSub = " << toSub << "  diff = " << (rho-toSub) << endl;
 
         //cout << " computed diff = " << normalizer*gaussian_error_term_one(r,a,stddev) << endl;
     }
-    ff[0] = (rho-toSub)*f;
+
+    if(gradient != NULL) {
+        //Ignore the spacial gradients, because they don't behave well
+        //under integration.
+        for(unsigned long i=0;i<5;i++){
+            gradient[i] = (rho-toSub) * point_gradient[i+3];
+        }
+    }
+
+    return (rho - toSub*correction)*f;
+}
+
+
+int Integrand(const double xx[],double ff[],int ncomp, void* void_userdata) {
+    /*
+      ff[0]     - The function value
+      ff[1-5]   - Tensor component gradients
+      ff[6-13]  - s centeral differences, running from f(s-4*h) to f(s+4*h)
+      ff[14-17] - x centeral differences, running from f(s-h) to f(s+h)
+      ff[18-21] - y centeral differences, running from f(s-h) to f(s+h)
+      ff[22-25] - z centeral differences, running from f(s-h) to f(s+h)
+     */
+
+    Userdata* userdata = (Userdata*)(void_userdata);
+
+    const double* params = userdata->params;
+    Vec3d metal = Vec3d(params);
+
+    //The location of the singularity (optimisation: take these
+    //calculations out of the integral)
+    Vec3d singularity = userdata->evalAt - metal;
+
+
+    Vec3d xyz = Vec3d(xx);
+
+    //A vector pointing from the centre of 1/r^3 to the center of the gaussian
+    Vec3d expand_around = xyz - singularity;
+
+    //Evauate the model
+    double* gradient = ncomp == 1 ? NULL: (double*)alloca(POINT_SIZE*sizeof(double));
+
+    Vec3d x_minus_xprime = userdata->evalAt - xyz;
+
+    ff[0] = integrand_kernel(userdata,xyz,params,singularity,gradient);
 
     assert(isfinite(ff[0]));
     if(ncomp == 1) {
         //If we don't need a gradient, we can stop here.
         return 0;
     }
+    assert(ncomp == 25);
 
-    for(unsigned long i=1;i<9;i++){
-        ff[i] = (rho-toSub) * gradient[i-1];
+    //Copy the analytic gradients over
+    memcpy(ff+1,gradient,5*sizeof(double));
+    
+    //The stddev central differences
+    double* mute_params = (double*)alloca((POINT_SIZE+1)*sizeof(double));
+    memcpy(mute_params,params,(POINT_SIZE+1)*sizeof(double));
 
-        //if(i == 1) cout << sqrt(prime_to_singularity2) << ", " << ff[i] << endl;
+    mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] - userdata->stddev_h * 4;
+    ff[6 ] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-4h
+    mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] - userdata->stddev_h * 3;
+    ff[7 ] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-3h
+    mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] - userdata->stddev_h * 2;
+    ff[8 ] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-2h
+    mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] - userdata->stddev_h * 1;
+    ff[9 ] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-1h
+
+    mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] + userdata->stddev_h * 1;
+    ff[10] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 1h
+    mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] + userdata->stddev_h * 2;
+    ff[11] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 2h
+    mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] + userdata->stddev_h * 3;
+    ff[12] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 3h
+    mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] + userdata->stddev_h * 4;
+    ff[13] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 4h
+
+    mute_params[PARAM_STDDEV] = params[PARAM_STDDEV];
+
+    //Vary x
+    mute_params[PARAM_X] = params[PARAM_X] - userdata->position_h*2;
+    ff[14] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-2h
+    mute_params[PARAM_X] = params[PARAM_X] - userdata->position_h;
+    ff[15] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-1h
+    mute_params[PARAM_X] = params[PARAM_X] + userdata->position_h;
+    ff[16] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 1h
+    mute_params[PARAM_X] = params[PARAM_X] + userdata->position_h*2;
+    ff[17] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 2h
+    
+    mute_params[PARAM_X] = params[PARAM_X];
+
+    //Vary y
+    mute_params[PARAM_Y] = params[PARAM_Y] - userdata->position_h*2;
+    ff[18] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-2h
+    mute_params[PARAM_Y] = params[PARAM_Y] - userdata->position_h;
+    ff[19] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-1h
+    mute_params[PARAM_Y] = params[PARAM_Y] + userdata->position_h;
+    ff[20] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 1h
+    mute_params[PARAM_Y] = params[PARAM_Y] + userdata->position_h*2;
+    ff[21] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 2h
+
+    mute_params[PARAM_Y] = params[PARAM_Y];
+
+    //Vary z
+    mute_params[PARAM_Z] = params[PARAM_Z] - userdata->position_h*2;
+    ff[22] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-2h
+    mute_params[PARAM_Z] = params[PARAM_Z] - userdata->position_h;
+    ff[23] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-1h
+    mute_params[PARAM_Z] = params[PARAM_Z] + userdata->position_h;
+    ff[24] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 1h
+    mute_params[PARAM_Z] = params[PARAM_Z] + userdata->position_h*2;
+    ff[25] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 2h
+
+    mute_params[PARAM_Z] = params[PARAM_Z];
+
+    for(int i=0;i<ncomp;i++){
+        assert(isfinite(ff[i]));
     }
-    ff[1] = 0;
-    ff[2] = 0;
-    ff[3] = 0;
-    for(int i=0;i<ncomp;i++){assert(isfinite(ff[i]));}
     return 0;
 }
 
@@ -379,67 +476,66 @@ void eval_gaussian(Vec3d evalAt,const double* params,double* value, double* grad
 
     double reg_radius    = stddev/3.0;
     userdata.reg_radius2 = reg_radius*reg_radius;
-    unsigned long ncomp = gradient == NULL ? 1 : (POINT_SIZE+1);
+    unsigned long ncomp = gradient == NULL ? 1 : 25;
 
 	double* integral = (double*)alloca(ncomp*sizeof(double));
+
+    userdata.stddev_h   = 0.002;
+    userdata.position_h = 0.002;
 
 	cuhreIntegrate(Integrand,&bounds,ncomp,integral,(void*)&userdata);
 
     *value = integral[0];
 
     if(gradient != NULL) {
-        memcpy(gradient,integral+1,POINT_SIZE*sizeof(double));
+        //Copy the gradients we calculate analytically
+        gradient[PARAM_CHI1 ] = integral[1];
+        gradient[PARAM_CHI2 ] = integral[2];
+        gradient[PARAM_CHIXY] = integral[3];
+        gradient[PARAM_CHIXZ] = integral[4];
+        gradient[PARAM_CHIYZ] = integral[5];
 
-        double h = 0.0002;
-        double val_p,val_m;
-        double val_2p,val_2m;
-        double val_3p,val_3m;
-        double val_4p,val_4m;
+        //Calculate the finite differened gradients
+
+        double val_4m = integral[ 6];
+        double val_3m = integral[ 7];
+        double val_2m = integral[ 8];
+        double val_m  = integral[ 9];
+
+        double val_p  = integral[10];
+        double val_2p = integral[11];
+        double val_3p = integral[12];
+        double val_4p = integral[13];
+
+        double val_x2m = integral[14];
+        double val_xm  = integral[15];
+        double val_xp  = integral[16];
+        double val_x2p = integral[17];
+
+        double val_y2m = integral[18];
+        double val_ym  = integral[19];
+        double val_yp  = integral[20];
+        double val_y2p = integral[21];
+
+        double val_z2m = integral[22];
+        double val_zm  = integral[23];
+        double val_zp  = integral[24];
+        double val_z2p = integral[25];
         
-        double mute_params[GAUSS_SIZE];
-        userdata.params = mute_params;
-
-        memcpy(mute_params,params,sizeof(double)*GAUSS_SIZE);
-
-        mute_params[PARAM_STDDEV] = stddev + 4*h;
-        cuhreIntegrate(Integrand,&bounds,1,&val_4p,(void*)&userdata);
-
-        mute_params[PARAM_STDDEV] = stddev + 3*h;
-        cuhreIntegrate(Integrand,&bounds,1,&val_3p,(void*)&userdata);
-
-        mute_params[PARAM_STDDEV] = stddev + 2*h;
-        cuhreIntegrate(Integrand,&bounds,1,&val_2p,(void*)&userdata);
-
-        mute_params[PARAM_STDDEV] = stddev + h;
-        cuhreIntegrate(Integrand,&bounds,1,&val_p,(void*)&userdata);
-
-
-        mute_params[PARAM_STDDEV] = stddev - h;
-        cuhreIntegrate(Integrand,&bounds,1,&val_m,(void*)&userdata);
-
-        mute_params[PARAM_STDDEV] = stddev - 2*h;
-        cuhreIntegrate(Integrand,&bounds,1,&val_2m,(void*)&userdata);
-
-        mute_params[PARAM_STDDEV] = stddev - 3*h;
-        cuhreIntegrate(Integrand,&bounds,1,&val_3m,(void*)&userdata);
-
-        mute_params[PARAM_STDDEV] = stddev - 4*h;
-        cuhreIntegrate(Integrand,&bounds,1,&val_4m,(void*)&userdata);
-
         //double fd1gradient = (val_p-val_m)/(2*h);
         //double fd2gradient = (val_2m - 8*val_m + 8*val_p - val_2p)/(12*h);
         //double fd3gradient = (-val_3m + 9*val_2m - 45*val_m + 45*val_p - 9*val_2p + val_3p)/(60*h);
-        double fd4gradient = ( val_4m/280 - 4*val_3m/105 + val_2m/5 - 4*val_m/5
-                              -val_4p/280 + 4*val_3p/105 - val_2p/5 + 4*val_p/5)/h;
 
-        /*cout << "sgradient = " << sgradient
-             << " fd1gradient = " << fd1gradient
-             << " fd2gradient = " << fd2gradient
-             << " fd3gradient = " << fd3gradient
-             << " fd4gradient = " << fd4gradient
-             << endl;*/
+        double h = userdata.position_h;
 
-        gradient[PARAM_STDDEV] = fd4gradient;
+        gradient[PARAM_X] = (val_x2m - 8*val_xm + 8*val_xp - val_x2p)/(12*h);
+        gradient[PARAM_Y] = (val_y2m - 8*val_ym + 8*val_yp - val_y2p)/(12*h);
+        gradient[PARAM_Z] = (val_z2m - 8*val_zm + 8*val_zp - val_z2p)/(12*h);
+
+        h = userdata.stddev_h;
+        gradient[PARAM_STDDEV] = ( val_4m/280 - 4*val_3m/105 + val_2m/5 - 4*val_m/5
+                                   -val_4p/280 + 4*val_3p/105 - val_2p/5 + 4*val_p/5)/h;
+
     }
 }
 
