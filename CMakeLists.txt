@@ -8,10 +8,10 @@ project(pcsfit)
 #set(CMAKE_CXX_LINKER "g++-4.4")
 
 #Debug build, can use with gdb
-#set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Debug)
 
 #Compile a release build
-set(CMAKE_BUILD_TYPE Release)
+#set(CMAKE_BUILD_TYPE Release)
 
 
 #set(VTKLIBS
@@ -51,4 +51,5 @@ set(sources model2.cpp fit.cpp  data.cpp  tests.cpp pointdev.cpp maths.cpp)
 
 add_executable(pcsfit main.cpp  ${sources})
 target_link_libraries(pcsfit ${LIBS} ${VTKLIBS})
+
 

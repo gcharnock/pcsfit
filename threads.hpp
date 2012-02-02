@@ -11,7 +11,7 @@ template<typename T>
 class Multithreader {
 public:
     Multithreader()
-		: numCPU(/*sysconf(_SC_NPROCESSORS_ONLN)*/2),
+		: numCPU(1/*sysconf(_SC_NPROCESSORS_ONLN)*/),
 		  _barrier(numCPU+1),
 		  mFuncs(NULL) {
 

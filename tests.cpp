@@ -15,7 +15,7 @@ using namespace std;
 
 RandomDist dist;
 
-void check_minimum(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool) {
+void check_minimum(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool,const ModelOptions* modelOptions) {
     cout << "Evautating the error function for a perfect match (should be zero)" << endl;
 
     for(unsigned long i = 0;i<10;i++) {
@@ -24,7 +24,7 @@ void check_minimum(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool) {
             params[j] = dist(prng);
         }
         Dataset dataset;
-        random_data(prng,*model,params,5,&dataset);
+        random_data(prng,*model,params,5,&dataset,modelOptions);
         
         ErrorContext context;
         context.dataset = &dataset;
@@ -46,7 +46,7 @@ void check_minimum(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool) {
     }
 }
 
-void check_derivative (PRNG& prng,const Model* model) {
+void check_derivative (PRNG& prng,const Model* model,const ModelOptions* modelOptions) {
     cout << "Checking the analytic and numerical derivaties match on " << model->name << endl;
     
     //Chekcs the analytic and numerical derivates are equil
@@ -62,10 +62,10 @@ void check_derivative (PRNG& prng,const Model* model) {
 
 		Vec3d evalAt(dist(prng),dist(prng),dist(prng));
 
-        model->modelf(evalAt,params,&result,gradient);
-        point_model.modelf(evalAt,params,&point_result,NULL);
+        model->modelf(evalAt,params,&result,gradient,modelOptions);
+        point_model.modelf(evalAt,params,&point_result,NULL,modelOptions);
 
-        numerical_derivative(evalAt,model,params,numerical_gradient);
+        numerical_derivative(evalAt,model,params,numerical_gradient,modelOptions);
 
         double x = evalAt.x() - params[PARAM_X];
         double y = evalAt.y() - params[PARAM_Y];
@@ -83,7 +83,7 @@ void check_derivative (PRNG& prng,const Model* model) {
     }
 }
 
-void check_error_derivate(PRNG prng,const Model* model,Multithreader<fdf_t>* pool) {
+void check_error_derivate(PRNG prng,const Model* model,Multithreader<fdf_t>* pool,const ModelOptions* modelOptions) {
     cout << "Checking the analytic and numerical derivaties match for the error functional" << endl;
 
     double* params             = (double*)alloca(model->size*sizeof(double));
@@ -106,7 +106,7 @@ void check_error_derivate(PRNG prng,const Model* model,Multithreader<fdf_t>* poo
         Dataset dataset;
 
 		cout << "Creating a random molecule of " << 5*i << " spins" << endl;
-        random_data(prng,point_model,params,5*i,&dataset);
+        random_data(prng,point_model,params,5*i,&dataset,modelOptions);
 
         ErrorContext context;
         context.dataset = &dataset;
@@ -147,7 +147,7 @@ bool do_convergence_on_iterate(const ErrorContext* context,unsigned long i,gsl_m
 	return true;
 }
 
-void do_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool) {
+void do_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool,const ModelOptions* modelOptions) {
 	unsigned long size = model->size;
 
     for(unsigned long i = 1;i<4;i++) {
@@ -163,7 +163,7 @@ void do_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool) {
         Dataset dataset;
 
         cout << "Generating a distom molecule with " << 10*i << " spins" << endl;
-        random_data(prng,point_model,params_real,5*i,&dataset);
+        random_data(prng,point_model,params_real,5*i,&dataset,modelOptions);
 
         cout << "Real params:" << endl;
         for(unsigned long j = 0;j<model->size;j++) {cout << params_real[j] << " ";}
@@ -194,7 +194,7 @@ void do_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool) {
     }
 }
 
-void test_gaussian(PRNG& prng) {
+void test_gaussian(PRNG& prng,const ModelOptions* modelOptions) {
 	RandomDist rand;
 
     for(unsigned long i = 1; i<4; i++) {
@@ -219,8 +219,8 @@ void test_gaussian(PRNG& prng) {
         for(unsigned long j = 0; j < natoms;j++) {
             Vec3d pos = Vec3d(rand(prng),rand(prng),rand(prng));
             nuclei[j] = pos;
-            eval_gaussian(     pos,params,&(valsG[j])   ,NULL);
-            eval_gaussian_testing(pos,params,&(valsTest[j]),NULL);
+            eval_gaussian(        pos,params,&(valsG[j])   ,NULL,modelOptions);
+            eval_gaussian_testing(pos,params,&(valsTest[j]),NULL,modelOptions);
         }
 
 
@@ -242,16 +242,16 @@ void test_gaussian(PRNG& prng) {
 //Perform a sanity check on the models. Given teh same paramiter set
 //the gaussian model should converged to the point model as stddev
 //tends to 0
-void testModel(PRNG& prng,Multithreader<fdf_t>* pool) {
+void testModel(PRNG& prng,Multithreader<fdf_t>* pool,const ModelOptions* modelOptions) {
     cout << "================================================================================" << endl;
 
     //Check the gaussian model;
     //test_gaussian(prng);
 
-    //check_derivative (prng,&point_model);
+    //check_derivative (prng,&point_model,modelOptions);
     PRNG prng_copy = prng;
-    check_derivative (prng,&gaussian_model);
-    //check_derivative (prng_copy,&gaussian_model_num_dev);
+    check_derivative (prng,&gaussian_model,modelOptions);
+    //check_derivative (prng_copy,&gaussian_model_num_dev,modelOptions);
 
     //cout << "Evaulating the analytic and numerical derivatives of the error functional" << endl;
     //check_error_derivate(prng,&point_model   ,pool);
@@ -265,7 +265,7 @@ void testModel(PRNG& prng,Multithreader<fdf_t>* pool) {
 }
 
 //================================================================================//
-void multinomial_run_tests() {
+void multinomial_run_tests(const ModelOptions* modelOptions) {
     MNL u = MNL::one();
     MNL u200 = MNL::one();
     cout << "u000 = " << u << endl;
@@ -337,7 +337,7 @@ void multinomial_run_tests() {
     //Evauate the point model using the well tested method, to compare the terms
     double value;
     double* gradient = (double*)alloca(POINT_SIZE*sizeof(double));
-    eval_point(evalAt,params,&value,gradient);
+    eval_point(evalAt,params,&value,gradient,modelOptions);
 
     cout << "First term (evauated at (4,5,4) )" << endl;
     cout << eval_point_model_dev_xyz(params,0,0,0,evalAt) << endl;

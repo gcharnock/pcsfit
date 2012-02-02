@@ -7,6 +7,7 @@
 
 using namespace std;
 
+
 /*
   Debuging BFGS:
   1) Check the scaling of the problem. Are all variables about 1.
@@ -23,7 +24,7 @@ fdf_t worker(const ErrorContext* context,const double* params,bool withGradient,
     double* gradient_buff = withGradient ? (double*)alloca(size*sizeof(double)) : NULL;
     vector<double> gradient;
 
-    context->model->modelf(context->dataset->nuclei[jobN], params, &value, gradient_buff);
+    context->model->modelf(context->dataset->nuclei[jobN], params, &value, gradient_buff,context->modelOptions);
 
     if(withGradient) {
         for(unsigned long i = 0;i < size;i++) {
@@ -107,7 +108,7 @@ void numerical_error_derivative(const ErrorContext* context,double* value, doubl
 
 //Translates to and from GSL language
 void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector *df) {
-    const ErrorContext* context = (const ErrorContext*)(voidContext);
+    const ErrorContext* context = (ErrorContext*)(voidContext);
 
     unsigned long size = context->model->size;
 
@@ -117,7 +118,7 @@ void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector
     //Rescale the gradient
     for(unsigned long i = 0; i<size; i++) {
         if(context->rescale) {
-            rescaled_x[i] = gsl_vector_get(x,i)*context->params[i];
+            rescaled_x[i] = gsl_vector_get(x,i) * context->params[i];
         } else {
             rescaled_x[i] = gsl_vector_get(x,i);
         }
@@ -137,21 +138,18 @@ void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector
             gsl_vector_set(df,i,re_gradient);
         }
     }
-    //cout << "eval_error_fdf = " << *f << endl;
 }
 
 
-double eval_error_f  (const gsl_vector* v, void* voidContext) {
+double eval_error_f  (const gsl_vector* v, void* void_p) {
     double value;
-    eval_error_fdf(v,voidContext,&value,NULL);
-    //cout << "eval_error_f = " << value << endl;
+    eval_error_fdf(v,void_p,&value,NULL);
     return value;
 }
 
-void   eval_error_df (const gsl_vector* v, void* voidContext, gsl_vector *df) {
+void   eval_error_df (const gsl_vector* v, void* void_p, gsl_vector *df) {
     double value;
-    eval_error_fdf(v,voidContext,&value,df);
-    //cout << "eval_error_df = " << value << endl;
+    eval_error_fdf(v,void_p,&value,df);
     return;
 }
 
@@ -159,12 +157,12 @@ void   eval_error_df (const gsl_vector* v, void* voidContext, gsl_vector *df) {
 void do_fit_with_grad(const ErrorContext* context,double* optModel,double* finalError,OnIterate onIterate) {
     assert(context != NULL);
     assert(optModel != NULL);
+
     unsigned long size = context->model->size;
 
     for(unsigned long i = 0; i < size; i++) {
         assert(isfinite(context->params[i]));
     }
-
 
     gsl_vector* gslModelVec = gsl_vector_alloc(size);
     if(context->rescale) { 
@@ -183,7 +181,7 @@ void do_fit_with_grad(const ErrorContext* context,double* optModel,double* final
     minfunc.df     = &eval_error_df;
     minfunc.fdf    = &eval_error_fdf;
     minfunc.n      = size;
-    minfunc.params = (void*)context;
+    minfunc.params = (void*)(&context);
     
     //Setup the minimiser
     gsl_multimin_fdfminimizer* gslmin;

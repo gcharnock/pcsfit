@@ -47,7 +47,8 @@ struct Options {
           scanparam2(1),
           scanparam_min2(0),
           scanparam_max2(1),
-          step_count(10) {
+          step_count(10),
+          rel_error(1e-3) {
     }
     string params_file;
     string input_file;
@@ -72,6 +73,8 @@ struct Options {
     double scanparam_max2;
 
     unsigned long step_count;
+
+    double rel_error;
 };
 
 /********************************************************************************
@@ -81,7 +84,7 @@ struct Options {
 ofstream flog;
 
 
-void run_scan(const Options& options,const ErrorContext* context,bool errorscan = false) {
+void run_scan(const Options& options,const ErrorContext* context,const ModelOptions* modelOptions,bool errorscan = false) {
     unsigned long size = context->model->size;
     double* params = (double*)alloca(size * sizeof(double));
     memcpy(params,context->params,size * sizeof(double));
@@ -129,7 +132,7 @@ void run_scan(const Options& options,const ErrorContext* context,bool errorscan 
             double value;
             double* gradient = (double*)alloca(size*sizeof(double));
             if(!errorscan) {
-                context->model->modelf(Vec3d(10,50,0),params,&value,gradient);
+                context->model->modelf(Vec3d(10,50,0),params,&value,gradient,modelOptions);
             } else {
                 eval_error(context,params,&value,gradient);
             }
@@ -251,10 +254,16 @@ int main(int argc,char** argv) {
     Multithreader<fdf_t> pool;
 
 
+    //Set the model options, such as integral accuracy
+    ModelOptions modelOptions;
+    modelOptions.absError = 0;
+    modelOptions.relError = 1e-2;
+
+
     //If we just want to run the self tests, do it and stop
     if(command == "selftest") {
         testMaths(prng);
-        testModel(prng,&pool);
+        testModel(prng,&pool,&modelOptions);
         return 0;
     }
     //----------------------------------------------------------------------//
@@ -267,6 +276,7 @@ int main(int argc,char** argv) {
 
     double* params_start = NULL;
     double* params_opt   = NULL;
+
 
     if(command != "sketch3d") {
         int retVal =  parse_params_file(options.params_file,&model,&params);
@@ -317,9 +327,9 @@ int main(int argc,char** argv) {
 	//data dataset come from?
 
     if (command == "makedata") {
-        random_data(prng,*model,params_start,20,&dataset);
+        random_data(prng,*model,params_start,20,&dataset,&modelOptions);
         for(unsigned long i = 0; i < dataset.nuclei.size(); i++) {
-            cout << dataset.vals[i]     << " "
+            cout << dataset.vals[i]       << " "
                  << dataset.nuclei[i].x() << " "
                  << dataset.nuclei[i].y() << " "
                  << dataset.nuclei[i].z() << endl;
@@ -358,7 +368,7 @@ int main(int argc,char** argv) {
 
     //Do we want to scan thoughZ
     if(command == "errorscan") {
-        run_scan(options,&context,true);
+        run_scan(options,&context,&modelOptions,true);
         return 0;
     }
 
