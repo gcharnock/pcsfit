@@ -108,7 +108,7 @@ void numerical_error_derivative(const ErrorContext* context,double* value, doubl
 
 //Translates to and from GSL language
 void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector *df) {
-    const ErrorContext* context = (ErrorContext*)(voidContext);
+    const ErrorContext* context = (const ErrorContext*)(voidContext);
 
     unsigned long size = context->model->size;
 
@@ -158,7 +158,14 @@ void do_fit_with_grad(const ErrorContext* context,double* optModel,double* final
     assert(context != NULL);
     assert(optModel != NULL);
 
+
     unsigned long size = context->model->size;
+
+    ulong fixedPrams = 0;
+    for(ulong i = 0; i < size; i++) {
+        params_to_fix
+    }
+
 
     for(unsigned long i = 0; i < size; i++) {
         assert(isfinite(context->params[i]));
@@ -181,7 +188,7 @@ void do_fit_with_grad(const ErrorContext* context,double* optModel,double* final
     minfunc.df     = &eval_error_df;
     minfunc.fdf    = &eval_error_fdf;
     minfunc.n      = size;
-    minfunc.params = (void*)(&context);
+    minfunc.params = (void*)(context);
     
     //Setup the minimiser
     gsl_multimin_fdfminimizer* gslmin;

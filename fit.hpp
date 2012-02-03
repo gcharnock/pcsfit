@@ -20,8 +20,6 @@ struct ErrorContext {
 
     const bool* params_to_fix;
 
-    long freezeParam;
-    
     bool rescale;
 
     Multithreader<fdf_t>* pool;
