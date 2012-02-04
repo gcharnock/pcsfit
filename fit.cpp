@@ -161,11 +161,6 @@ void do_fit_with_grad(const ErrorContext* context,double* optModel,double* final
 
     unsigned long size = context->model->size;
 
-    ulong fixedPrams = 0;
-    for(ulong i = 0; i < size; i++) {
-        params_to_fix
-    }
-
 
     for(unsigned long i = 0; i < size; i++) {
         assert(isfinite(context->params[i]));

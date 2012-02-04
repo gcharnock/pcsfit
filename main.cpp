@@ -364,7 +364,6 @@ int main(int argc,char** argv) {
 	context.model   = model;
 	context.pool    = &pool;
     context.rescale = rescale;
-    context.freezeParam = options.freezeParam;
 
     //Do we want to scan thoughZ
     if(command == "errorscan") {
