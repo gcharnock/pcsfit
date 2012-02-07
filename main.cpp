@@ -48,7 +48,9 @@ struct Options {
           scanparam_min2(0),
           scanparam_max2(1),
           step_count(10),
-          rel_error(1e-3) {
+          rel_error(1e-3),
+          threads(false),
+          paramsToIgnore(NULL) {
     }
     string params_file;
     string input_file;
@@ -75,6 +77,9 @@ struct Options {
     unsigned long step_count;
 
     double rel_error;
+
+    bool threads;
+    bool* paramsToIgnore;
 };
 
 /********************************************************************************
@@ -164,6 +169,8 @@ int main(int argc,char** argv) {
     Options options;
     options.seed = 0;
 
+    string ignoreParamsStr;
+
     bool rescale = true;
 	try {
         positional_options_description posOpt;
@@ -178,9 +185,11 @@ int main(int argc,char** argv) {
 			("help,h","print this help page and exit")
             ("method,m",value<string>(&options.method)->default_value("bfgs"),"")
             ("dont-reg","Don't regualize")
+            ("threads","Use threads")
             ("freeze,f",value<long>(&options.freezeParam)->default_value(-1),"Don't vary a paramiter")
             ("dont-rescale","")
             ("sketch3d-file",value<string>(&options.sketch3dFile),"")
+            ("ignore-params",value<string>(&ignoreParamsStr),"")
 			("random-model-type",
 			 "Specify the type of the model to use for generating random data")
 			("seed,s",value<unsigned long>(&options.seed),"Specify a seed for the random number generator")
@@ -251,7 +260,7 @@ int main(int argc,char** argv) {
     logMsg("Random number generator seeded with " << options.seed);
 
     //Start the thread pool
-    Multithreader<fdf_t> pool;
+    Multithreader<fdf_t> pool(variablesMap.count("threads") > 0);
 
 
     //Set the model options, such as integral accuracy
@@ -276,7 +285,7 @@ int main(int argc,char** argv) {
 
     double* params_start = NULL;
     double* params_opt   = NULL;
-
+    bool* paramsToIgnore = NULL;
 
     if(command != "sketch3d") {
         int retVal =  parse_params_file(options.params_file,&model,&params);
@@ -299,9 +308,18 @@ int main(int argc,char** argv) {
         }
 
     	//Set up buffers to store the paramiters
+        paramsToIgnore       = (bool*)  alloca(model->size*sizeof(bool));
     	params_start         = (double*)alloca(model->size*sizeof(double));
     	params_opt           = (double*)alloca(model->size*sizeof(double));
 
+        cout << ignoreParamsStr << endl;
+        for(ulong i = 0; i < model->size;i++) {
+            if(ignoreParamsStr.size() > i) {
+                paramsToIgnore[i] = ignoreParamsStr[i] == '0';
+            } else {
+                paramsToIgnore[i] = false;
+            }
+        }
 
     	for(unsigned long i = 0; i < model->size;i++) {
     		params_start[i] = params[i];
@@ -312,6 +330,8 @@ int main(int argc,char** argv) {
         context.params  = params_start;
         context.model   = model;
         context.pool    = &pool;
+        context.modelOptions = &modelOptions;
+        context.params_to_fix   = paramsToIgnore;
         run_scan(options,&context,false);
         return 0;
     }
@@ -364,6 +384,8 @@ int main(int argc,char** argv) {
 	context.model   = model;
 	context.pool    = &pool;
     context.rescale = rescale;
+    context.params_to_fix = paramsToIgnore;
+    context.modelOptions  = &modelOptions;
 
     //Do we want to scan thoughZ
     if(command == "errorscan") {

@@ -10,12 +10,17 @@
 template<typename T>
 class Multithreader {
 public:
-    Multithreader()
-		: numCPU(1/*sysconf(_SC_NPROCESSORS_ONLN)*/),
+    Multithreader(bool useThreads)
+		: mUseThreads(useThreads),
+          numCPU(sysconf(_SC_NPROCESSORS_ONLN)),
 		  _barrier(numCPU+1),
 		  mFuncs(NULL) {
 
         mQuiting = false;
+
+        if(!mUseThreads) {
+            return;
+        }
 
 		//Start the thread pool
 		for(long i = 0;i<numCPU;i++) {
@@ -27,6 +32,9 @@ public:
 
 	~Multithreader() {
 		//Terminate the threads
+        if(!mUseThreads) {
+            return;
+        }
         mQuiting = true;
         _barrier.wait();
         mWorkers.join_all();
@@ -38,7 +46,7 @@ public:
 		mMapTo = &mapTo;
         mMapTo->resize(mFuncs->size());
 
-        if(false) {
+        if(!mUseThreads) {
             //Do work
             for(unsigned long i = 0;i<mFuncs->size();i++) {
                 mMapTo->at(i) = mFuncs->at(i)();
@@ -50,6 +58,7 @@ public:
         }
     }
 private:
+    bool mUseThreads;
     bool mQuiting;
 
 	int numCPU;

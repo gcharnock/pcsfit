@@ -451,3 +451,29 @@ void secondGaussDerivative(double s, double theExp,Vec3d evalAt,
     *d2fdxz = (4*evalAt.x()*evalAt.z())/s4 * theExp;
     *d2fdyz = (4*evalAt.y()*evalAt.z())/s4 * theExp;
 }
+
+/*
+EulerAngles MatrixToEuler(const Matrix3d& rot) {
+    Vector3d z_axis=Vector3d(0,0,1);
+    Vector3d x_axis=Vector3d(1,0,0);
+    z_axis=rot*z_axis;
+    x_axis=rot*x_axis;
+    
+    double gamma=atan2(z_axis.y(),z_axis.x());
+    double beta=atan2(sqrt(z_axis.x()*z_axis.x() + z_axis.y()*z_axis.y()),z_axis.z());
+
+    //Use γ and β to rotate V2 back onto the point 0,0,1
+    Quaterniond betaTwist(AngleAxisd(-beta, Vector3d(0,1,0)));
+    Quaterniond gammaTwist (AngleAxisd(-gamma,Vector3d(0,0,1)));
+
+    x_axis=(betaTwist*gammaTwist)*x_axis;
+
+    double alpha = atan2(x_axis.y(),x_axis.x());
+    if(alpha < 0 || alpha >= 2*PI)  alpha = alpha-2*PI*floor(alpha/(2*PI));
+    if(alpha >= 2*PI) alpha = 0;
+    if(beta < 0 || beta >= PI)    beta = beta-  PI*floor(beta/PI);
+    if(gamma < 0 || gamma >= 2*PI)  gamma = gamma-2*PI*floor(gamma/(2*PI));
+    if(gamma >= 2*PI) gamma = 0;
+    return EulerAngles(alpha,beta,gamma);
+}
+*/

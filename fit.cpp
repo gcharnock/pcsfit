@@ -71,7 +71,12 @@ void eval_error(const ErrorContext* context,const double* params,double* value, 
             for(unsigned long j = 0; j < size; j++) {
                 //The gradient of the error is twice the gradient of the
                 //model - the expeimental value
-                gradient[j] += 2 * results[i].second[j] * modelMinusexpVal / sq_shift;
+                if(!context->params_to_fix[j]) {
+                    gradient[j] += 2 * results[i].second[j] * modelMinusexpVal / sq_shift;
+                } else {
+                    //Otherwise, we are ignoring this paramiter.
+                    gradient[j] = 0;
+                }
 
                 assert(isfinite(gradient[j]));
                 assert(isfinite(gradient[j]*gradient[j]));
