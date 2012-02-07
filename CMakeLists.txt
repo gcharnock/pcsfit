@@ -37,7 +37,7 @@ set(LIBS
 #endif()
 
 
-include_directories(../Cuba-2.1 ${vtkDir}  $ENV{HOME}/src/boost)
+include_directories(../Cuba-2.1 ${vtkDir}  $ENV{HOME}/src/boost $ENV{HOME}/src/eigen-3.0.4)
 
 
 set(CMAKE_CXX_FLAGS         "-Wno-deprecated -Wall -fno-strict-aliasing")

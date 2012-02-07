@@ -89,7 +89,7 @@ struct Options {
 ofstream flog;
 
 
-void run_scan(const Options& options,const ErrorContext* context,const ModelOptions* modelOptions,bool errorscan = false) {
+void run_scan(const Options& options,const ErrorContext* context,bool errorscan = false) {
     unsigned long size = context->model->size;
     double* params = (double*)alloca(size * sizeof(double));
     memcpy(params,context->params,size * sizeof(double));
@@ -137,7 +137,7 @@ void run_scan(const Options& options,const ErrorContext* context,const ModelOpti
             double value;
             double* gradient = (double*)alloca(size*sizeof(double));
             if(!errorscan) {
-                context->model->modelf(Vec3d(10,50,0),params,&value,gradient,modelOptions);
+                context->model->modelf(Vec3d(10,50,0),params,&value,gradient,context->modelOptions);
             } else {
                 eval_error(context,params,&value,gradient);
             }
@@ -389,7 +389,7 @@ int main(int argc,char** argv) {
 
     //Do we want to scan thoughZ
     if(command == "errorscan") {
-        run_scan(options,&context,&modelOptions,true);
+        run_scan(options,&context,true);
         return 0;
     }
 
