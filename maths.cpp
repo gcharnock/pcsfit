@@ -490,7 +490,6 @@ Matrix3d MakeMatrix3d(double a00, double a01, double a02,
 }
 
 AxRhomTensor tensorToAxRhom(Tensor tensor) {
-    cout << "==== tensorToAxRhom ====" << endl;
     double chi_xy = tensor.chi_xy;
     double chi_yz = tensor.chi_yz;
     double chi_xz = tensor.chi_xz;
@@ -499,47 +498,12 @@ AxRhomTensor tensorToAxRhom(Tensor tensor) {
     double chi_yy = -1/2.0*tensor.chi_1 - 3*tensor.chi_2;
     double chi_zz = tensor.chi_1;
 
-    cout << "chi_xx = " << chi_xx << endl;
-    cout << "chi_yy = " << chi_yy << endl;
-    cout << "chi_zz = " << chi_zz << endl;
-
     Matrix3d matrix = MakeMatrix3d(chi_xx,chi_xy,chi_xz,
                                    chi_xy,chi_yy,chi_yz,
                                    chi_xz,chi_yz,chi_zz);
     SpinXML::InteractionPayload pl = SpinXML::InteractionPayload(matrix);
-    SpinXML::Eigenvalues ev = pl.AsEigenvalues();
     SpinXML::AxRhom      ar = pl.AsAxRhom();
     SpinXML::EulerAngles ea = ar.mOrient.GetAsEuler();
-
-    cout << endl;
-    cout << "Interaction Matrix" << endl;
-    cout << matrix << endl;
-    cout << endl;
-
-
-    cout << "DCM Matrix" << endl;
-    Matrix3d dcm = ev.mOrient.GetAsMatrix();
-    cout << dcm << " det = " << dcm.determinant() << endl;
-    cout << "Eigenvalue xx " << ev.xx << endl;
-    cout << "Eigenvalue yy " << ev.yy << endl;
-    cout << "Eigenvalue zz " << ev.zz << endl;
-
-    cout << "Eievnvalue Reconstructed Interaction Matrix" << endl;
-    cout << dcm * MakeMatrix3d(ev.xx,0,0,
-                               0,ev.yy,0,
-                               0,0,ev.zz) * dcm.transpose() << endl;
-
-
-    cout << "Ax Rhom DCM Matrix" << endl;
-    Matrix3d dcm_ar = ar.mOrient.GetAsMatrix();
-    cout << dcm_ar << " det = " << dcm_ar.determinant() << endl;
-
-    cout << "Quaternion 2" << endl;
-    Quaterniond q = ConvertToQuaternion(ea);
-    cout << q.x() << "," << q.y() << ", " << q.z() << ", " << q.w() << endl;
-
-    cout << "DCM Matrix 2" << endl;
-    cout << ConvertToDCM(ea) << endl;
 
     AxRhomTensor axRhomTensor;
     axRhomTensor.ax    = ar.ax;
@@ -560,30 +524,11 @@ Tensor axRhomToTensor(AxRhomTensor axRhomTensor) {
     double ev_yy = (-rh - ax/3)/2;
     double ev_zz = ax/3;
 
-    cout << "==== axRhomToTensor ====" << endl;
-    cout << "ev_xx = " << ev_xx << endl;
-    cout << "ev_yy = " << ev_yy << endl;
-    cout << "ev_zz = " << ev_zz << endl;
-
     SpinXML::EulerAngles ea(axRhomTensor.alpha,
                             axRhomTensor.beta,
                             axRhomTensor.gamma);
 
-    Quaterniond q = ConvertToQuaternion(ea);
     Matrix3d dcm = ConvertToDCM(ea);
-
-    cout << "--- Quaternion ---" << endl;
-    cout << q.x() << "," << q.y() << ", " << q.z() << ", " << q.w() << endl;
-    cout << "--- DCM Matrix ---" << endl;
-    cout << dcm << " det = " << dcm.determinant() << endl;
-
-
-    cout << "--- DCM Matrix After Quat ---" << endl;
-    cout << ConvertToDCM(q) << endl;
-    
-    cout << "--- Euler Angles 2 ----" << endl;
-    SpinXML::EulerAngles ea2 = SpinXML::ConvertToEuler(dcm);
-    cout << ea2.alpha/(2*PI)*360 << " " << ea2.beta/(2*PI)*360 << " " << ea2.gamma/(2*PI)*360 << endl;
     
     Matrix3d eigenFrame = MakeMatrix3d(ev_xx,0     ,0,
                                        0,     ev_yy,0,
