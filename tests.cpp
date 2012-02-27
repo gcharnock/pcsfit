@@ -390,6 +390,57 @@ void testMaths(PRNG& prng) {
     //multinomial_run_tests();
 
     cout << "================================================================================" << endl;
+    cout << "Checking we can convert tensors from ax-rhom-euler to our custom format and back again." << endl;
+    
+    for(ulong i = 0; i < 10; i++) {
+        cout << "================================================================================" << endl;
+
+        AxRhomTensor axRhomTensor;
+
+        axRhomTensor.ax =  rand(prng);  //Axiality is always positive
+        axRhomTensor.rh = -(axRhomTensor.ax)*rand(prng); //Rhombicity is always negative
+
+        axRhomTensor.alpha = rand(prng) * 2 * M_PI;
+        axRhomTensor.beta  = rand(prng) * M_PI;
+        axRhomTensor.gamma = rand(prng) * 2 * M_PI;
+        
+        cout << "Inital Random Tensor" << endl;
+        cout << "ax = " << axRhomTensor.ax << endl;
+        cout << "rh = " << axRhomTensor.rh << endl;
+
+        cout << "alpha = " << axRhomTensor.alpha/(2*M_PI)*360 << endl;
+        cout << "beta = "  << axRhomTensor.beta /(2*M_PI)*360 << endl;
+        cout << "gamma = " << axRhomTensor.gamma/(2*M_PI)*360 << endl;
+        cout << endl;
+
+        Tensor tensor = axRhomToTensor(axRhomTensor);
+
+        cout << "Intermediate Representation Tesnor:" << endl;
+
+        cout << "chi_1 = " << tensor.chi_1 << endl;
+        cout << "chi_2 = " << tensor.chi_2 << endl;
+
+        cout << "chi_xy = " << tensor.chi_xy << endl;
+        cout << "chi_xz = " << tensor.chi_xz << endl;
+        cout << "chi_yz = " << tensor.chi_yz << endl;
+
+        AxRhomTensor axRhomTensor2 = tensorToAxRhom(tensor);
+
+        cout << "Final Random Tensor" << endl;
+        cout << "ax = " << axRhomTensor2.ax << endl;
+        cout << "rh = " << axRhomTensor2.rh << endl;
+
+        cout << "alpha = " << axRhomTensor2.alpha/(2*M_PI)*360 << endl;
+        cout << "beta = "  << axRhomTensor2.beta /(2*M_PI)*360 << endl;
+        cout << "gamma = " << axRhomTensor2.gamma/(2*M_PI)*360 << endl;
+        cout << endl;
+
+        cout << "--------" << endl;
+    }
+
+    return;
+
+    cout << "================================================================================" << endl;
     for(ulong i = 1; i < 8; i++) {
         part_t part_n = partitions_of_n(i);
 

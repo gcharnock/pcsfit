@@ -11,8 +11,42 @@
 #include <map>
 #include <cmath>
 #include <boost/shared_array.hpp>
+#include <Eigen/Dense>
+#include <spinxml/interaction.hpp>
+
+//Of course, you shouldn't use namespaces in header files, but we'll
+//probably be alright in this case.
+using namespace Eigen;
 
 typedef unsigned long ulong;
+
+struct AxRhomTensor {
+    AxRhomTensor() {}
+    AxRhomTensor(double _ax,double _rh,double _alpha,double _beta, double _gamma)
+        : ax(_ax),rh(_rh),alpha(_alpha),beta(_beta),gamma(_gamma) {
+    }
+    double ax;
+    double rh;
+
+    double alpha;
+    double beta;
+    double gamma;
+};
+
+struct Tensor {
+    Tensor() {}
+    Tensor(double _chi_1,double _chi_2,double _chi_xy,double _chi_xz, double _chi_yz)
+        : chi_1(_chi_1),chi_2(_chi_2),chi_xy(_chi_xy),chi_xz(_chi_xz),chi_yz(_chi_yz) {
+    }
+    double chi_1;
+    double chi_2;
+
+    double chi_xy;
+    double chi_xz;
+    double chi_yz;
+};
+
+
 
 template<typename T>
 struct Vec3 {
@@ -478,5 +512,19 @@ public:
 
     double d3_rho0_xyz;
 };
+
+
+Matrix3d MakeMatrix3d(double a00, double a01, double a02,
+                      double a10, double a11, double a12,
+                      double a20, double a21, double a22);
+
+
+//-----------------------------------------------------------//
+//------------------ Tensor Rotations -----------------------//
+//-----------------------------------------------------------//
+
+AxRhomTensor tensorToAxRhom(Tensor tensor);
+Tensor axRhomToTensor(AxRhomTensor axRhomTensor);
+
 
 #endif

@@ -19,6 +19,7 @@
 #include <boost/function.hpp>
 #include <limits>
 #include <fstream>
+#include <Eigen/Eigenvalues>
 
 #include "fit.hpp"
 #include "foreach.hpp"
@@ -33,6 +34,7 @@ using namespace std;
 using namespace boost;
 
 bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_fdfminimizer* min);
+
 
 
 struct Options {
@@ -412,6 +414,8 @@ int main(int argc,char** argv) {
     return 0;
 }
 
+
+
 //What to do on each itterations?
 
 bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_fdfminimizer* minimizer) {
@@ -428,8 +432,25 @@ bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_
     assert(isfinite(norm));
 
     cout << itN << "\t";
-    for(unsigned long j = 0;j< x->size;j++) {cout << (gsl_vector_get(x,j)*context->params[j]) << "\t";}
-	cout << "\tf(x) = " << fx << "\t|grad| = " << norm << endl;
+    for(unsigned long j = 0;j< x->size;j++) {
+        cout << (gsl_vector_get(x,j)*context->params[j]) << "\t";
+    }
+	cout << "\tf(x) = " << fx << "\t|grad| = " << norm;
+
+    Tensor tensor;
+    tensor.chi_1 = gsl_vector_get(x,PARAM_CHI1)*context->params[PARAM_CHI1];
+    tensor.chi_2 = gsl_vector_get(x,PARAM_CHI1)*context->params[PARAM_CHI2];
+    
+    tensor.chi_xy = gsl_vector_get(x,PARAM_CHIXY)*context->params[PARAM_CHIXY];
+    tensor.chi_yz = gsl_vector_get(x,PARAM_CHIYZ)*context->params[PARAM_CHIYZ];
+    tensor.chi_xz = gsl_vector_get(x,PARAM_CHIXZ)*context->params[PARAM_CHIXZ];
+
+
+    //AxRhomTensor axRhomTensor = tensorToAxRhom(tensor);
+
+    //cout << " " << axRhomTensor.ax    << " " << axRhomTensor.rh
+    //<< " " << axRhomTensor.alpha/(2*M_PI)*360 << " " << axRhomTensor.beta/(2*M_PI)*360  << " " << axRhomTensor.gamma/(2*M_PI)*360;
+    cout << endl;
 
 	return itN < 6000 && norm > 1e-30;
 }

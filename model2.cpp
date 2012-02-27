@@ -241,7 +241,7 @@ int parse_params_file(const std::string& filename,const Model** model,std::vecto
     }
     string model_name;
     fin >> model_name;
-    if(model_name == "point") {
+    if(model_name == "point" || model_name == "euler_point") {
         *model = &point_model;
     } else if(model_name == "gauss_test") {
         cout << "Using gauss_test model " << endl;
@@ -251,6 +251,7 @@ int parse_params_file(const std::string& filename,const Model** model,std::vecto
     } else {
         return  UNKNOWN_MODEL;
     }
+
     params->resize((*model)->size);
     for(unsigned long i = 0;i < (*model)->size; i++) {
         fin >> params->at(i);
@@ -258,6 +259,20 @@ int parse_params_file(const std::string& filename,const Model** model,std::vecto
             return NOT_ENOUGH_PARAMS;
         }
     }
+
+    if(model_name == "euler_point") {
+        //The params are actual x,y,z,ax, rh, alpha, beta, gamma so we
+        //need to convert the last three
+
+        AxRhomTensor axRhomTensor(params->at(3),params->at(4),params->at(5)/360*M_PI,params->at(6)/360*M_PI,params->at(7)/360*M_PI);
+        Tensor converted = axRhomToTensor(axRhomTensor);
+        (*params)[3] = converted.chi_1;
+        (*params)[4] = converted.chi_2;
+        (*params)[5] = converted.chi_xy;
+        (*params)[6] = converted.chi_xz;
+        (*params)[7] = converted.chi_yz;
+    }
+
     return PARSE_SUCESS;
 }
 
