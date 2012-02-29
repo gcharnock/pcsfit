@@ -55,13 +55,13 @@ set(CMAKE_CXX_FLAGS_DEBUG   "-g -ggdb")
 set(cmake_cxx_flags_release "-O3 -ffast-math")
 set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS})
 
-file(GLOB spinxmlSources 
-  spinxml/orientation.cpp
-  spinxml/interaction.cpp
-  spinxml/panic.cpp
-  spinxml/basic_math.cpp
-  spinxml/unit.cpp
-  spinxml/frame.cpp
+set(spinxmlSources 
+  ../libspinxml/spinxml/orientation.cpp
+  ../libspinxml/spinxml/interaction.cpp
+  ../libspinxml/spinxml/panic.cpp
+  ../libspinxml/spinxml/basic_math.cpp
+  ../libspinxml/spinxml/unit.cpp
+  ../libspinxml/spinxml/frame.cpp
   )
 set(sources model2.cpp fit.cpp  data.cpp  tests.cpp pointdev.cpp maths.cpp ${spinxmlSources})
 

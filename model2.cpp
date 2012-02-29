@@ -264,7 +264,7 @@ int parse_params_file(const std::string& filename,const Model** model,std::vecto
         //The params are actual x,y,z,ax, rh, alpha, beta, gamma so we
         //need to convert the last three
 
-        AxRhomTensor axRhomTensor(params->at(3),params->at(4),params->at(5)/360*M_PI,params->at(6)/360*M_PI,params->at(7)/360*M_PI);
+        AxRhomTensor axRhomTensor(params->at(3),params->at(4),params->at(5)/180*M_PI,params->at(6)/180*M_PI,params->at(7)/180*M_PI);
         Tensor converted = axRhomToTensor(axRhomTensor);
         (*params)[3] = converted.chi_1;
         (*params)[4] = converted.chi_2;

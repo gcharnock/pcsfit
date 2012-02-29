@@ -490,17 +490,8 @@ Matrix3d MakeMatrix3d(double a00, double a01, double a02,
 }
 
 AxRhomTensor tensorToAxRhom(Tensor tensor) {
-    double chi_xy = tensor.chi_xy;
-    double chi_yz = tensor.chi_yz;
-    double chi_xz = tensor.chi_xz;
+    Matrix3d matrix = tensor.asMatrix();
 
-    double chi_xx = -1/2.0*tensor.chi_1 + 3*tensor.chi_2;
-    double chi_yy = -1/2.0*tensor.chi_1 - 3*tensor.chi_2;
-    double chi_zz = tensor.chi_1;
-
-    Matrix3d matrix = MakeMatrix3d(chi_xx,chi_xy,chi_xz,
-                                   chi_xy,chi_yy,chi_yz,
-                                   chi_xz,chi_yz,chi_zz);
     SpinXML::InteractionPayload pl = SpinXML::InteractionPayload(matrix);
     SpinXML::AxRhom      ar = pl.AsAxRhom();
     SpinXML::EulerAngles ea = ar.mOrient.GetAsEuler();
@@ -549,4 +540,15 @@ Tensor axRhomToTensor(AxRhomTensor axRhomTensor) {
     tensor.chi_yz = chi_tensor(1,2);
 
     return tensor;
+}
+
+
+Matrix3d Tensor::asMatrix() const {
+    double chi_xx = -1/2.0*chi_1 + 3*chi_2;
+    double chi_yy = -1/2.0*chi_1 - 3*chi_2;
+    double chi_zz = chi_1;
+
+    return MakeMatrix3d(chi_xx,chi_xy,chi_xz,
+                        chi_xy,chi_yy,chi_yz,
+                        chi_xz,chi_yz,chi_zz);
 }

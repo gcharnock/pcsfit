@@ -31,6 +31,7 @@
 #define logMsg(x) flog << __FILE__ << "(" << __LINE__ << ")" << x << endl;
 
 using namespace std;
+using namespace SpinXML;
 using namespace boost;
 
 bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_fdfminimizer* min);
@@ -409,7 +410,74 @@ int main(int argc,char** argv) {
 	cout << "The final error was: " << errorFinal << endl;
 
 	cout << "================================================================================" << endl;
+    AxRhomTensor axRhomTensor = tensorToAxRhom(Tensor(
+                                                      params_start[3]*params_opt[3],
+                                                      params_start[4]*params_opt[4],
+                                                      params_start[5]*params_opt[5],
+                                                      params_start[6]*params_opt[6],
+                                                      params_start[7]*params_opt[7]
+                                                      ));
 
+    cout << "Tensor components in ax-rhom-euler form:" << endl;
+    
+    cout << "ax = "    << axRhomTensor.ax << endl;
+    cout << "rh = "    << axRhomTensor.rh << endl;
+    cout << "alpha = " << axRhomTensor.alpha * 180/M_PI << endl;
+    cout << "beta = "  << axRhomTensor.beta  * 180/M_PI << endl;
+    cout << "gamma = " << axRhomTensor.gamma * 180/M_PI << endl;
+    
+    cout << "Other Euler Angles from the symmetary group" << endl;
+    vector<Matrix3d> s2s2s2;
+    s2s2s2.push_back(MakeMatrix3d(1,0,0,
+                                  0,1,0,
+                                  0,0,1));
+
+    s2s2s2.push_back(MakeMatrix3d(-1,0,0,
+                                  0,1,0,
+                                  0,0,1));
+
+    s2s2s2.push_back(MakeMatrix3d(1,0,0,
+                                  0,-1,0,
+                                  0,0,1));
+
+    s2s2s2.push_back(MakeMatrix3d(1,0,0,
+                                  0,1,0,
+                                  0,0,-1));
+
+    s2s2s2.push_back(MakeMatrix3d(-1,0,0,
+                                  0,-1,0,
+                                  0,0,1));
+
+    s2s2s2.push_back(MakeMatrix3d(1,0,0,
+                                  0,-1,0,
+                                  0,0,-1));
+
+    s2s2s2.push_back(MakeMatrix3d(-1,0,0,
+                                  0,1,0,
+                                  0,0,-1));
+
+    s2s2s2.push_back(MakeMatrix3d(-1,0,0,
+                                  0,-1,0,
+                                  0,0,-1));
+
+    Matrix3d dcm = ConvertToDCM(EulerAngles(axRhomTensor.alpha,
+                                            axRhomTensor.beta,
+                                            axRhomTensor.gamma));
+
+    for(unsigned long i = 0; i< s2s2s2.size(); i++) {
+        Matrix3d m = dcm*s2s2s2[i];
+        if(m.determinant() < 0 ) {
+            continue;
+        }
+        
+        EulerAngles ea = ConvertToEuler(m);
+        cout << "  alpha = " << ea.alpha*180/M_PI;
+        cout << " beta  = " << ea.beta *180/M_PI;
+        cout << " gamma = " << ea.gamma*180/M_PI << endl;
+    }
+
+
+    cout << "================================================================================" << endl;
     
     return 0;
 }
@@ -446,11 +514,12 @@ bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_
     tensor.chi_xz = gsl_vector_get(x,PARAM_CHIXZ)*context->params[PARAM_CHIXZ];
 
 
-    //AxRhomTensor axRhomTensor = tensorToAxRhom(tensor);
+    AxRhomTensor axRhomTensor = tensorToAxRhom(tensor);
 
-    //cout << " " << axRhomTensor.ax    << " " << axRhomTensor.rh
-    //<< " " << axRhomTensor.alpha/(2*M_PI)*360 << " " << axRhomTensor.beta/(2*M_PI)*360  << " " << axRhomTensor.gamma/(2*M_PI)*360;
+    cout << " " << axRhomTensor.ax    << " " << axRhomTensor.rh
+         << " " << axRhomTensor.alpha/(2*M_PI)*360 << " " << axRhomTensor.beta/(2*M_PI)*360  << " " << axRhomTensor.gamma/(2*M_PI)*360;
     cout << endl;
+
 
 	return itN < 6000 && norm > 1e-30;
 }

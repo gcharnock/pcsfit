@@ -11,6 +11,7 @@
 #include <vector>
 #include <iostream>
 
+using namespace SpinXML;
 using namespace std;
 
 RandomDist dist;
@@ -249,7 +250,7 @@ void testModel(PRNG& prng,Multithreader<fdf_t>* pool,const ModelOptions* modelOp
     //test_gaussian(prng);
 
     //check_derivative (prng,&point_model,modelOptions);
-    PRNG prng_copy = prng;
+    //PRNG prng_copy = prng;
     check_derivative (prng,&gaussian_model,modelOptions);
     //check_derivative (prng_copy,&gaussian_model_num_dev,modelOptions);
 
@@ -397,23 +398,67 @@ void testMaths(PRNG& prng) {
 
         AxRhomTensor axRhomTensor;
 
-        axRhomTensor.ax =  rand(prng);  //Axiality is always positive
-        axRhomTensor.rh = -(axRhomTensor.ax)*rand(prng); //Rhombicity is always negative
+        double ax = axRhomTensor.ax =  rand(prng);  //Axiality is always positive
+        double rh = axRhomTensor.rh = -(axRhomTensor.ax)*rand(prng); //Rhombicity is always negative
 
-        axRhomTensor.alpha = rand(prng) * 2 * M_PI;
-        axRhomTensor.beta  = rand(prng) * M_PI;
-        axRhomTensor.gamma = rand(prng) * 2 * M_PI;
+        double alpha = axRhomTensor.alpha = rand(prng) * 2 * M_PI;
+        double beta  = axRhomTensor.beta  = rand(prng) * M_PI;
+        double gamma = axRhomTensor.gamma = rand(prng) * 2 * M_PI;
         
         cout << "Inital Random Tensor" << endl;
-        cout << "ax = " << axRhomTensor.ax << endl;
-        cout << "rh = " << axRhomTensor.rh << endl;
+        cout << "ax = " << ax << endl;
+        cout << "rh = " << rh << endl;
 
-        cout << "alpha = " << axRhomTensor.alpha/(2*M_PI)*360 << endl;
-        cout << "beta = "  << axRhomTensor.beta /(2*M_PI)*360 << endl;
-        cout << "gamma = " << axRhomTensor.gamma/(2*M_PI)*360 << endl;
+        cout << "alpha = " << alpha/(2*M_PI)*360 << endl;
+        cout << "beta = "  << beta /(2*M_PI)*360 << endl;
+        cout << "gamma = " << gamma/(2*M_PI)*360 << endl;
         cout << endl;
 
+
+
+        {
+            cout << "DCM matrix constructed directly from Euler Angles" << endl;
+            Matrix3d rotAlpha = MakeMatrix3d(cos(alpha),-sin(alpha),0,
+                                             sin(alpha), cos(alpha),0,
+                                             0         , 0         ,1);
+
+            //ZYZ
+            /*Matrix3d rotBeta  = MakeMatrix3d( cos(beta),0, sin(beta),
+                                              0,        1, 0,
+                                              -sin(beta),0, cos(beta));*/
+            //ZXZ
+            Matrix3d rotBeta  = MakeMatrix3d(1, 0,        0,
+                                             0, cos(beta),-sin(beta),
+                                             0,sin(beta),cos(beta));
+
+
+
+            Matrix3d rotGamma = MakeMatrix3d(cos(gamma),-sin(gamma),0,
+                                             sin(gamma), cos(gamma),0,
+                                             0         , 0         ,1);
+
+            Matrix3d dcm = rotGamma*rotBeta*rotAlpha;
+
+            cout << dcm << endl;
+            cout << endl;
+
+            cout << "DCM Matrix converted back to euler angles" << endl;
+            EulerAngles ea = ConvertToEuler(dcm);
+            cout << ea.alpha*180/M_PI << ", " << ea.beta*180/M_PI << ", " << ea.gamma*180/M_PI << endl;
+            cout << endl;
+        }
+
         Tensor tensor = axRhomToTensor(axRhomTensor);
+
+        energy e_xx = - ax/6.0 + rh/2.0;
+        energy e_yy = - ax/6.0 - rh/2.0;
+        energy e_zz =   ax/3.0;
+        cout << "Eigenvalue - Euler Angle Representation" << endl;
+        cout << "xx = " << e_xx << endl;
+        cout << "yy = " << e_yy << endl;
+        cout << "zz = " << e_zz << endl;
+        cout << endl;
+
 
         cout << "Intermediate Representation Tesnor:" << endl;
 
@@ -423,8 +468,133 @@ void testMaths(PRNG& prng) {
         cout << "chi_xy = " << tensor.chi_xy << endl;
         cout << "chi_xz = " << tensor.chi_xz << endl;
         cout << "chi_yz = " << tensor.chi_yz << endl;
+        cout << endl;
+
+        Matrix3d matrix = tensor.asMatrix();
 
         AxRhomTensor axRhomTensor2 = tensorToAxRhom(tensor);
+
+        cout << "Matrix Tensor Representation" << endl;
+        cout << matrix << endl;
+        cout << endl;
+
+
+        cout << "Eigenvalue - dcm representation" << endl;
+
+        EigenSolver<Matrix3d> solver(matrix, true); //true => compute eigenvectors
+        Vector3d v1,v2,v3;//Eigenvectors
+
+        double e1=real(solver.eigenvalues()[0]);
+        double e2=real(solver.eigenvalues()[1]);
+        double e3=real(solver.eigenvalues()[2]);
+
+        Matrix3d eigenVectors = solver.eigenvectors().real();
+        Matrix3d so3 = eigenVectors * eigenVectors.determinant();
+
+        cout << e1 << ", " << e2 << ", " << e3 << endl;
+        cout << so3 << endl;
+        cout << "determinant = " << so3.determinant() << endl;
+        cout << endl;
+
+        cout << "Sorted Eigenvalue - dcm representation" << endl;
+
+        double xx = e1,yy = e2,zz = e3;
+        double tmp;
+        
+        Orientation o(so3);
+        if(zz < yy) {
+            tmp=zz; zz=yy; yy=tmp;
+            //To get back to the original orientation, rotate by one right
+            //angle in the positive direction about x and invert about x-y
+            //plane. But becaues the tensor is an axis aligned ellipse,
+            //mirroring about a coordinate plane is the identity.
+
+            Orientation rotation(AngleAxisd(M_PI/2,Vector3d(1,0,0)));
+            o = o * rotation;
+        }
+     	if(zz < xx) {
+            tmp=zz; zz=xx; xx=tmp;
+            //Rotate about y in the positive direction
+
+            Orientation rotation(AngleAxisd(M_PI/2,Vector3d(0,1,0)));
+            o = o * rotation;
+        }
+     	if(yy < xx) {
+            tmp=xx; xx=yy; yy=tmp;
+            //Rotate about z in the postive direction.
+
+            Orientation rotation(AngleAxisd(M_PI/2,Vector3d(0,0,1)));
+            o = o * rotation;
+        }
+        Matrix3d sortedSo3 = o.GetAsMatrix();
+        cout << xx << ", " << yy << ", " << zz << endl;
+        cout << sortedSo3 << endl;
+        cout << "determinant = " << sortedSo3.determinant() << endl;
+        cout << endl;
+
+        cout << "SortedSo3 matrix used to reconstruct the interaction matrix" << endl;
+        cout << sortedSo3*MakeMatrix3d(e1,0 ,0 ,
+                                       0 ,e2,0 ,
+                                       0 ,0 ,e3) * sortedSo3.transpose() << endl;
+        cout << endl;
+
+        cout << "Sorted so3 matrix as euler angles" << endl;
+        EulerAngles ea = ConvertToEuler(sortedSo3);
+        cout << "alpha = " << ea.alpha*180/M_PI << endl;
+        cout << "beta  = " << ea.beta *180/M_PI << endl;
+        cout << "gamma = " << ea.gamma*180/M_PI << endl;
+        cout << endl;
+
+        cout << "Symmetary Group" << endl;
+        vector<Matrix3d> s2s2s2;
+        s2s2s2.push_back(MakeMatrix3d(1,0,0,
+                                      0,1,0,
+                                      0,0,1));
+
+        s2s2s2.push_back(MakeMatrix3d(-1,0,0,
+                                      0,1,0,
+                                      0,0,1));
+
+        s2s2s2.push_back(MakeMatrix3d(1,0,0,
+                                      0,-1,0,
+                                      0,0,1));
+
+        s2s2s2.push_back(MakeMatrix3d(1,0,0,
+                                      0,1,0,
+                                      0,0,-1));
+
+        s2s2s2.push_back(MakeMatrix3d(-1,0,0,
+                                      0,-1,0,
+                                      0,0,1));
+
+        s2s2s2.push_back(MakeMatrix3d(1,0,0,
+                                      0,-1,0,
+                                      0,0,-1));
+
+        s2s2s2.push_back(MakeMatrix3d(-1,0,0,
+                                      0,1,0,
+                                      0,0,-1));
+
+        s2s2s2.push_back(MakeMatrix3d(-1,0,0,
+                                      0,-1,0,
+                                      0,0,-1));
+
+        for(unsigned long i = 0; i< s2s2s2.size(); i++) {
+            Matrix3d m = sortedSo3*s2s2s2[i];
+            if(m.determinant() < 0 ) {
+                continue;
+            }
+            
+            EulerAngles ea = ConvertToEuler(m);
+            cout << "  alpha = " << ea.alpha*180/M_PI;
+            cout << " beta  = " << ea.beta *180/M_PI;
+            cout << " gamma = " << ea.gamma*180/M_PI << endl;
+            cout << endl;
+
+            
+        }
+
+
 
         cout << "Final Random Tensor" << endl;
         cout << "ax = " << axRhomTensor2.ax << endl;
@@ -478,7 +648,7 @@ void testMaths(PRNG& prng) {
         for(ulong i = 0; i < 7; i++) {
             GaussTaylorTerm term(i);
             cout << "Term " << i << " = " << term.eval(r,r0,2.0) << endl;
-            cout << "================================================================================" << endl;        
+            cout << "================================================================================" << endl;
         }
     }
     cout << "Taylor approximating exp at random locations about random points" << endl;

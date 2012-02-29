@@ -38,6 +38,7 @@ struct Tensor {
     Tensor(double _chi_1,double _chi_2,double _chi_xy,double _chi_xz, double _chi_yz)
         : chi_1(_chi_1),chi_2(_chi_2),chi_xy(_chi_xy),chi_xz(_chi_xz),chi_yz(_chi_yz) {
     }
+    Eigen::Matrix3d asMatrix() const;
     double chi_1;
     double chi_2;
 
