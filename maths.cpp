@@ -532,8 +532,8 @@ Tensor axRhomToTensor(AxRhomTensor axRhomTensor) {
     double chi_zz = chi_tensor(2,2);
 
     Tensor tensor;
-    tensor.chi_1 = (2*chi_zz - chi_xx - chi_yy)/3.0;
-    tensor.chi_2 = (chi_xx - chi_yy)/6;
+    tensor.chi_1 = (2*chi_zz - chi_xx - chi_yy);
+    tensor.chi_2 = chi_xx - chi_yy;
 
     tensor.chi_xy = chi_tensor(0,1);
     tensor.chi_xz = chi_tensor(0,2);

@@ -13,8 +13,34 @@
 
 using namespace SpinXML;
 using namespace std;
+using namespace Eigen;
 
 RandomDist dist;
+
+double eval_point_euler(AxRhomTensor axRhomTensor,Vec3d evalAt) {
+    Matrix3d dcm = ConvertToDCM(EulerAngles(axRhomTensor.alpha,axRhomTensor.beta,axRhomTensor.gamma));
+
+    Vector3d r_vec = dcm.transpose() * Vector3d(evalAt[0],evalAt[1],evalAt[2]);
+
+    double x = r_vec.x();
+    double y = r_vec.y();
+    double z = r_vec.z();
+    
+    double r = sqrt(x*x + y*y + z*z);
+    double twelvePiR3 = 12*M_PI*r*r*r;
+
+    double theta = acos(z/r); //We won't deal with singularities here,
+                              //as this code is just to testing
+    double phi   = atan2(y,x);
+    
+    //cout << x << ", " << y << ", " << z << endl;
+    //cout << theta*180/M_PI << ", " << phi*180/M_PI << endl;
+
+    return (
+            axRhomTensor.ax*(3*cos(theta)*cos(theta) - 1)/2 +
+            3.0/2.0 * axRhomTensor.rh * sin(theta) * sin(theta) * cos(2 * phi)
+            )/twelvePiR3;
+}
 
 void check_minimum(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool,const ModelOptions* modelOptions) {
     cout << "Evautating the error function for a perfect match (should be zero)" << endl;
@@ -33,6 +59,12 @@ void check_minimum(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool,cons
         context.model   = model;
         context.pool    = pool;
         context.rescale = false;
+        bool* params_to_fix = (bool*)alloca(model->size*sizeof(double));
+        for(unsigned long j = 0; j < model->size; j++) {
+            params_to_fix[j] = false;
+        }
+        context.params_to_fix = params_to_fix;
+
 
         double  error,n_error;
         double* gradient = (double*)alloca(model->size*sizeof(double));
@@ -114,6 +146,12 @@ void check_error_derivate(PRNG prng,const Model* model,Multithreader<fdf_t>* poo
         context.model   = model;
         context.params  = params2;
         context.pool    = pool;
+        bool* params_to_fix = (bool*)alloca(model->size*sizeof(double));
+        for(unsigned long j = 0; j < model->size; j++) {
+            params_to_fix[j] = false;
+        }
+        context.params_to_fix = params_to_fix;
+
 
         eval_error(&context,params2,&result,gradient);
 
@@ -158,7 +196,7 @@ void do_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool,con
 
         for(unsigned long j=0;j<size;j++) {
             params_real[j]  = dist(prng);
-            params_start[j] = params_real[j] + 0.1*dist(prng);
+            params_start[j] = params_real[j] + 0.5*dist(prng);
         }
 
         Dataset dataset;
@@ -171,10 +209,17 @@ void do_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool,con
         cout << endl;
 
         ErrorContext context;
-        context.dataset = &dataset;
-        context.params  = params_start;
-        context.model   = model;
-        context.pool    = pool;
+        context.dataset       = &dataset;
+        context.params        = params_start;
+        context.model         = model;
+        context.pool          = pool;
+        context.rescale       = true;
+        bool* params_to_fix = (bool*)alloca(size*sizeof(double));
+        for(unsigned long j = 0; j < size; j++) {
+            params_to_fix[j] = false;
+        }
+        context.params_to_fix = params_to_fix;
+        
 
 		double errorStart = 666;
         double errorFinal = 666;
@@ -184,8 +229,12 @@ void do_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool,con
 
         do_fit_with_grad(&context,params_opt,&errorFinal,do_convergence_on_iterate);
         for(unsigned long j = 0;j < 8; j++) {
-            cout << name_param(j) << ": real = " << params_real[j] << " start = " << params_start[j]
-                 << " final = " << params_opt[j] << endl;
+            cout << name_param(j) << ": real = " << params_real[j] << " start = " << params_start[j];
+            if(!context.rescale) {
+                cout << " final = " << params_opt[j] << endl;
+            } else {
+                cout << " final = " << params_opt[j]*params_start[j] << endl;
+            }
         }
 		cout.setf(ios::floatfield,ios::scientific);
 
@@ -249,20 +298,20 @@ void testModel(PRNG& prng,Multithreader<fdf_t>* pool,const ModelOptions* modelOp
     //Check the gaussian model;
     //test_gaussian(prng);
 
-    //check_derivative (prng,&point_model,modelOptions);
+    check_derivative (prng,&point_model,modelOptions);
     //PRNG prng_copy = prng;
-    check_derivative (prng,&gaussian_model,modelOptions);
+    //check_derivative (prng,&gaussian_model,modelOptions);
     //check_derivative (prng_copy,&gaussian_model_num_dev,modelOptions);
 
     //cout << "Evaulating the analytic and numerical derivatives of the error functional" << endl;
-    //check_error_derivate(prng,&point_model   ,pool);
+    check_error_derivate(prng,&point_model   ,pool,modelOptions);
     //check_error_derivate(prng,&gaussian_model,pool);
 
-    //check_minimum(prng,&point_model   ,pool);
+    check_minimum(prng,&point_model   ,pool,modelOptions);
     //check_minimum(prng,&gaussian_model,pool);
     
-	//do_convergence(prng,&point_model   ,pool);
-	//do_convergence(prng,&gaussian_model,pool);
+	do_convergence(prng,&point_model   ,pool,modelOptions);
+	//do_convergence(prng,&gaussian_model,pool,modelOptions);
 }
 
 //================================================================================//
@@ -414,7 +463,7 @@ void testMaths(PRNG& prng) {
         cout << "gamma = " << gamma/(2*M_PI)*360 << endl;
         cout << endl;
 
-
+        
 
         {
             cout << "DCM matrix constructed directly from Euler Angles" << endl;
@@ -606,6 +655,39 @@ void testMaths(PRNG& prng) {
         cout << endl;
 
         cout << "--------" << endl;
+    }
+
+
+    cout << "================================================================================" << endl;
+    for(ulong i = 0; i < 10; i++) {
+        AxRhomTensor axRhomTensor;
+
+        axRhomTensor.ax = rand(prng);  //Axiality is always positive
+        axRhomTensor.rh = -(axRhomTensor.ax)*rand(prng); //Rhombicity is always negative
+
+        axRhomTensor.alpha = rand(prng) * 2 * M_PI;
+        axRhomTensor.beta  = rand(prng) * M_PI;
+        axRhomTensor.gamma = rand(prng) * 2 * M_PI;
+
+        Vec3d evalAt(rand(prng)*2-1,rand(prng)*2-1,rand(prng)*2-1);
+
+        double axRhomVal = eval_point_euler(axRhomTensor,evalAt);
+        
+        Tensor tensor = axRhomToTensor(axRhomTensor);
+        double params[POINT_SIZE];
+        params[PARAM_X] = 0;
+        params[PARAM_Y] = 0;
+        params[PARAM_Z] = 0;
+        params[PARAM_CHI1]  = tensor.chi_1;
+        params[PARAM_CHI2]  = tensor.chi_2;
+        params[PARAM_CHIXY] = tensor.chi_xy;
+        params[PARAM_CHIXZ] = tensor.chi_xz;
+        params[PARAM_CHIYZ] = tensor.chi_yz;
+
+        double value;
+        eval_point(evalAt,params,&value,NULL,NULL);
+
+        cout << "AxRhom model value = " << axRhomVal << " tensor model value = " << value << endl;
     }
 
     return;

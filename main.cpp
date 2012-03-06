@@ -460,20 +460,49 @@ int main(int argc,char** argv) {
                                   0,-1,0,
                                   0,0,-1));
 
+    vector<Matrix3d> s3_group;
+    s3_group.push_back(MakeMatrix3d(1,0,0,
+                                    0,1,0,
+                                    0,0,1));
+
+    s3_group.push_back(MakeMatrix3d(0,1,0,
+                                    1,0,0,
+                                    0,0,1));
+
+    s3_group.push_back(MakeMatrix3d(1,0,0,
+                                    0,0,1,
+                                    0,1,0));
+
+    s3_group.push_back(MakeMatrix3d(0,0,1,
+                                    0,1,0,
+                                    1,0,0));
+
+    s3_group.push_back(MakeMatrix3d(0,1,0,
+                                    0,0,1,
+                                    1,0,0));
+
+    s3_group.push_back(MakeMatrix3d(0,0,1,
+                                    1,0,0,
+                                    0,1,0));
+
+
     Matrix3d dcm = ConvertToDCM(EulerAngles(axRhomTensor.alpha,
                                             axRhomTensor.beta,
                                             axRhomTensor.gamma));
 
-    for(unsigned long i = 0; i< s2s2s2.size(); i++) {
-        Matrix3d m = dcm*s2s2s2[i];
-        if(m.determinant() < 0 ) {
-            continue;
-        }
+    for(unsigned long j = 0; j< s3_group.size(); j++) {
+        for(unsigned long i = 0; i< s2s2s2.size(); i++) {
+            Matrix3d m = dcm*s2s2s2[i]*s3_group[j];
+            if(m.determinant() < 0 ) {
+                continue;
+            }
         
-        EulerAngles ea = ConvertToEuler(m);
-        cout << "  alpha = " << ea.alpha*180/M_PI;
-        cout << " beta  = " << ea.beta *180/M_PI;
-        cout << " gamma = " << ea.gamma*180/M_PI << endl;
+            EulerAngles ea = ConvertToEuler(m);
+            cout << "  alpha = " << ea.alpha*180/M_PI;
+            cout << " beta  = " << ea.beta *180/M_PI;
+            cout << " gamma = " << ea.gamma*180/M_PI << endl;
+        }
+        cout << endl;
     }
 
 
@@ -505,7 +534,7 @@ bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_
     }
 	cout << "\tf(x) = " << fx << "\t|grad| = " << norm;
 
-    Tensor tensor;
+    /*Tensor tensor;
     tensor.chi_1 = gsl_vector_get(x,PARAM_CHI1)*context->params[PARAM_CHI1];
     tensor.chi_2 = gsl_vector_get(x,PARAM_CHI1)*context->params[PARAM_CHI2];
     
@@ -517,7 +546,7 @@ bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_
     AxRhomTensor axRhomTensor = tensorToAxRhom(tensor);
 
     cout << " " << axRhomTensor.ax    << " " << axRhomTensor.rh
-         << " " << axRhomTensor.alpha/(2*M_PI)*360 << " " << axRhomTensor.beta/(2*M_PI)*360  << " " << axRhomTensor.gamma/(2*M_PI)*360;
+    << " " << axRhomTensor.alpha/(2*M_PI)*360 << " " << axRhomTensor.beta/(2*M_PI)*360  << " " << axRhomTensor.gamma/(2*M_PI)*360;*/
     cout << endl;
 
 
