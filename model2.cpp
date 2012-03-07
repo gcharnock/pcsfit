@@ -182,7 +182,7 @@ void eval_point(Vec3d evalAt,const double* pm,double* value, double* gradient,co
     *value = inv12PiR5 * A; assert(isfinite(*value));
 
     if(gradient != NULL) {
-        gradient[PARAM_CHI1]  = inv12PiR5*(r2-3*z2)/2;
+        gradient[PARAM_CHI1]  = inv12PiR5*(3*z2-r2)/2;
         gradient[PARAM_CHI2]  = inv12PiR5*(3.0/2)*(x2-y2);
         gradient[PARAM_CHIXY] = 6*inv12PiR5*xy;
         gradient[PARAM_CHIXZ] = 6*inv12PiR5*xz;
