@@ -38,7 +38,11 @@ fdf_t worker(const ErrorContext* context,const double* params,bool withGradient,
 
 //Evaulates the error functional. Effectivly does everything one
 //iteration of the minimiser needs to do except
-void eval_error(const ErrorContext* context,const double* params,double* value, double* gradient) {
+void eval_error(const ErrorContext* context,
+                const double* params,
+                double* value,
+                double* gradient,
+                Vals* final_vals) {
     unsigned long size = context->model->size;
     //Prepare the work
     vector<boost::function<pair<double,vector<double> >()> > work;
@@ -59,7 +63,9 @@ void eval_error(const ErrorContext* context,const double* params,double* value, 
         }
     }
 
-    for(unsigned long i = 0; i<context->dataset->nuclei.size();i++) {
+    ulong nNuclei = context->dataset->nuclei.size();
+
+    for(unsigned long i = 0; i<nNuclei;i++) {
         double modelMinusexpVal = results[i].first - context->dataset->vals[i];
         double sq_error=modelMinusexpVal*modelMinusexpVal; 
         //Divide by the square of the shift so that large shifts don't
@@ -74,13 +80,26 @@ void eval_error(const ErrorContext* context,const double* params,double* value, 
                 if(!context->params_to_fix[j]) {
                     gradient[j] += 2 * results[i].second[j] * modelMinusexpVal / sq_shift;
                 } else {
-                    //Otherwise, we are ignoring this paramiter.
+                    //Otherwise, we are ignoring this paramiter. Set
+                    //the gradient to zero to prevent the optimiser
+                    //considering it. (A bit of a hack, a better way
+                    //would be to hide the dimention from the optimise
+                    //entirely, but this still works)
                     gradient[j] = 0;
                 }
 
                 assert(isfinite(gradient[j]));
                 assert(isfinite(gradient[j]*gradient[j]));
             }
+        }
+    }
+
+    if(final_vals != NULL) {
+        //Write the predicted PCS to write_result_to
+        final_vals->resize(nNuclei);
+
+        for(ulong i = 0; i<nNuclei;i++) {
+            final_vals->at(i) = results[i].first;
         }
     }
 }
@@ -159,13 +178,18 @@ void   eval_error_df (const gsl_vector* v, void* void_p, gsl_vector *df) {
 }
 
 
-void do_fit_with_grad(const ErrorContext* context,double* optModel,double* finalError,OnIterate onIterate) {
+void do_fit_with_grad(const ErrorContext* context,
+                      double* optModel,
+                      double* finalError,
+                      OnIterate onIterate,
+                      //A place to write the final values of the model
+                      //to. NULL indicates do not report.
+                      Vals* final_vals) {
+
     assert(context != NULL);
     assert(optModel != NULL);
 
-
     unsigned long size = context->model->size;
-
 
     for(unsigned long i = 0; i < size; i++) {
         assert(isfinite(context->params[i]));
@@ -192,12 +216,12 @@ void do_fit_with_grad(const ErrorContext* context,double* optModel,double* final
     
     //Setup the minimiser
     gsl_multimin_fdfminimizer* gslmin;
-    //gsl_multimin_fdfminimizer_steepest_descent
-    //gsl_multimin_fdfminimizer_conjugate_fr
-    //gsl_multimin_fdfminimizer_vector_bfgs2
-    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2,size);
+    //gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_steepest_descent,size);
+    //gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_conjugate_fr    ,size);
+    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2    ,size);
     
-    gsl_multimin_fdfminimizer_set(gslmin,&minfunc,gslModelVec,0.1,0.2);
+    double line_search_tol = 0.2;
+    gsl_multimin_fdfminimizer_set(gslmin,&minfunc,gslModelVec,0.1,line_search_tol);
 
     
 	for(unsigned long i = 0;;i++) {
@@ -211,8 +235,22 @@ void do_fit_with_grad(const ErrorContext* context,double* optModel,double* final
 
     gsl_vector* gslOptVector = gsl_multimin_fdfminimizer_x(gslmin);
     (*finalError) = gsl_multimin_fdfminimizer_minimum(gslmin);
-
     memcpy(optModel, gsl_vector_ptr(gslOptVector,0), size*sizeof(double));
+
+    if(context->rescale) {
+        //If we were rescaling, we need to un-apply the scaling or the
+        //final model paramiters won't make much sense.
+        for(ulong i = 0; i < size; i++) {
+            optModel[i] = optModel[i]*context->params[i];
+        }
+    }
+
+    if(final_vals != NULL) {
+        //Evaluate the model one last time to obtain the final predicted
+        //PCS per nucleous.
+        double final_value;
+        eval_error(context,optModel,&final_value,NULL,final_vals);
+    }
 
     //Clean up
     gsl_multimin_fdfminimizer_free(gslmin);

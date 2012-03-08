@@ -399,15 +399,63 @@ int main(int argc,char** argv) {
 	//Okay, we've got everything, do the fitting
 	double errorFinal = 666; //Set these to easily recognisable uninitalised values
 
-	do_fit_with_grad(&context,params_opt,&errorFinal,&main_on_iterate);
+    //Place to put a copy of our final predicted PCS values
+    Vals final_vals;
+
+	do_fit_with_grad(&context,params_opt,&errorFinal,&main_on_iterate,&final_vals);
 
     for(unsigned long j = 0;j < model->size; j++) {
 		cout << name_param(j) << " start =" << params_start[j]
-			 << " final = " << params_start[j]*params_opt[j] << endl;
+			 << " final = " << params_opt[j] << endl;
 	}
+
 	cout.setf(ios::floatfield,ios::scientific);
 	
+    //======================================================================//
+    // The following is code writes the results to stdout and the hard
+    // disk. All the scientific work is over
+    // ======================================================================//
+
 	cout << "The final error was: " << errorFinal << endl;
+
+    double exp_squared_total = 0;
+    for(ulong i = 0; i < dataset.vals.size(); i++) {
+        exp_squared_total += dataset.vals[i]*dataset.vals[i];
+    }
+    cout << "The sum of the squared experimental values was " << exp_squared_total << endl;
+
+
+    {
+        //In this block, we write the final PCS for each nucleous to a
+        //file
+        ofstream fout("nuclear_pcs.dat",ios::out);
+        if(!fout.is_open()) {
+            cout << "Warning, could not create nulcear_pcs.dat to write some results to. They have been lost" << endl;
+
+            //It's the evil goto! Don't worry, it just leads to the
+            //end out this IO section. There's no point in exiting the
+            //entire program. I could have done this in a more
+            //confusing way with do{... break; ...} while(false) or by
+            //calling a seperate function and using return that you
+            //would have to track down.
+            goto end_pcs_to_disk;
+        }
+
+        for(ulong i = 0; i < final_vals.size(); i++) {
+            double thisPCS = final_vals[i];
+            double x = dataset.nuclei[i].x();
+            double y = dataset.nuclei[i].y();
+            double z = dataset.nuclei[i].z();
+
+            double r = sqrt(x*x + y*y + z*z);
+
+            double diff = dataset.vals[i] - thisPCS;
+
+            fout << x << " " << y << " " << z << " " << r << " " << thisPCS
+                 << " " << dataset.vals[i] << " " << diff*diff << endl;
+        }
+    }
+ end_pcs_to_disk:
 
 	cout << "================================================================================" << endl;
     AxRhomTensor axRhomTensor = tensorToAxRhom(Tensor(
@@ -508,6 +556,8 @@ int main(int argc,char** argv) {
 
     cout << "================================================================================" << endl;
     
+    
+
     return 0;
 }
 
