@@ -307,10 +307,10 @@ void testModel(PRNG& prng,Multithreader<fdf_t>* pool,const ModelOptions* modelOp
     check_error_derivate(prng,&point_model   ,pool,modelOptions);
     //check_error_derivate(prng,&gaussian_model,pool);
 
-    check_minimum(prng,&point_model   ,pool,modelOptions);
+    //check_minimum(prng,&point_model   ,pool,modelOptions);
     //check_minimum(prng,&gaussian_model,pool);
     
-	do_convergence(prng,&point_model   ,pool,modelOptions);
+	//do_convergence(prng,&point_model   ,pool,modelOptions);
 	//do_convergence(prng,&gaussian_model,pool,modelOptions);
 }
 

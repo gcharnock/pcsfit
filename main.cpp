@@ -1,11 +1,6 @@
 
 /*
   Licenced under the GPL v2
-
-  As an experiment, I decided to try to write this programe in a more
-  C-ish style, even though its still C++ and a few C++ features are
-  used where appropriate. I just tried to avoid using every feature in
-  the C++ toolkit just because I could.
  */
 
 
@@ -42,7 +37,6 @@ struct Options {
     Options ()
         : dont_rescale(false),
           dont_reg(false),
-          integral_tol(1e-3),
           seed(0),
           scanparam(0),
           scanparam_min(0),
@@ -53,7 +47,9 @@ struct Options {
           step_count(10),
           rel_error(1e-3),
           threads(false),
-          paramsToIgnore(NULL) {
+          paramsToIgnore(NULL),
+          absError(0),
+          relError(1e-4) {
     }
     string params_file;
     string input_file;
@@ -63,7 +59,6 @@ struct Options {
 
     bool dont_rescale;
     bool dont_reg;
-    double integral_tol;
 
     unsigned long seed;
 
@@ -83,6 +78,9 @@ struct Options {
 
     bool threads;
     bool* paramsToIgnore;
+
+    double absError;
+    double relError;
 };
 
 /********************************************************************************
@@ -193,8 +191,6 @@ int main(int argc,char** argv) {
             ("dont-rescale","")
             ("sketch3d-file",value<string>(&options.sketch3dFile),"")
             ("ignore-params",value<string>(&ignoreParamsStr),"")
-			("random-model-type",
-			 "Specify the type of the model to use for generating random data")
 			("seed,s",value<unsigned long>(&options.seed),"Specify a seed for the random number generator")
 			("param-to-scan,-s",value<unsigned long>(&options.scanparam)->default_value(0),"")
 			("param-to-scan2",value<long>(&options.scanparam2)->default_value(-1),"")
@@ -202,7 +198,10 @@ int main(int argc,char** argv) {
 			("max",value<double>(&options.scanparam_max)->default_value(1),"")
 			("min2",value<double>(&options.scanparam_min2)->default_value(0),"")
 			("max2",value<double>(&options.scanparam_max2)->default_value(1),"")
-            ("steps",value<unsigned long>(&options.step_count)->default_value(20),"");
+            ("steps",value<unsigned long>(&options.step_count)->default_value(20),"")
+            ("absError",value<double>(&options.absError)->default_value(0.0),"")
+            ("relError",value<double>(&options.relError)->default_value(1e-4),"");
+
 		try {
 			store(command_line_parser(argc,argv).options(optDesc).positional(posOpt).run(),variablesMap);
 		} catch(std::exception& e) {
@@ -268,8 +267,8 @@ int main(int argc,char** argv) {
 
     //Set the model options, such as integral accuracy
     ModelOptions modelOptions;
-    modelOptions.absError = 0;
-    modelOptions.relError = 1e-2;
+    modelOptions.absError = options.absError;
+    modelOptions.relError = options.relError;
 
 
     //If we just want to run the self tests, do it and stop
@@ -456,7 +455,7 @@ int main(int argc,char** argv) {
         }
     }
  end_pcs_to_disk:
-
+    /*
 	cout << "================================================================================" << endl;
     AxRhomTensor axRhomTensor = tensorToAxRhom(Tensor(
                                                       params_start[3]*params_opt[3],
@@ -555,7 +554,7 @@ int main(int argc,char** argv) {
 
 
     cout << "================================================================================" << endl;
-    
+    */
     
 
     return 0;

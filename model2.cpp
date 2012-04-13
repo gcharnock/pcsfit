@@ -157,11 +157,16 @@ void eval_point(Vec3d evalAt,const double* pm,double* value, double* gradient,co
 		return;
 	}
 
-    double chi_1 =  pm[PARAM_CHI1]; 
-    double chi_2 =  pm[PARAM_CHI2];
-    double chi_xy = pm[PARAM_CHIXY];
-    double chi_xz = pm[PARAM_CHIXZ];
-    double chi_yz = pm[PARAM_CHIYZ];
+
+    //The chi tensor has units of m^3 x 10^(-32), but we need it in
+    //simple m^3 so divide by 10^-32 but our distances are in
+    //angrstroms and shifts are in ppm, chi it needs to be 10^36
+    //bigger to compensate, hence the net factor of 10^4
+    double chi_1 =  pm[PARAM_CHI1]  * 1e4; 
+    double chi_2 =  pm[PARAM_CHI2]  * 1e4; 
+    double chi_xy = pm[PARAM_CHIXY] * 1e4;
+    double chi_xz = pm[PARAM_CHIXZ] * 1e4;
+    double chi_yz = pm[PARAM_CHIYZ] * 1e4;
 
     double x2 = x*x;
     double y2 = y*y;
@@ -178,15 +183,15 @@ void eval_point(Vec3d evalAt,const double* pm,double* value, double* gradient,co
 
     double inv12PiR5 = 1/(12*M_PI*r5);
 
-    double A = (3*z2-r2)*chi_1/2 + (3.0/2)*(x2-y2)*chi_2 + 6*(xy*chi_xy + xz*chi_xz + yz*chi_yz);
+    double A = (3*z2-r2)*chi_1 + (x2-y2)*chi_2 + 6*(xy*chi_xy + xz*chi_xz + yz*chi_yz);
     *value = inv12PiR5 * A; assert(isfinite(*value));
 
     if(gradient != NULL) {
-        gradient[PARAM_CHI1]  = inv12PiR5*(3*z2-r2)/2;
-        gradient[PARAM_CHI2]  = inv12PiR5*(3.0/2)*(x2-y2);
-        gradient[PARAM_CHIXY] = 6*inv12PiR5*xy;
-        gradient[PARAM_CHIXZ] = 6*inv12PiR5*xz;
-        gradient[PARAM_CHIYZ] = 6*inv12PiR5*yz;
+        gradient[PARAM_CHI1]  = inv12PiR5*(3*z2-r2)    / 1e-4;
+        gradient[PARAM_CHI2]  = inv12PiR5*(x2-y2)      / 1e-4;
+        gradient[PARAM_CHIXY] = 6*inv12PiR5*xy         / 1e-4;
+        gradient[PARAM_CHIXZ] = 6*inv12PiR5*xz         / 1e-4;
+        gradient[PARAM_CHIYZ] = 6*inv12PiR5*yz         / 1e-4;
 
 
         double fiveAOver12Pi7 = 5*A/(12*M_PI*r5*r2);
@@ -195,9 +200,9 @@ void eval_point(Vec3d evalAt,const double* pm,double* value, double* gradient,co
         //respect to the position of the metal, which appears as
         //sigma(r - r_m) where sigma is a model assuming the metal
         //sits at the origin and r_m is the location of the metal
-        gradient[PARAM_X] = -(-x*fiveAOver12Pi7 + (  x*(-chi_1 + 3*chi_2) + 6*(y*chi_xy + z*chi_xz))*inv12PiR5);
-        gradient[PARAM_Y] = -(-y*fiveAOver12Pi7 + (  y*(-chi_1 - 3*chi_2) + 6*(x*chi_xy + z*chi_yz))*inv12PiR5);
-        gradient[PARAM_Z] = -(-z*fiveAOver12Pi7 + (2*z*chi_1              + 6*(x*chi_xz + y*chi_yz))*inv12PiR5);
+        gradient[PARAM_X] = -(-x*fiveAOver12Pi7 + (-2*x*(chi_1 - chi_2) + 6*(y*chi_xy + z*chi_xz))*inv12PiR5);
+        gradient[PARAM_Y] = -(-y*fiveAOver12Pi7 + (-2*y*(chi_1 + chi_2) + 6*(x*chi_xy + z*chi_yz))*inv12PiR5);
+        gradient[PARAM_Z] = -(-z*fiveAOver12Pi7 + ( 4*z*chi_1           + 6*(x*chi_xz + y*chi_yz))*inv12PiR5);
 	
         for(unsigned long i = 0;i<8;i++) {
             assert(isfinite(gradient[i]));
@@ -305,12 +310,17 @@ void random_data(PRNG& prng,
 double integrand_kernel(Userdata* userdata,
                         Vec3d xyz,
                         const double* params,
-                        Vec3d singularity,
                         double* gradient) {
 
     for(ulong i = 0; i < POINT_SIZE+1; i++) {
         assert(isfinite(params[i]));
     }
+
+    Vec3d metal = Vec3d(params);
+
+    //The location of the singularity
+    Vec3d singularity = userdata->evalAt - metal;
+
     assert(isfinite(xyz[0]));
     assert(isfinite(xyz[1]));
     assert(isfinite(xyz[2]));
@@ -422,25 +432,14 @@ int Integrand(const double xx[],double ff[],int ncomp, void* void_userdata) {
     Userdata* userdata = (Userdata*)(void_userdata);
 
     const double* params = userdata->params;
-    Vec3d metal = Vec3d(params);
-
-    //The location of the singularity (optimisation: take these
-    //calculations out of the integral)
-    Vec3d singularity = userdata->evalAt - metal;
-
 
     Vec3d xyz = Vec3d(xx);
-
-    //A vector pointing from the centre of 1/r^3 to the center of the gaussian
-    Vec3d expand_around = xyz - singularity;
 
     //Evauate the model
     double* gradient = ncomp == 1 ? NULL: (double*)alloca(POINT_SIZE*sizeof(double));
 
-    Vec3d x_minus_xprime = userdata->evalAt - xyz;
-
     if(userdata->integral_type == COMPUTE_ANALYTIC) {
-        ff[0] = integrand_kernel(userdata,xyz,params,singularity,gradient);
+        ff[0] = integrand_kernel(userdata,xyz,params,gradient);
         assert(isfinite(ff[0]));
     }
 
@@ -462,22 +461,22 @@ int Integrand(const double xx[],double ff[],int ncomp, void* void_userdata) {
     if(userdata->integral_type == COMPUTE_STDDEV) {
 
         mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] - userdata->stddev_h * 4;
-        ff[0] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-4h
+        ff[0] = integrand_kernel(userdata,xyz,mute_params,gradient);  //-4h
         mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] - userdata->stddev_h * 3;
-        ff[1] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-3h
+        ff[1] = integrand_kernel(userdata,xyz,mute_params,gradient);  //-3h
         mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] - userdata->stddev_h * 2;
-        ff[2] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-2h
+        ff[2] = integrand_kernel(userdata,xyz,mute_params,gradient);  //-2h
         mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] - userdata->stddev_h * 1;
-        ff[3] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-1h
+        ff[3] = integrand_kernel(userdata,xyz,mute_params,gradient);  //-1h
 
         mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] + userdata->stddev_h * 1;
-        ff[4] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 1h
+        ff[4] = integrand_kernel(userdata,xyz,mute_params,gradient);  // 1h
         mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] + userdata->stddev_h * 2;
-        ff[5] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 2h
+        ff[5] = integrand_kernel(userdata,xyz,mute_params,gradient);  // 2h
         mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] + userdata->stddev_h * 3;
-        ff[6] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 3h
+        ff[6] = integrand_kernel(userdata,xyz,mute_params,gradient);  // 3h
         mute_params[PARAM_STDDEV] = params[PARAM_STDDEV] + userdata->stddev_h * 4;
-        ff[7] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 4h
+        ff[7] = integrand_kernel(userdata,xyz,mute_params,gradient);  // 4h
 
         mute_params[PARAM_STDDEV] = params[PARAM_STDDEV];
 
@@ -485,18 +484,18 @@ int Integrand(const double xx[],double ff[],int ncomp, void* void_userdata) {
 
         //Vary x
         mute_params[PARAM_X] = params[PARAM_X] - userdata->position_h*3;
-        ff[0] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-3h
+        ff[0] = integrand_kernel(userdata,xyz,mute_params,gradient);  //-3h
         mute_params[PARAM_X] = params[PARAM_X] - userdata->position_h*2;
-        ff[1] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-2h
+        ff[1] = integrand_kernel(userdata,xyz,mute_params,gradient);  //-2h
         mute_params[PARAM_X] = params[PARAM_X] - userdata->position_h;
-        ff[2] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-1h
+        ff[2] = integrand_kernel(userdata,xyz,mute_params,gradient);  //-1h
 
         mute_params[PARAM_X] = params[PARAM_X] + userdata->position_h;
-        ff[3] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 1h
+        ff[3] = integrand_kernel(userdata,xyz,mute_params,gradient);  // 1h
         mute_params[PARAM_X] = params[PARAM_X] + userdata->position_h*2;
-        ff[4] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 2h
+        ff[4] = integrand_kernel(userdata,xyz,mute_params,gradient);  // 2h
         mute_params[PARAM_X] = params[PARAM_X] + userdata->position_h*3;
-        ff[5] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 3h
+        ff[5] = integrand_kernel(userdata,xyz,mute_params,gradient);  // 3h
     
         mute_params[PARAM_X] = params[PARAM_X];
 
@@ -505,18 +504,18 @@ int Integrand(const double xx[],double ff[],int ncomp, void* void_userdata) {
 
         //Vary y
         mute_params[PARAM_Y] = params[PARAM_Y] - userdata->position_h*3;
-        ff[0] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-3h
+        ff[0] = integrand_kernel(userdata,xyz,mute_params,gradient);  //-3h
         mute_params[PARAM_Y] = params[PARAM_Y] - userdata->position_h*2;
-        ff[1] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-2h
+        ff[1] = integrand_kernel(userdata,xyz,mute_params,gradient);  //-2h
         mute_params[PARAM_Y] = params[PARAM_Y] - userdata->position_h;
-        ff[2] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-1h
+        ff[2] = integrand_kernel(userdata,xyz,mute_params,gradient);  //-1h
 
         mute_params[PARAM_Y] = params[PARAM_Y] + userdata->position_h;
-        ff[3] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 1h
+        ff[3] = integrand_kernel(userdata,xyz,mute_params,gradient);  // 1h
         mute_params[PARAM_Y] = params[PARAM_Y] + userdata->position_h*2;
-        ff[4] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 2h
+        ff[4] = integrand_kernel(userdata,xyz,mute_params,gradient);  // 2h
         mute_params[PARAM_Y] = params[PARAM_Y] + userdata->position_h*2;
-        ff[5] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 3h
+        ff[5] = integrand_kernel(userdata,xyz,mute_params,gradient);  // 3h
 
         mute_params[PARAM_Y] = params[PARAM_Y];
 
@@ -524,18 +523,18 @@ int Integrand(const double xx[],double ff[],int ncomp, void* void_userdata) {
 
         //Vary z
         mute_params[PARAM_Z] = params[PARAM_Z] - userdata->position_h*3;
-        ff[0] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-3h
+        ff[0] = integrand_kernel(userdata,xyz,mute_params,gradient);  //-3h
         mute_params[PARAM_Z] = params[PARAM_Z] - userdata->position_h*2;
-        ff[1] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-2h
+        ff[1] = integrand_kernel(userdata,xyz,mute_params,gradient);  //-2h
         mute_params[PARAM_Z] = params[PARAM_Z] - userdata->position_h;
-        ff[2] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  //-1h
+        ff[2] = integrand_kernel(userdata,xyz,mute_params,gradient);  //-1h
 
         mute_params[PARAM_Z] = params[PARAM_Z] + userdata->position_h;
-        ff[3] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 1h
+        ff[3] = integrand_kernel(userdata,xyz,mute_params,gradient);  // 1h
         mute_params[PARAM_Z] = params[PARAM_Z] + userdata->position_h*2;
-        ff[4] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 2h
+        ff[4] = integrand_kernel(userdata,xyz,mute_params,gradient);  // 2h
         mute_params[PARAM_Z] = params[PARAM_Z] + userdata->position_h*3;
-        ff[5] = integrand_kernel(userdata,xyz,mute_params,singularity,gradient);  // 3h
+        ff[5] = integrand_kernel(userdata,xyz,mute_params,gradient);  // 3h
 
         mute_params[PARAM_Z] = params[PARAM_Z];
     }

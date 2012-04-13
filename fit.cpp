@@ -132,6 +132,12 @@ void numerical_error_derivative(const ErrorContext* context,double* value, doubl
 
 //Translates to and from GSL language
 void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector *df) {
+    /*if(df == NULL) {
+        cerr << "f: ";
+    } else {
+        cerr << "fdf: ";
+        }*/
+
     const ErrorContext* context = (const ErrorContext*)(voidContext);
 
     unsigned long size = context->model->size;
@@ -149,6 +155,10 @@ void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector
         assert(isfinite(rescaled_x[i]));
     }
 
+    //for(ulong i = 0; i < size; i++) {
+    //    cerr << context->params[i] << " ";
+    //}
+
     //Test df for nullness and if it's null have the fdf function
     //write to throwaway memory.
     eval_error(context,rescaled_x,f, gradient);
@@ -162,6 +172,7 @@ void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector
             gsl_vector_set(df,i,re_gradient);
         }
     }
+    //cerr << "| res= " << *f << endl;
 }
 
 
@@ -217,10 +228,10 @@ void do_fit_with_grad(const ErrorContext* context,
     //Setup the minimiser
     gsl_multimin_fdfminimizer* gslmin;
     //gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_steepest_descent,size);
-    //gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_conjugate_fr    ,size);
-    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2    ,size);
+    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_conjugate_fr    ,size);
+    //gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2    ,size);
     
-    double line_search_tol = 0.2;
+    double line_search_tol = 0.1;
     gsl_multimin_fdfminimizer_set(gslmin,&minfunc,gslModelVec,0.1,line_search_tol);
 
     
