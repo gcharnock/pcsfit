@@ -455,107 +455,18 @@ int main(int argc,char** argv) {
         }
     }
  end_pcs_to_disk:
-    /*
-	cout << "================================================================================" << endl;
-    AxRhomTensor axRhomTensor = tensorToAxRhom(Tensor(
-                                                      params_start[3]*params_opt[3],
-                                                      params_start[4]*params_opt[4],
-                                                      params_start[5]*params_opt[5],
-                                                      params_start[6]*params_opt[6],
-                                                      params_start[7]*params_opt[7]
-                                                      ));
+    cout << "================================================================================" << endl;
+    cout << "Final Tensor = " << endl;
 
-    cout << "Tensor components in ax-rhom-euler form:" << endl;
-    
-    cout << "ax = "    << axRhomTensor.ax << endl;
-    cout << "rh = "    << axRhomTensor.rh << endl;
-    cout << "alpha = " << axRhomTensor.alpha * 180/M_PI << endl;
-    cout << "beta = "  << axRhomTensor.beta  * 180/M_PI << endl;
-    cout << "gamma = " << axRhomTensor.gamma * 180/M_PI << endl;
-    
-    cout << "Other Euler Angles from the symmetary group" << endl;
-    vector<Matrix3d> s2s2s2;
-    s2s2s2.push_back(MakeMatrix3d(1,0,0,
-                                  0,1,0,
-                                  0,0,1));
+    double chixx = -params_opt[PARAM_CHI1]/3 + params_opt[PARAM_CHI2]/3;
+    double chiyy = -params_opt[PARAM_CHI1]/3 - params_opt[PARAM_CHI2]/3;
+    double chizz =  2*params_opt[PARAM_CHI1]/3;
 
-    s2s2s2.push_back(MakeMatrix3d(-1,0,0,
-                                  0,1,0,
-                                  0,0,1));
-
-    s2s2s2.push_back(MakeMatrix3d(1,0,0,
-                                  0,-1,0,
-                                  0,0,1));
-
-    s2s2s2.push_back(MakeMatrix3d(1,0,0,
-                                  0,1,0,
-                                  0,0,-1));
-
-    s2s2s2.push_back(MakeMatrix3d(-1,0,0,
-                                  0,-1,0,
-                                  0,0,1));
-
-    s2s2s2.push_back(MakeMatrix3d(1,0,0,
-                                  0,-1,0,
-                                  0,0,-1));
-
-    s2s2s2.push_back(MakeMatrix3d(-1,0,0,
-                                  0,1,0,
-                                  0,0,-1));
-
-    s2s2s2.push_back(MakeMatrix3d(-1,0,0,
-                                  0,-1,0,
-                                  0,0,-1));
-
-    vector<Matrix3d> s3_group;
-    s3_group.push_back(MakeMatrix3d(1,0,0,
-                                    0,1,0,
-                                    0,0,1));
-
-    s3_group.push_back(MakeMatrix3d(0,1,0,
-                                    1,0,0,
-                                    0,0,1));
-
-    s3_group.push_back(MakeMatrix3d(1,0,0,
-                                    0,0,1,
-                                    0,1,0));
-
-    s3_group.push_back(MakeMatrix3d(0,0,1,
-                                    0,1,0,
-                                    1,0,0));
-
-    s3_group.push_back(MakeMatrix3d(0,1,0,
-                                    0,0,1,
-                                    1,0,0));
-
-    s3_group.push_back(MakeMatrix3d(0,0,1,
-                                    1,0,0,
-                                    0,1,0));
-
-
-    Matrix3d dcm = ConvertToDCM(EulerAngles(axRhomTensor.alpha,
-                                            axRhomTensor.beta,
-                                            axRhomTensor.gamma));
-
-    for(unsigned long j = 0; j< s3_group.size(); j++) {
-        for(unsigned long i = 0; i< s2s2s2.size(); i++) {
-            Matrix3d m = dcm*s2s2s2[i]*s3_group[j];
-            if(m.determinant() < 0 ) {
-                continue;
-            }
-        
-            EulerAngles ea = ConvertToEuler(m);
-            cout << "  alpha = " << ea.alpha*180/M_PI;
-            cout << " beta  = " << ea.beta *180/M_PI;
-            cout << " gamma = " << ea.gamma*180/M_PI << endl;
-        }
-        cout << endl;
-    }
-
+    cout << MakeMatrix3d(chixx,params_opt[PARAM_CHIXY],params_opt[PARAM_CHIXZ],
+                         params_opt[PARAM_CHIXY],chiyy,params_opt[PARAM_CHIYZ],
+                         params_opt[PARAM_CHIXZ],params_opt[PARAM_CHIYZ],chizz) << endl;
 
     cout << "================================================================================" << endl;
-    */
-    
 
     return 0;
 }
@@ -596,6 +507,8 @@ bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_
 
     cout << " " << axRhomTensor.ax    << " " << axRhomTensor.rh
     << " " << axRhomTensor.alpha/(2*M_PI)*360 << " " << axRhomTensor.beta/(2*M_PI)*360  << " " << axRhomTensor.gamma/(2*M_PI)*360;*/
+    
+
     cout << endl;
 
 
