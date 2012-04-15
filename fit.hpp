@@ -3,7 +3,7 @@
 #define FIT_HPP
 
 #include "data.hpp"
-#include "model2.hpp"
+#include "model.hpp"
 #include "threads.hpp"
 
 #include <gsl/gsl_multimin.h>

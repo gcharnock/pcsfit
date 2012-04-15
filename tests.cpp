@@ -1,8 +1,7 @@
 
 
 #include "tests.hpp"
-#include "model2.hpp"
-#include "pointdev.hpp"
+#include "model.hpp"
 #include "fit.hpp"
 #include "maths.hpp"
 #include "foreach.hpp"

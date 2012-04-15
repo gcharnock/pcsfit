@@ -19,7 +19,7 @@
 #include "fit.hpp"
 #include "foreach.hpp"
 #include "threads.hpp"
-#include "model2.hpp"
+#include "model.hpp"
 #include "data.hpp"
 #include "tests.hpp"
 

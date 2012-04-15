@@ -45,7 +45,7 @@ include_directories(SYSTEM ${SIGC_INCLUDE_DIRS})
 include_directories(
   ../Cuba-2.1 ${vtkDir}
   $ENV{HOME}/src/boost
-  ../libspinxml/
+  /eigen
 )
 include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -63,7 +63,7 @@ set(spinxmlSources
   ../libspinxml/spinxml/unit.cpp
   ../libspinxml/spinxml/frame.cpp
   )
-set(sources model2.cpp fit.cpp  data.cpp  tests.cpp pointdev.cpp maths.cpp ${spinxmlSources})
+set(sources model.cpp fit.cpp  data.cpp  tests.cpp maths.cpp)
 
 
 add_executable(pcsfit main.cpp  ${sources})

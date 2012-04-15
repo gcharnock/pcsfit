@@ -1,6 +1,5 @@
 
-#include "model2.hpp"
-#include "pointdev.hpp"
+#include "model.hpp"
 #include "cuba.h"
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_01.hpp>
