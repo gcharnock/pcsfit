@@ -26,7 +26,6 @@
 #define logMsg(x) flog << __FILE__ << "(" << __LINE__ << ")" << x << endl;
 
 using namespace std;
-using namespace SpinXML;
 using namespace boost;
 
 bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_fdfminimizer* min);
@@ -273,7 +272,6 @@ int main(int argc,char** argv) {
 
     //If we just want to run the self tests, do it and stop
     if(command == "selftest") {
-        testMaths(prng);
         testModel(prng,&pool,&modelOptions);
         return 0;
     }

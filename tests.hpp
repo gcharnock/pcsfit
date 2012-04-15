@@ -4,6 +4,5 @@
 
 void testModel(PRNG& prng,Multithreader<fdf_t>* pool,const ModelOptions* modelOptions);
 
-void testMaths(PRNG& prng);
 
 

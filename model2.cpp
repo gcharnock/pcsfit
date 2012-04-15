@@ -246,7 +246,7 @@ int parse_params_file(const std::string& filename,const Model** model,std::vecto
     }
     string model_name;
     fin >> model_name;
-    if(model_name == "point" || model_name == "euler_point") {
+    if(model_name == "point") {
         *model = &point_model;
     } else if(model_name == "gauss_test") {
         cout << "Using gauss_test model " << endl;
@@ -263,19 +263,6 @@ int parse_params_file(const std::string& filename,const Model** model,std::vecto
         if(fin.eof()) {
             return NOT_ENOUGH_PARAMS;
         }
-    }
-
-    if(model_name == "euler_point") {
-        //The params are actual x,y,z,ax, rh, alpha, beta, gamma so we
-        //need to convert the last three
-
-        AxRhomTensor axRhomTensor(params->at(3),params->at(4),params->at(5)/180*M_PI,params->at(6)/180*M_PI,params->at(7)/180*M_PI);
-        Tensor converted = axRhomToTensor(axRhomTensor);
-        (*params)[3] = converted.chi_1;
-        (*params)[4] = converted.chi_2;
-        (*params)[5] = converted.chi_xy;
-        (*params)[6] = converted.chi_xz;
-        (*params)[7] = converted.chi_yz;
     }
 
     return PARSE_SUCESS;
@@ -773,65 +760,6 @@ int IntegrandNumDev(const double xx[],double ff[],int ncomp, void* void_userdata
 }
 
 
-void eval_gaussian_num_dev(Vec3d evalAt,const double* params,double* value, double* gradient,const ModelOptions* modelOptions) {
-    Userdata userdata;
-    userdata.point_model = &point_model;
-    userdata.params = params;
-	userdata.evalAt = evalAt;
-    userdata.modelOptions = modelOptions;
-    double stddev = params[PARAM_STDDEV];
-
-    double relError = modelOptions->relError;
-    double absError = modelOptions->absError;
-
-    IntegralBounds bounds;
-    bounds.xmax =   5*stddev;
-    bounds.xmin =  -5*stddev;
-    
-    bounds.ymax =   5*stddev;
-    bounds.ymin =  -5*stddev;
-    
-    bounds.zmax =   5*stddev;
-    bounds.zmin =  -5*stddev;
-
-
-    double reg_radius    = stddev/2;
-    userdata.reg_radius2 = reg_radius*reg_radius;
-
-    //We we're doing the gradient, how many functions do we need? 
-    unsigned long ncomp = gradient == NULL ? 1 : 1 + userdata.point_model->size + 1;
-
-	double* integral = (double*)alloca(ncomp*sizeof(double));
-
-    if(gradient == NULL) {
-        cuhreIntegrate(Integrand      ,&bounds,ncomp,integral,(void*)&userdata,relError,absError);
-    } else {
-        cuhreIntegrate(IntegrandNumDev,&bounds,ncomp,integral,(void*)&userdata,relError,absError);
-    }
-
-    *value = integral[0];
-
-    if(gradient != NULL) {
-        memcpy(gradient,integral+1,8*sizeof(double));
-
-        double s5 = stddev*stddev*stddev*stddev*stddev;
-
-        double sigma_xxxx = eval_point_model_dev_xyz(params,2,0,0,evalAt);
-        double sigma_yyyy = eval_point_model_dev_xyz(params,0,2,0,evalAt);
-        double sigma_zzzz = eval_point_model_dev_xyz(params,0,0,2,evalAt);
-
-        double sigma_xxyy = eval_point_model_dev_xyz(params,2,0,0,evalAt);
-        double sigma_xxzz = eval_point_model_dev_xyz(params,0,2,0,evalAt);
-        double sigma_yyzz = eval_point_model_dev_xyz(params,0,0,2,evalAt);
-
-        gradient[PARAM_STDDEV] = 6*s5*(
-                                       3.0/4*(sigma_xxxx + sigma_yyyy + sigma_zzzz)+
-                                       1.0/2*(sigma_xxyy + sigma_xxzz + sigma_yyzz)
-                                       )/24;
-    }
-}
-
 const Model point_model    = {eval_point   ,8,"Point Model"};
 const Model gaussian_model = {eval_gaussian,9,"Gaussian Model"};
-const Model gaussian_model_num_dev  = {eval_gaussian_num_dev,9,"Gaussian Model with Numerical Derivatives"};
 const Model gaussian_model_testing =  {eval_gaussian_testing,9,"Gaussian Model"};
