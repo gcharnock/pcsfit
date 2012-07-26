@@ -48,7 +48,10 @@ struct Options {
           threads(false),
           paramsToIgnore(NULL),
           absError(0),
-          relError(1e-4) {
+          relError(1e-4),
+          x(0.0),
+          y(0.0),
+          z(0.0) {
     }
     string params_file;
     string input_file;
@@ -80,6 +83,8 @@ struct Options {
 
     double absError;
     double relError;
+
+    double x,y,z;
 };
 
 /********************************************************************************
@@ -179,7 +184,7 @@ int main(int argc,char** argv) {
 		options_description optDesc("Options");
 
 		optDesc.add_options()
-            ("command",value<string>(&command),"fit|scan|errorscan|sketch3d|makedata|selftest")
+            ("command",value<string>(&command),"fit|scan|errorscan|eval|sketch3d|makedata|selftest")
             ("params-file,p",value<string>(&options.params_file),"")
 			("input-file,i",value<string>(&options.input_file),"specify an input file")
 			("help,h","print this help page and exit")
@@ -199,7 +204,11 @@ int main(int argc,char** argv) {
 			("max2",value<double>(&options.scanparam_max2)->default_value(1),"")
             ("steps",value<unsigned long>(&options.step_count)->default_value(20),"")
             ("absError",value<double>(&options.absError)->default_value(0.0),"")
-            ("relError",value<double>(&options.relError)->default_value(1e-4),"");
+            ("relError",value<double>(&options.relError)->default_value(1e-4),"")
+            ("x,x",value<double>(&options.x)->default_value(0.0),"")
+            ("y,y",value<double>(&options.y)->default_value(0.0),"")
+            ("z,z",value<double>(&options.z)->default_value(0.0),"");
+
 
 		try {
 			store(command_line_parser(argc,argv).options(optDesc).positional(posOpt).run(),variablesMap);
@@ -220,7 +229,8 @@ int main(int argc,char** argv) {
             command = variablesMap["command"].as<string>();
         }
         if(!(command == "fit" || command == "errorscan" || command == "sketch3d" ||
-             command == "scan" || command == "selftest" || command == "makedata")) {
+             command == "scan" || command == "selftest" || command == "makedata" ||
+             command == "eval")) {
 			cout << "Usage:" << endl;
 			cout << optDesc << endl;
 			return -1;
@@ -336,6 +346,27 @@ int main(int argc,char** argv) {
         return 0;
     }
 
+    //Evaluate the model specified in the input file at a specific
+    //point given by the arguments x, y and z. Print onto the standard
+    //out
+    if(command == "eval") {
+        double  value;
+
+    	params_start         = (double*)alloca(model->size*sizeof(double));
+    	for(unsigned long i = 0; i < model->size;i++) {
+    		params_start[i] = params[i];
+    	}
+        //TODO: read from command line
+        Vec3d evalAt(options.x,options.y,options.z);
+
+        model->modelf(evalAt, params_start,&value,NULL,&modelOptions);
+        cout << value << endl;
+
+        return 0;
+    }
+
+
+
     //----------------------------------------------------------------------//
     //We're not scanning as a paramiter varies, so we must be fitting,
     //so we need a dataset to do that.
@@ -363,6 +394,7 @@ int main(int argc,char** argv) {
     if (dataset.nuclei.size() == 0) {
         cout << "WARNING: dataset contains no spins" << endl;
     }
+
 
 
     //Do we want to produce a publishable quality visualisation?  Is
