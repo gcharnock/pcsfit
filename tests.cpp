@@ -159,7 +159,7 @@ bool do_convergence_on_iterate(const ErrorContext* context,unsigned long i,gsl_m
 	return true;
 }
 
-void do_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool,const ModelOptions* modelOptions) {
+void check_convergence(PRNG& prng,const Model* model,Multithreader<fdf_t>* pool,const ModelOptions* modelOptions) {
 	unsigned long size = model->size;
 
     for(unsigned long i = 1;i<4;i++) {
@@ -272,19 +272,17 @@ void testModel(PRNG& prng,Multithreader<fdf_t>* pool,const ModelOptions* modelOp
     //test_gaussian(prng);
 
     check_derivative (prng,&point_model,modelOptions);
-    //PRNG prng_copy = prng;
-    //check_derivative (prng,&gaussian_model,modelOptions);
-    //check_derivative (prng_copy,&gaussian_model_num_dev,modelOptions);
+    check_derivative (prng,&gaussian_model,modelOptions);
 
     //cout << "Evaulating the analytic and numerical derivatives of the error functional" << endl;
     check_error_derivate(prng,&point_model   ,pool,modelOptions);
-    //check_error_derivate(prng,&gaussian_model,pool);
+    check_error_derivate(prng,&gaussian_model,pool,modelOptions);
 
-    //check_minimum(prng,&point_model   ,pool,modelOptions);
-    //check_minimum(prng,&gaussian_model,pool);
+    check_minimum(prng,&point_model   ,pool,modelOptions);
+    check_minimum(prng,&gaussian_model,pool,modelOptions);
     
-	//do_convergence(prng,&point_model   ,pool,modelOptions);
-	//do_convergence(prng,&gaussian_model,pool,modelOptions);
+	check_convergence(prng,&point_model   ,pool,modelOptions);
+	check_convergence(prng,&gaussian_model,pool,modelOptions);
 }
 
 
