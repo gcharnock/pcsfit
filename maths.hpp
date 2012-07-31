@@ -53,14 +53,25 @@ struct Vec3 {
             mData[2]*other.mData[2];
     }
 
-    T r2() {
+    Vec3 cross(Vec3 other) const {
+        return Vec3(mData[1] * other.mData[2] - other.mData[1] * mData[2],
+                    mData[2] * other.mData[0] - other.mData[2] * mData[0],
+                    mData[0] * other.mData[1] - other.mData[0] * mData[1]);
+    }
+
+    T r2() const  {
         return
             mData[0]*mData[0] +
             mData[1]*mData[1] +
             mData[2]*mData[2];
     }
 
-    Vec3 operator*(T s) {
+    Vec3 normalized() const {
+        T inv_l = 1/sqrt(this->r2());
+        return Vec3(mData[0]*inv_l,mData[1]*inv_l,mData[2]*inv_l);
+    }
+
+    Vec3 operator*(T s) const {
         return Vec3(mData[0] * s,
                     mData[1] * s,
                     mData[2] * s);

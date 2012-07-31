@@ -49,9 +49,14 @@ struct Options {
           paramsToIgnore(NULL),
           absError(0),
           relError(1e-4),
-          x(0.0),
-          y(0.0),
-          z(0.0) {
+          xsteps(1),ysteps(1),zsteps(1),
+          xmin(0.0), xmax(1.0),
+          ymin(0.0), ymax(1.0),
+          zmin(0.0), zmax(1.0),
+          p1x(1.0),p1y(0.0),p1z(0.0),
+          p2x(0.0),p2y(0.0),p2z(0.0),
+          p3x(1.0),p3y(1.0),p3z(1.0),
+          planesize(1.0){
     }
     string params_file;
     string input_file;
@@ -84,7 +89,19 @@ struct Options {
     double absError;
     double relError;
 
-    double x,y,z;
+    ulong xsteps;
+    ulong ysteps;
+    ulong zsteps;
+
+    double xmin,xmax;
+    double ymin,ymax;
+    double zmin,zmax;
+
+    double p1x,p1y,p1z;
+    double p2x,p2y,p2z;
+    double p3x,p3y,p3z;
+
+    double planesize;
 };
 
 /********************************************************************************
@@ -205,10 +222,25 @@ int main(int argc,char** argv) {
             ("steps",value<unsigned long>(&options.step_count)->default_value(20),"")
             ("absError",value<double>(&options.absError)->default_value(0.0),"")
             ("relError",value<double>(&options.relError)->default_value(1e-4),"")
-            ("x,x",value<double>(&options.x)->default_value(0.0),"")
-            ("y,y",value<double>(&options.y)->default_value(0.0),"")
-            ("z,z",value<double>(&options.z)->default_value(0.0),"");
-
+            ("xsteps",value<ulong>(&options.xsteps)->default_value(1),"")
+            ("ysteps",value<ulong>(&options.ysteps)->default_value(1),"")
+            ("zsteps",value<ulong>(&options.zsteps)->default_value(1),"")
+            ("xmin",value<double>(&options.xmin)->default_value(0.0),"")
+            ("ymin",value<double>(&options.ymin)->default_value(0.0),"")
+            ("zmin",value<double>(&options.zmin)->default_value(0.0),"")
+            ("xmax",value<double>(&options.xmax)->default_value(1.0),"")
+            ("ymax",value<double>(&options.ymax)->default_value(1.0),"")
+            ("zmax",value<double>(&options.zmax)->default_value(1.0),"")
+            ("p1x",value<double>(&options.p1x)->default_value(1.0),"")
+            ("p1y",value<double>(&options.p1y)->default_value(0.0),"")
+            ("p1z",value<double>(&options.p1z)->default_value(0.0),"")
+            ("p2x",value<double>(&options.p2x)->default_value(0.0),"")
+            ("p2y",value<double>(&options.p2y)->default_value(0.0),"")
+            ("p2z",value<double>(&options.p2z)->default_value(0.0),"")
+            ("p3x",value<double>(&options.p3x)->default_value(1.0),"")
+            ("p3y",value<double>(&options.p3y)->default_value(1.0),"")
+            ("p3z",value<double>(&options.p3z)->default_value(1.0),"")
+            ("planesize",value<double>(&options.planesize)->default_value(10.0),"");
 
 		try {
 			store(command_line_parser(argc,argv).options(optDesc).positional(posOpt).run(),variablesMap);
@@ -230,7 +262,7 @@ int main(int argc,char** argv) {
         }
         if(!(command == "fit" || command == "errorscan" || command == "sketch3d" ||
              command == "scan" || command == "selftest" || command == "makedata" ||
-             command == "eval")) {
+             command == "eval" || command == "evalpoints" || command == "evalplane")) {
 			cout << "Usage:" << endl;
 			cout << optDesc << endl;
 			return -1;
@@ -356,11 +388,104 @@ int main(int argc,char** argv) {
     	for(unsigned long i = 0; i < model->size;i++) {
     		params_start[i] = params[i];
     	}
-        //TODO: read from command line
-        Vec3d evalAt(options.x,options.y,options.z);
 
-        model->modelf(evalAt, params_start,&value,NULL,&modelOptions);
-        cout << value << endl;
+        for(ulong i = 0; i < options.zsteps; i++) {
+            for(ulong j = 0; j < options.ysteps; j++) {
+                for(ulong k = 0; k < options.xsteps; k++) {
+                    //x coordinate varies fastest, followed by y then z
+                    double x = options.xsteps > 1 ?
+                        options.xmin + double(k)/(options.xsteps-1)*(options.xmax-options.xmin) : options.xmin;
+                    double y = options.ysteps > 1 ?
+                        options.ymin + double(j)/(options.ysteps-1)*(options.ymax-options.ymin) : options.ymin;
+                    double z = options.zsteps > 1 ?
+                        options.zmin + double(i)/(options.zsteps-1)*(options.zmax-options.zmin) : options.zmin;
+                    
+                    Vec3d evalAt(x,y,z);
+
+                    model->modelf(evalAt, params_start,&value,NULL,&modelOptions);
+                    if(options.xsteps != 1) {
+                        cout << x << " ";
+                    }
+                    if(options.ysteps != 1) {
+                        cout << y << " ";
+                    }
+                    if(options.zsteps != 1) {
+                        cout << z << " ";
+                    }
+                    cout << value << endl;
+                }
+                if(options.ysteps != 1) {
+                    cout << endl;
+                }
+            }
+            if(options.zsteps != 1) {
+                cout << endl;
+            }
+        }
+
+        return 0;
+    }
+
+    //Another way to evaluate the model. We evaluate on a plane
+    //defined by 3 points centered around the first point
+    if(command == "evalplane") {
+        Vec3d p1(options.p1x,options.p1y,options.p1z);
+        Vec3d p2(options.p2x,options.p2y,options.p2z);
+        Vec3d p3(options.p3x,options.p3y,options.p3z);
+
+        Vec3d u = (p2 - p1).normalized();
+        Vec3d v = u.cross(p3 - p1).cross(u).normalized();
+
+        double step = options.planesize/options.step_count;
+
+        for(long i = -options.step_count; i < long(options.step_count)+1; i++) {
+            for(long j = -options.step_count; j < long(options.step_count)+1; j++) {
+                Vec3d evalAt = p1 + u*step*i + v*step*j;
+
+                double value;
+                model->modelf(evalAt, params_start,&value,NULL,&modelOptions);
+
+                cout << evalAt.x() << " " << evalAt.y() << " " << evalAt.z() <<  " "
+                     << step*i << " " << step*j << " " << value << endl;
+            }
+            cout << endl;
+        }
+        return 0;
+    }
+
+    //--------------------------------------------------------------------------------
+    // Rather than evaluate a grid of points, evaluate at a list of
+    // specific x,y and z coordinates
+    if(command == "evalpoints") {
+        Dataset dataset;
+		loadData(options.input_file,&dataset);
+
+
+    	params_start         = (double*)alloca(model->size*sizeof(double));
+    	for(unsigned long i = 0; i < model->size;i++) {
+    		params_start[i] = params[i];
+    	}
+
+        for(ulong i = 0; i < dataset.nuclei.size(); i++) {
+            double  value;
+        
+            double x = dataset.nuclei[i].x();
+            double y = dataset.nuclei[i].y();
+            double z = dataset.nuclei[i].z();
+
+            if(x < options.xmin || options.xmax < x ||
+               y < options.ymin || options.ymax < y ||
+               z < options.zmin || options.zmax < z ) {
+                continue;
+            }
+
+            Vec3d evalAt(x,y,z);
+
+            model->modelf(evalAt,params_start,&value,NULL,&modelOptions);
+            cout << x << " ";
+            cout << y << " ";
+            cout << z << " " << value << " " << dataset.vals[i] << endl;
+        };
 
         return 0;
     }

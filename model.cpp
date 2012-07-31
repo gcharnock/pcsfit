@@ -758,7 +758,6 @@ int IntegrandNumDev(const double xx[],double ff[],int ncomp, void* void_userdata
     return 0;
 }
 
-
 const Model point_model    = {eval_point   ,8,"Point Model"};
 const Model gaussian_model = {eval_gaussian,9,"Gaussian Model"};
 const Model gaussian_model_testing =  {eval_gaussian_testing,9,"Gaussian Model"};
