@@ -18,11 +18,15 @@ using namespace std;
 
 fdf_t worker(const ErrorContext* context,const double* params,bool withGradient,unsigned long jobN) {
     assert(jobN < context->dataset->nuclei.size());
-    unsigned long size = context->model->size;
+    unsigned long size = context->model->var_size;
 
     double value;
     double* gradient_buff = withGradient ? (double*)alloca(size*sizeof(double)) : NULL;
     vector<double> gradient;
+
+    for(ulong i = 0; i < context->model->size;i++) {
+        assert(isfinite(params[i]));
+    }
 
     context->model->modelf(context->dataset->nuclei[jobN], params, &value, gradient_buff,context->modelOptions);
 
@@ -43,10 +47,14 @@ void eval_error(const ErrorContext* context,
                 double* value,
                 double* gradient,
                 Vals* final_vals) {
-    unsigned long size = context->model->size;
+    unsigned long var_size = context->model->var_size;
     //Prepare the work
     vector<boost::function<pair<double,vector<double> >()> > work;
     vector<fdf_t> results;
+
+    for(ulong i = 0; i < context->model->size;i++) {
+        assert(isfinite(params[i]));
+    }
 
     for(unsigned long i = 0;i<context->dataset->nuclei.size();i++) {
         work.push_back(boost::bind(&worker,context,params,gradient,i));
@@ -58,7 +66,7 @@ void eval_error(const ErrorContext* context,
     //Reduce the results
     *value = 0;
     if(gradient != NULL) {
-        for(unsigned long i = 0; i<size;i++) {
+        for(unsigned long i = 0; i<var_size;i++) {
             gradient[i] = 0.0;
         }
     }
@@ -74,7 +82,7 @@ void eval_error(const ErrorContext* context,
         (*value) += sq_error/sq_shift; 
         //cout << "Spin " << i << " error = " << modelMinusexpVal*modelMinusexpVal << endl;
         if(gradient != NULL) {
-            for(unsigned long j = 0; j < size; j++) {
+            for(unsigned long j = 0; j < var_size; j++) {
                 //The gradient of the error is twice the gradient of the
                 //model - the expeimental value
                 if(!context->params_to_fix[j]) {
@@ -138,15 +146,23 @@ void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector
         cerr << "fdf: ";
         }*/
 
+    static ulong function_evals = 0;
+    if(function_evals > 250) {
+        cout << "Max function evals reached" << endl;
+        exit(1);
+    }    
+    function_evals++;
+
     const ErrorContext* context = (const ErrorContext*)(voidContext);
 
     unsigned long size = context->model->size;
+    unsigned long var_size = context->model->var_size;
 
     double* rescaled_x  = (double*)alloca(size *sizeof(double));
-    double* gradient    = (double*)alloca(size *sizeof(double));
+    double* gradient    = (double*)alloca(var_size *sizeof(double));
 
     //Rescale the gradient
-    for(unsigned long i = 0; i<size; i++) {
+    for(ulong i = 0; i<var_size; i++) {
         if(context->rescale) {
             rescaled_x[i] = gsl_vector_get(x,i) * context->params[i];
         } else {
@@ -154,10 +170,14 @@ void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector
         }
         assert(isfinite(rescaled_x[i]));
     }
+    for(ulong i = var_size; i < size; i++) {
+        rescaled_x[i] = context->params[i];
+    }
 
     //for(ulong i = 0; i < size; i++) {
-    //    cerr << context->params[i] << " ";
+    //    cerr << rescaled_x[i] << " ";
     //}
+    //cerr << endl;
 
     //Test df for nullness and if it's null have the fdf function
     //write to throwaway memory.
@@ -165,13 +185,17 @@ void eval_error_fdf(const gsl_vector* x, void* voidContext,double *f, gsl_vector
 
     //Rescale the gradient (if it is needed)
     if(df != NULL) {
-        for(unsigned long i = 0; i<size; i++) {
+        for(unsigned long i = 0; i<var_size; i++) {
             double re_gradient = context->rescale ? gradient[i]*context->params[i] : gradient[i];
             assert(isfinite(re_gradient));
             assert(isfinite(re_gradient*re_gradient));
             gsl_vector_set(df,i,re_gradient);
+
+            //cerr << re_gradient << " ";
         }
     }
+    assert(isfinite(*f));
+
     //cerr << "| res= " << *f << endl;
 }
 
@@ -200,21 +224,22 @@ void do_fit_with_grad(const ErrorContext* context,
     assert(context != NULL);
     assert(optModel != NULL);
 
-    unsigned long size = context->model->size;
+    ulong size = context->model->size;
+    ulong var_size = context->model->var_size;
 
     for(unsigned long i = 0; i < size; i++) {
         assert(isfinite(context->params[i]));
     }
 
-    gsl_vector* gslModelVec = gsl_vector_alloc(size);
+    gsl_vector* gslModelVec = gsl_vector_alloc(var_size);
     if(context->rescale) { 
         //Use rescaling, the inital vector is all ones
-        for(unsigned long i = 0; i<size; i++) {
+        for(unsigned long i = 0; i<var_size; i++) {
             gsl_vector_set(gslModelVec,i,1.0);
         }
     } else {
         //We don't rescale, just copy
-        memcpy(gsl_vector_ptr(gslModelVec,0), context->params ,size*sizeof(double));
+        memcpy(gsl_vector_ptr(gslModelVec,0), context->params ,var_size*sizeof(double));
     }
 
     //Setup the function to be minimised
@@ -222,14 +247,14 @@ void do_fit_with_grad(const ErrorContext* context,
     minfunc.f      = &eval_error_f;
     minfunc.df     = &eval_error_df;
     minfunc.fdf    = &eval_error_fdf;
-    minfunc.n      = size;
+    minfunc.n      = var_size;
     minfunc.params = (void*)(context);
     
     //Setup the minimiser
     gsl_multimin_fdfminimizer* gslmin;
-    //gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_steepest_descent,size);
-    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_conjugate_fr    ,size);
-    //gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2    ,size);
+    //gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_steepest_descent,var_size);
+    //gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_conjugate_fr    ,var_size);
+    gslmin = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2    ,var_size);
     
     double line_search_tol = 0.1;
     gsl_multimin_fdfminimizer_set(gslmin,&minfunc,gslModelVec,0.1,line_search_tol);
@@ -240,13 +265,22 @@ void do_fit_with_grad(const ErrorContext* context,
             break;
         }
 		if(!onIterate(context,i,gslmin)) {
+            cout << "Stoping criteria reached..." << endl;
 			break;
 		}
     }
 
     gsl_vector* gslOptVector = gsl_multimin_fdfminimizer_x(gslmin);
     (*finalError) = gsl_multimin_fdfminimizer_minimum(gslmin);
-    memcpy(optModel, gsl_vector_ptr(gslOptVector,0), size*sizeof(double));
+    memcpy(optModel, gsl_vector_ptr(gslOptVector,0), var_size*sizeof(double));
+    memcpy(optModel+var_size, context->params+var_size,context->model->fixed_size*sizeof(double));
+
+    for(ulong i = 0; i < context->model->size;i++) {
+        assert(isfinite(optModel[i]));
+    }
+    if(context->model == &gaussian_model || context->model == &gaussian_model_fix_s) {
+        assert(optModel[PARAM_STDDEV] != 0);
+    }
 
     if(context->rescale) {
         //If we were rescaling, we need to un-apply the scaling or the

@@ -667,6 +667,6 @@ bool main_on_iterate(const ErrorContext* context,unsigned long itN,gsl_multimin_
     cout << endl;
 
 
-	return itN < 6000 && norm > 1e-30;
+	return itN < 6000 && norm > 150;
 }
 

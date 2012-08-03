@@ -18,6 +18,8 @@ typedef void (*ModelF) (Vec3d evalAt, const double* model, double* value,double*
 struct Model { //Encodes a function with an analytic gradient, and size paramiters
     ModelF    modelf;
     unsigned long size;
+    unsigned long var_size;
+    unsigned long fixed_size;
     const char* name;
 };
 
@@ -30,6 +32,7 @@ extern const Model gaussian_model;
 extern const Model gaussian_model_series;
 extern const Model gaussian_model_testing; //A much simplier model that gaussian_model for testing
 extern const Model gaussian_model_num_dev;
+extern const Model gaussian_model_fix_s;
 
 #define PARAM_X 0
 #define PARAM_Y 1

@@ -248,16 +248,17 @@ int parse_params_file(const std::string& filename,const Model** model,std::vecto
     if(model_name == "point") {
         *model = &point_model;
     } else if(model_name == "gauss_test") {
-        cout << "Using gauss_test model " << endl;
         *model = &gaussian_model_testing;
     } else if(model_name == "gauss") {
         *model = &gaussian_model;
+    } else if(model_name == "gauss_fix_s") {
+        *model = &gaussian_model_fix_s;
     } else {
         return  UNKNOWN_MODEL;
     }
 
     params->resize((*model)->size);
-    for(unsigned long i = 0;i < (*model)->size; i++) {
+    for(unsigned long i = 0;i < params->size(); i++) {
         fin >> params->at(i);
         if(fin.eof()) {
             return NOT_ENOUGH_PARAMS;
@@ -418,6 +419,9 @@ int Integrand(const double xx[],double ff[],int ncomp, void* void_userdata) {
     Userdata* userdata = (Userdata*)(void_userdata);
 
     const double* params = userdata->params;
+    for(ulong i = 0; i < GAUSS_SIZE; i++) {
+        assert(isfinite(params[i]));
+    }
 
     Vec3d xyz = Vec3d(xx);
 
@@ -532,7 +536,12 @@ int Integrand(const double xx[],double ff[],int ncomp, void* void_userdata) {
 }
 
 
-void eval_gaussian(Vec3d evalAt,const double* params,double* value, double* gradient,const ModelOptions* modelOptions) {
+void eval_gaussian_generic(Vec3d evalAt,
+                           const double* params,
+                           double* value,
+                           double* gradient,
+                           const ModelOptions* modelOptions,
+                           bool fix_s) {
     Userdata userdata;
     userdata.point_model = &point_model;
     userdata.params = params;
@@ -543,6 +552,7 @@ void eval_gaussian(Vec3d evalAt,const double* params,double* value, double* grad
     double absError = modelOptions->absError;
 
     double stddev = params[PARAM_STDDEV];
+    assert(stddev != 0);
 
     IntegralBounds bounds;
     bounds.xmax =  7*stddev;
@@ -627,20 +637,25 @@ void eval_gaussian(Vec3d evalAt,const double* params,double* value, double* grad
         double val_z3p = integral[5];
 
         //Calculate and copy the calculated finite difference values for stddev
-        userdata.integral_type = COMPUTE_STDDEV;
-        cuhreIntegrate(Integrand,&bounds,8,integral,(void*)&userdata,relError,absError);
 
-        double val_4m = integral[0];
-        double val_3m = integral[1];
-        double val_2m = integral[2];
-        double val_m  = integral[3];
+        if(!fix_s) {
+            userdata.integral_type = COMPUTE_STDDEV;
+            cuhreIntegrate(Integrand,&bounds,8,integral,(void*)&userdata,relError,absError);
 
-        double val_p  = integral[4];
-        double val_2p = integral[5];
-        double val_3p = integral[6];
-        double val_4p = integral[7];
+            double val_4m = integral[0];
+            double val_3m = integral[1];
+            double val_2m = integral[2];
+            double val_m  = integral[3];
 
-        
+            double val_p  = integral[4];
+            double val_2p = integral[5];
+            double val_3p = integral[6];
+            double val_4p = integral[7];
+
+            double h = userdata.stddev_h;
+            gradient[PARAM_STDDEV] = ( val_4m/280 - 4*val_3m/105 + val_2m/5 - 4*val_m/5
+                                       -val_4p/280 + 4*val_3p/105 - val_2p/5 + 4*val_p/5)/h;
+        }
         //double fd1gradient = (val_p-val_m)/(2*h);
         //double fd2gradient = (val_2m - 8*val_m + 8*val_p - val_2p)/(12*h);
         //double fd3gradient = (-val_3m + 9*val_2m - 45*val_m + 45*val_p - 9*val_2p + val_3p)/(60*h);
@@ -657,12 +672,19 @@ void eval_gaussian(Vec3d evalAt,const double* params,double* value, double* grad
         /*cout << "fd1xgradient = " << fd1xgradient 
              << " fd2xgradient = " << fd2xgradient
              << " fd3xgradient = " << gradient[PARAM_X] << endl;*/
-
-        h = userdata.stddev_h;
-        gradient[PARAM_STDDEV] = ( val_4m/280 - 4*val_3m/105 + val_2m/5 - 4*val_m/5
-                                   -val_4p/280 + 4*val_3p/105 - val_2p/5 + 4*val_p/5)/h;
-
     }
+}
+
+void eval_gaussian(Vec3d evalAt,const double* params,double* value, double* gradient,const ModelOptions* modelOptions) {
+    eval_gaussian_generic(evalAt,params,value,gradient,modelOptions,false);
+}
+
+void eval_gaussian_fixed_s(Vec3d evalAt,
+                           const double* params,
+                           double* value,
+                           double* gradient,
+                           const ModelOptions* modelOptions) {
+    eval_gaussian_generic(evalAt,params,value,gradient,modelOptions,true);
 }
 
 //================================================================================//
@@ -758,6 +780,7 @@ int IntegrandNumDev(const double xx[],double ff[],int ncomp, void* void_userdata
     return 0;
 }
 
-const Model point_model    = {eval_point   ,8,"Point Model"};
-const Model gaussian_model = {eval_gaussian,9,"Gaussian Model"};
-const Model gaussian_model_testing =  {eval_gaussian_testing,9,"Gaussian Model"};
+const Model point_model    = {eval_point   ,8,8,0,"Point Model"};
+const Model gaussian_model = {eval_gaussian,9,9,0,"Gaussian Model"};
+const Model gaussian_model_testing =  {eval_gaussian_testing,9,9,0,"Gaussian Model"};
+const Model gaussian_model_fix_s   =  {eval_gaussian_fixed_s,9,8,1,"Gaussian Model Fixed S"};
