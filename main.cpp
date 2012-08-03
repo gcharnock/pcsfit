@@ -260,9 +260,10 @@ int main(int argc,char** argv) {
         if(variablesMap.count("command")) {
             command = variablesMap["command"].as<string>();
         }
-        if(!(command == "fit" || command == "errorscan" || command == "sketch3d" ||
+        if(!(command == "fit" || command == "errorscan"  || command == "sketch3d" ||
              command == "scan" || command == "selftest" || command == "makedata" ||
-             command == "eval" || command == "evalpoints" || command == "evalplane")) {
+             command == "eval" || command == "evalpoints" || command == "evalplane" ||
+             command == "erroreval")) {
 			cout << "Usage:" << endl;
 			cout << optDesc << endl;
 			return -1;
@@ -520,8 +521,6 @@ int main(int argc,char** argv) {
         cout << "WARNING: dataset contains no spins" << endl;
     }
 
-
-
     //Do we want to produce a publishable quality visualisation?  Is
     //so, do it now and quit
     if(command == "sketch3d") {
@@ -549,6 +548,37 @@ int main(int argc,char** argv) {
         run_scan(options,&context,true);
         return 0;
     }
+
+    //------------------------------------------------------------//
+    // Eval the error function for a given set of model paramiters and
+    // dataset
+    if(command == "erroreval") {
+        double final_value;
+        Vals final_residuals;
+        double* gradient = (double*)alloca(model->var_size * sizeof(double));
+
+        eval_error(&context,params_start,&final_value,gradient,&final_residuals);
+
+        cout << "Final Error Function Value = " << final_value << endl;
+        cout << "gradient = ";
+        for(ulong i = 0; i < model->var_size; i++) {
+            cout << gradient[i] << " ";
+        }
+        cout << endl;
+
+        cout << "vals:" << endl;
+        for(ulong i = 0; i < final_residuals.size();i++) {
+            cout << dataset.nuclei[i].x() << " "
+                 << dataset.nuclei[i].y() << " "
+                 << dataset.nuclei[i].z() << " "
+                 << dataset.vals[i] << " "
+                 << final_residuals[i] << endl;
+        }
+
+        return 0;
+    }
+
+
 
 	//Okay, we've got everything, do the fitting
 	double errorFinal = 666; //Set these to easily recognisable uninitalised values
